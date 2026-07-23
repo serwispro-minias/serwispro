@@ -12,18 +12,12 @@ class Config:
         "serwispro-secret-key"
     )
 
-
     SQLALCHEMY_DATABASE_URI = (
-        "mysql+pymysql://"
-        + os.getenv("DATABASE_USER", "root")
-        + ":"
-        + os.getenv("DATABASE_PASSWORD", "")
-        + "@"
-        + os.getenv("DATABASE_HOST", "localhost")
-        + ":"
-        + os.getenv("DATABASE_PORT", "3306")
-        + "/"
-        + os.getenv("DATABASE_NAME", "serwispro")
+        f"mysql+pymysql://"
+        f"{os.getenv('DATABASE_USER')}:"
+        f"{os.getenv('DATABASE_PASSWORD')}@"
+        f"{os.getenv('DATABASE_HOST')}:"
+        f"{os.getenv('DATABASE_PORT')}/"
+        f"{os.getenv('DATABASE_NAME')}"
     )
-
 
