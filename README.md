@@ -1,6 +1,6 @@
 # SerwisPRO
 
-Profesjonalny system zarz¥dzania serwisem komputer¢w i drukarek.
+System zarz¥dzania serwisem komputer¢w i drukarek.
 
 ## Wersja
 
@@ -14,6 +14,15 @@ v0.1.0
 - SQLAlchemy
 - Bootstrap 5
 
-## Status projektu
+## Funkcje docelowe
 
-Rozpocz©cie budowy systemu.
+- obsˆuga wielu firm serwisowych
+- u¾ytkownicy i role
+- ewidencja sprz©tu
+- historia napraw
+- wydruki przyj©†
+- portal klienta
+- raporty
+
+## Status
+
