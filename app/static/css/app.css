@@ -1,0 +1,132 @@
+/* app/static/css/app.css */
+:root {
+    --primary: #1f4e79;
+    --accent: #0d6efd;
+    --surface: #ffffff;
+    --surface-strong: #f8f9fa;
+    --text: #242424;
+    --muted: #6c757d;
+    --shadow-soft: 0 18px 50px rgba(31, 78, 121, 0.08);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: Inter, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: #f4f7fb;
+    color: var(--text);
+}
+
+.app-shell {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+}
+
+.topbar {
+    min-height: 76px;
+    background: var(--surface);
+    border-bottom: 1px solid #e9ecef;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.topbar-brand .brand-logo {
+    width: 48px;
+    height: 48px;
+    background: var(--primary);
+    color: #fff;
+    font-weight: 700;
+    font-size: 1rem;
+}
+
+.topbar-meta .topbar-item {
+    min-width: 140px;
+}
+
+.btn-icon {
+    width: 44px;
+    height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+}
+
+.app-layout {
+    display: flex;
+    flex: 1;
+    min-height: calc(100vh - 76px);
+}
+
+.sidebar {
+    width: 260px;
+    padding: 28px 18px;
+    border-right: 1px solid #e9ecef;
+    background: #ffffff;
+}
+
+.sidebar .nav-link {
+    color: var(--text);
+    font-weight: 500;
+    padding: 14px 16px;
+    border-radius: 12px;
+    margin-bottom: 6px;
+    transition: all 0.2s ease;
+}
+
+.sidebar .nav-link i {
+    font-size: 1.1rem;
+}
+
+.sidebar .nav-link:hover,
+.sidebar .nav-link.active {
+    background: rgba(13, 110, 253, 0.08);
+    color: var(--accent);
+}
+
+.content-area {
+    flex: 1;
+    background: var(--surface-strong);
+    padding: 32px;
+}
+
+.content-title {
+    color: var(--primary);
+}
+
+.flash-container .alert {
+    border-radius: 12px;
+    box-shadow: var(--shadow-soft);
+}
+
+.alert {
+    background: #ffffff;
+}
+
+.card {
+    border: none;
+    border-radius: 12px;
+    box-shadow: var(--shadow-soft);
+}
+
+@media (max-width: 992px) {
+    .app-layout {
+        flex-direction: column;
+    }
+
+    .sidebar {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    .content-area {
+        padding: 24px;
+    }
+}

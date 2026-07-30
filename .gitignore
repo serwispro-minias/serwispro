@@ -1,11 +1,31 @@
 venv/
 __pycache__/
 *.pyc
+*.pyo
 
 .env
 
-uploads/*
-backups/*
-
 instance/
 
+uploads/
+
+backups/
+
+.idea/
+
+.vscode/settings.json
+
+*.log
+
+*.sqlite3
+
+dist/
+build/
+
+.pytest_cache/
+
+.coverage
+
+htmlcov/
+
+node_modules/

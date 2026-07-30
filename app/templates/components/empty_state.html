@@ -1,0 +1,26 @@
+{#
+Empty state component
+Usage:
+{% from 'components/empty_state.html' import empty_state %}
+{{ empty_state(title='Brak wyników', message='Dodaj nowe elementy', btn_text='Utwórz', btn_href='#') }}
+
+Parameters:
+- title: heading for empty state
+- message: additional explanatory text
+- icon: optional markup or icon HTML
+- btn_text: optional button text
+- btn_href: button href (defaults to '#')
+#}
+
+{% macro empty_state(title='', message='', icon=None, btn_text=None, btn_href='#') -%}
+<div class="text-center py-5">
+    {%- if icon %}
+    <div class="mb-3">{{ icon }}</div>
+    {%- endif %}
+    <h5 class="mb-2">{{ title }}</h5>
+    <p class="text-muted mb-3">{{ message }}</p>
+    {%- if btn_text %}
+    <a href="{{ btn_href }}" class="btn btn-primary">{{ btn_text }}</a>
+    {%- endif %}
+</div>
+{%- endmacro %}

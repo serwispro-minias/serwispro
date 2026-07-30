@@ -1,0 +1,30 @@
+{#
+Card component
+Usage:
+{% from 'components/card.html' import card %}
+{{ card(title='Title', body='Body HTML or text', footer='Footer text', classes='mb-3') }}
+
+Parameters:
+- title: string (optional) - card header
+- body: markup or string - main card content
+- footer: string or markup (optional) - card footer
+- classes: additional CSS classes for the card element
+#}
+
+{% macro card(title='', body='', footer='', classes='') -%}
+<div class="card {{ classes }}">
+    {%- if title %}
+    <div class="card-header">
+        {{ title }}
+    </div>
+    {%- endif %}
+    <div class="card-body">
+        {{ body }}
+    </div>
+    {%- if footer %}
+    <div class="card-footer text-muted">
+        {{ footer }}
+    </div>
+    {%- endif %}
+</div>
+{%- endmacro %}

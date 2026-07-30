@@ -1,0 +1,25 @@
+{#
+Page header component
+Usage:
+{% from 'components/page_header.html' import page_header %}
+{{ page_header(title='Dashboard', subtitle='Przegląd systemu', right='Extra HTML') }}
+
+Parameters:
+- title: main title (required)
+- subtitle: optional subtitle
+- right: optional markup placed at the right side (e.g. date badge)
+#}
+
+{% macro page_header(title='', subtitle=None, right=None) -%}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h3 mb-0">{{ title }}</h1>
+        {%- if subtitle %}
+        <div class="text-muted small">{{ subtitle }}</div>
+        {%- endif %}
+    </div>
+    {%- if right %}
+    <div class="text-end">{{ right }}</div>
+    {%- endif %}
+</div>
+{%- endmacro %}

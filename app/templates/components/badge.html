@@ -1,0 +1,15 @@
+{#
+Badge component
+Usage:
+{% from 'components/badge.html' import badge %}
+{{ badge('Nowe', color='success', pill=True) }}
+
+Parameters:
+- text: label text
+- color: bootstrap color variant
+- pill: boolean - use pill style
+#}
+
+{% macro badge(text, color='secondary', pill=False) -%}
+<span class="badge bg-{{ color }} {{ 'rounded-pill' if pill else '' }}">{{ text }}</span>
+{%- endmacro %}

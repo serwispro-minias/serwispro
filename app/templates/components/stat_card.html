@@ -1,0 +1,22 @@
+{#
+Stat card component
+Usage:
+{% from 'components/stat_card.html' import stat_card %}
+{{ stat_card(title='Otwarte zlecenia', value=0, color='primary', small=False) }}
+
+Parameters:
+- title: string - label for the stat
+- value: string|number - main value to display
+- color: bootstrap color string (primary, secondary, success, warning, danger, info, dark)
+- small: boolean - if true uses smaller text sizing
+- classes: additional CSS classes for the card
+#}
+
+{% macro stat_card(title='', value=0, color='primary', small=False, classes='') -%}
+<div class="card {{ classes }}">
+    <div class="card-body text-{{ color }}">
+        <h6 class="card-title text-muted">{{ title }}</h6>
+        <div class="fw-bold {{ 'h5' if small else 'display-6' }}">{{ value }}</div>
+    </div>
+</div>
+{%- endmacro %}

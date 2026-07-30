@@ -1,23 +1,8 @@
-import os
-from dotenv import load_dotenv
+from config import get_config, Config as RootConfig, DevelopmentConfig, ProductionConfig, TestingConfig
 
-
-load_dotenv()
-
-
-class Config:
-
-    SECRET_KEY = os.getenv(
-        "SECRET_KEY",
-        "serwispro-secret-key"
-    )
-
-    SQLALCHEMY_DATABASE_URI = (
-        f"mysql+pymysql://"
-        f"{os.getenv('DATABASE_USER')}:"
-        f"{os.getenv('DATABASE_PASSWORD')}@"
-        f"{os.getenv('DATABASE_HOST')}:"
-        f"{os.getenv('DATABASE_PORT')}/"
-        f"{os.getenv('DATABASE_NAME')}"
-    )
-
+# Backward-compatible exports for app imports
+Config = RootConfig
+get_config = get_config
+DevelopmentConfig = DevelopmentConfig
+ProductionConfig = ProductionConfig
+TestingConfig = TestingConfig

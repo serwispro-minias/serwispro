@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% from 'components/page_header.html' import page_header %}
+{% from 'components/stat_card.html' import stat_card %}
+{% from 'components/breadcrumb.html' import breadcrumb %}
+{% from 'components/table.html' import table %}
+{% from 'components/empty_state.html' import empty_state %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+
+{{ breadcrumb([('Dashboard', None)]) }}
+
+{{ page_header(title='Dzień dobry, ' ~ (current_user.full_name if current_user.is_authenticated else 'Użytkowniku'),
+right=(current_date or "—")) }}
+
+<div class="row g-3 mb-4">
+    <div class="col-12 col-sm-6 col-md-3">
+        {{ stat_card('Otwarte zlecenia', 0, color='body', small=False, classes='shadow-sm') }}
+    </div>
+
+    <div class="col-12 col-sm-6 col-md-3">
+        {{ stat_card('Przyjęcia dzisiaj', 0, color='body', small=False, classes='shadow-sm') }}
+    </div>
+
+    <div class="col-12 col-sm-6 col-md-3">
+        {{ stat_card('Oczekujące części', 0, color='body', small=False, classes='shadow-sm') }}
+    </div>
+
+    <div class="col-12 col-sm-6 col-md-3">
+        {{ stat_card('Sprzęt do wydania', 0, color='body', small=False, classes='shadow-sm') }}
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12 col-lg-8 mb-3">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Ostatnie zlecenia</h5>
+
+                {# sample data provided locally for now; replace with real data in view code #}
+                {% set r1 = ['#2026-001', 'Jan Kowalski', 'HP LaserJet Pro', '<span
+                    class="badge bg-secondary">Nowe</span>'|safe] %}
+                {% set r2 = ['#2026-002', 'Anna Nowak', 'Samsung Galaxy A13', '<span
+                    class="badge bg-warning text-dark">W trakcie</span>'|safe] %}
+                {% set r3 = ['#2026-003', 'Firma X Sp. z o.o.', 'Dell Inspiron', '<span
+                    class="badge bg-success">Zakończone</span>'|safe] %}
+                {% set recent_rows = [r1, r2, r3] %}
+
+                {% if recent_rows and recent_rows|length > 0 %}
+                {{ table(['Numer','Klient','Urządzenie','Status'], recent_rows) }}
+                {% else %}
+                {{ empty_state('Brak zleceń', 'Brak ostatnich zleceń do wyświetlenia.', btn_text='Utwórz zlecenie',
+                btn_href='#') }}
+                {% endif %}
+
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-lg-4 mb-3">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Szybkie akcje</h5>
+
+                <div class="d-grid gap-2">
+                    <a href="#" class="btn btn-primary">Nowe zlecenie</a>
+                    <a href="#" class="btn btn-outline-primary">Nowy klient</a>
+                    <a href="#" class="btn btn-outline-secondary">Nowe urządzenie</a>
+                    <a href="#" class="btn btn-outline-success">Magazyn</a>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Examples of component usage:
+page_header: {{ page_header(title='Tytuł', subtitle='Podtytuł', right='Dodatkowo') }}
+stat_card: {{ stat_card('Label', 123, color='body') }}
+breadcrumb: {{ breadcrumb([('Home','/'), ('Page', None)]) }}
+table: {{ table(['A','B'], [['1','2']]) }}
+empty_state: {{ empty_state('Brak','Brak danych', btn_text='Dodaj', btn_href='#') }}
+#}
+
+{% endblock %}

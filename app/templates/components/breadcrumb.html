@@ -1,0 +1,23 @@
+{#
+Breadcrumb component
+Usage:
+{% from 'components/breadcrumb.html' import breadcrumb %}
+{{ breadcrumb(items=[('Dashboard', None)]) }}
+
+Parameters:
+- items: sequence of (label, href) tuples; href may be None for active item
+#}
+
+{% macro breadcrumb(items) -%}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb bg-transparent p-0 mb-3">
+        {%- for label, href in items %}
+        {%- if loop.last or not href %}
+        <li class="breadcrumb-item active" aria-current="page">{{ label }}</li>
+        {%- else %}
+        <li class="breadcrumb-item"><a href="{{ href }}">{{ label }}</a></li>
+        {%- endif %}
+        {%- endfor %}
+    </ol>
+</nav>
+{%- endmacro %}

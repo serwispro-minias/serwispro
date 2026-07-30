@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="pl">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>
+        {% block title %}Professional Service Manager{% endblock %}
+    </title>
+
+
+    <link rel="icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+
+    {% block extra_css %}{% endblock %}
+
+</head>
+
+
+<body>
+
+
+    <div class="app">
+
+
+        <header class="topbar">
+
+            <div class="logo">
+                {{ app_name | default("Professional Service Manager") }}
+            </div>
+
+
+            <div class="user">
+                {{ current_user.full_name if current_user.is_authenticated else "Gość" }}
+                {% if current_user.is_authenticated %}
+                <a href="/logout">Wyloguj</a>
+                {% endif %}
+                <div class="company-branch small text-muted">
+                    <div>Firma: {{ current_company.name if current_company else "Brak firmy" }}</div>
+                    <div>Oddział: {{ current_branch.name if current_branch else "Brak oddziału" }}</div>
+                </div>
+
+            </div>
+
+        </header>
+
+
+
+        <div class="layout">
+
+
+            <nav class="menu">
+
+
+                <a href="/dashboard">
+                    ?? Panel g��wny
+                </a>
+
+
+                <a href="#">
+                    ?? Klienci
+                </a>
+
+
+                <a href="#">
+                    ?? Urz�dzenia
+                </a>
+
+
+                <a href="#">
+                    ?? Zlecenia
+                </a>
+
+
+                <a href="#">
+                    ?? Wyceny
+                </a>
+
+
+                <a href="#">
+                    ?? Raporty
+                </a>
+
+
+                <a href="#">
+                    ? Ustawienia
+                </a>
+
+
+            </nav>
+
+
+
+            <main class="content">
+
+
+                {% block content %}
+
+                {% endblock %}
+
+
+            </main>
+
+
+
+        </div>
+
+
+    </div>
+
+
+    {% block extra_js %}{% endblock %}
+
+</body>
+
+</html>
