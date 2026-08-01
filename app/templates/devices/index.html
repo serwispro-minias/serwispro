@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}Urzadzenia{% endblock %}
+
+{% block content %}
+
+<div class="page-header d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3">Urzadzenia</h1>
+    <a class="btn btn-primary" href="{{ url_for('devices.create') }}">Dodaj urzadzenie</a>
+</div>
+
+<form method="get" class="mb-4">
+    <div class="input-group w-50">
+        <input type="search" name="q" class="form-control" placeholder="Szukaj urzadzen..." value="{{ q }}" />
+        <button class="btn btn-secondary" type="submit">Szukaj</button>
+    </div>
+</form>
+
+{% if devices["items"] %}
+<div class="table-responsive">
+    <table class="table table-striped table-hover">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Klient</th>
+                <th>Producent</th>
+                <th>Model</th>
+                <th>Numer seryjny</th>
+                <th>Numer inwentarzowy</th>
+                <th>Typ</th>
+                <th>Akcje</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for device in devices["items"] %}
+            <tr>
+                <td>{{ device.id }}</td>
+                <td>{{ device.customer.full_name or device.customer.short_name or '-' }}</td>
+                <td>{{ device.manufacturer or '-' }}</td>
+                <td>{{ device.model or '-' }}</td>
+                <td>{{ device.serial_number or '-' }}</td>
+                <td>{{ device.inventory_number or '-' }}</td>
+                <td>{{ device.device_type or '-' }}</td>
+                <td>
+                    <a class="btn btn-sm btn-outline-primary" href="{{ url_for('devices.details', device_id=device.id) }}">Szczegoly</a>
+                    <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('devices.edit', device_id=device.id) }}">Edytuj</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if devices["pages"] > 1 %}
+<nav aria-label="Pagination">
+    <ul class="pagination">
+        {% for page_num in range(1, devices["pages"] + 1) %}
+        <li class="page-item{% if page_num == devices['page'] %} active{% endif %}">
+            <a class="page-link" href="?q={{ q }}&page={{ page_num }}">{{ page_num }}</a>
+        </li>
+        {% endfor %}
+    </ul>
+</nav>
+{% endif %}
+
+{% else %}
+<div class="card">
+    <div class="card-body">
+        <p>Brak urzadzen do wyswietlenia.</p>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

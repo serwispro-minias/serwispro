@@ -12,13 +12,12 @@ bp = Blueprint('customers', __name__, url_prefix='/customers')
 
 # Import routes to ensure they are registered with the blueprint.
 from . import routes  # noqa: F401
-
 from .exceptions import (
-    CustomerError,
-    CustomerNotFoundError,
     CustomerAlreadyExistsError,
-    CustomerValidationError,
+    CustomerError,
     CustomerInactiveError,
+    CustomerNotFoundError,
+    CustomerValidationError,
 )
 from .validators import CustomerValidator
 

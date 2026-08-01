@@ -1,123 +1,247 @@
-"""
-Repository layer for customers.
+"""Repository layer for customers.
 
-This module exposes `CustomerRepository`, a thin data-access
-abstraction for `Customer` model operations. Methods are declared
-with type hints and docstrings but are not implemented yet — each
-method raises `NotImplementedError` so callers know the implementation
-is pending.
-
-TODO: Implement actual DB queries using the application's SQLAlchemy
-session in a later step. Keep repository methods focused on data
-access only; do not place business logic here.
+This module exposes `CustomerRepository`, a data-access abstraction
+for `Customer` model operations. All methods use SQLAlchemy 2.x select
+syntax and return model instances where applicable.
 """
 
 from __future__ import annotations
 
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+import math
+from typing import Any, Dict, List, Optional
+
+from sqlalchemy import func, or_, select
+
+from app.extensions import db
+from app.models.company import Company
+from app.models.customer import Customer
 
 
 class CustomerRepository:
     """Repository for `Customer` model access.
 
-    All methods are placeholders and must be implemented to perform
-    real database operations. Each method raises `NotImplementedError`.
+    This repository keeps data access separate from business logic and
+    exposes methods for queries, pagination, search, and soft deletion.
     """
 
-    def get_by_id(self, customer_id: int) -> Optional[Dict[str, Any]]:
-        """Return a customer by its integer primary key.
+    def _active_filters(self, company_id: int | None = None) -> list[Any]:
+        filters: list[Any] = [Customer.is_active.is_(True)]
+        if company_id is not None:
+            filters.append(Customer.company_id == company_id)
+        return filters
 
-        :param customer_id: Primary key of the customer.
-        :return: A mapping representing the customer or None if not found.
-        :raises NotImplementedError: method not implemented yet.
-        """
-        raise NotImplementedError()
+    def get_by_id(self, customer_id: int, company_id: int | None = None) -> Optional[Customer]:
+        """Return an active customer by integer primary key."""
+        return db.session.scalars(
+            select(Customer)
+            .where(Customer.id == customer_id)
+            .where(*self._active_filters(company_id))
+        ).one_or_none()
 
-    def get_by_uuid(self, uuid: str) -> Optional[Dict[str, Any]]:
-        """Return a customer by its UUID string.
+    def get_by_uuid(self, uuid: str, company_id: int | None = None) -> Optional[Customer]:
+        """Return an active customer by UUID."""
+        return db.session.scalars(
+            select(Customer)
+            .where(Customer.uuid == uuid)
+            .where(*self._active_filters(company_id))
+        ).one_or_none()
 
-        :param uuid: UUID of the customer.
-        :return: Mapping for the customer or None.
-        """
-        raise NotImplementedError()
+    def get_all(self, company_id: int | None = None) -> List[Customer]:
+        """Return all active customers."""
+        return db.session.scalars(
+            select(Customer)
+            .where(*self._active_filters(company_id))
+            .order_by(Customer.id)
+        ).all()
 
-    def get_all(self) -> List[Dict[str, Any]]:
-        """Return all customers (careful with large result sets).
+    def paginate(
+        self,
+        page: int = 1,
+        per_page: int = 20,
+        company_id: int | None = None,
+    ) -> Dict[str, Any]:
+        """Return a paginated page of active customers."""
+        page = max(page, 1)
+        per_page = max(per_page, 1)
+        total = self.count(company_id=company_id)
+        offset = (page - 1) * per_page
+        items = db.session.scalars(
+            select(Customer)
+            .where(*self._active_filters(company_id))
+            .order_by(Customer.id)
+            .offset(offset)
+            .limit(per_page)
+        ).all()
+        return {
+            "items": items,
+            "total": total,
+            "page": page,
+            "per_page": per_page,
+            "pages": math.ceil(total / per_page) if total else 0,
+        }
 
-        :return: List of customer mappings.
-        """
-        raise NotImplementedError()
+    def search(
+        self,
+        query: str,
+        page: int = 1,
+        per_page: int = 20,
+        company_id: int | None = None,
+    ) -> Dict[str, Any]:
+        """Search active customers by company name, full name, first name, last name, short name, city, NIP, phone, or email."""
+        page = max(page, 1)
+        per_page = max(per_page, 1)
+        term = f"%{query.strip()}%"
+        filters = self._active_filters(company_id)
+        count_query = (
+            select(func.count())
+            .select_from(Customer)
+            .join(Customer.company)
+            .where(*filters)
+            .where(
+                or_(
+                    Company.name.ilike(term),
+                    Customer.full_name.ilike(term),
+                    Customer.short_name.ilike(term),
+                    Customer.first_name.ilike(term),
+                    Customer.last_name.ilike(term),
+                    Customer.city.ilike(term),
+                    Customer.nip.ilike(term),
+                    Customer.phone.ilike(term),
+                    Customer.email.ilike(term),
+                )
+            )
+        )
+        total = db.session.scalar(count_query) or 0
+        offset = (page - 1) * per_page
+        items = db.session.scalars(
+            select(Customer)
+            .join(Customer.company)
+            .where(*filters)
+            .where(
+                or_(
+                    Company.name.ilike(term),
+                    Customer.full_name.ilike(term),
+                    Customer.short_name.ilike(term),
+                    Customer.first_name.ilike(term),
+                    Customer.last_name.ilike(term),
+                    Customer.city.ilike(term),
+                    Customer.nip.ilike(term),
+                    Customer.phone.ilike(term),
+                    Customer.email.ilike(term),
+                )
+            )
+            .order_by(Customer.id)
+            .offset(offset)
+            .limit(per_page)
+        ).all()
+        return {
+            "items": items,
+            "total": total,
+            "page": page,
+            "per_page": per_page,
+            "pages": math.ceil(total / per_page) if total else 0,
+        }
 
-    def search(self, query: str) -> List[Dict[str, Any]]:
-        """Search customers by a free-text query.
+    def create(self, data: Dict[str, Any]) -> Customer:
+        """Create a new customer and persist it to the current transaction."""
+        customer = Customer(**data)
+        db.session.add(customer)
+        db.session.flush()
+        return customer
 
-        :param query: Search string.
-        :return: List of matching customers.
-        """
-        raise NotImplementedError()
+    def update(
+        self,
+        customer_id: int,
+        data: Dict[str, Any],
+        company_id: int | None = None,
+    ) -> Optional[Customer]:
+        """Update an existing active customer with provided data."""
+        customer = self.get_by_id(customer_id, company_id=company_id)
+        if customer is None:
+            return None
 
-    def create(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Create a new customer from provided data.
+        for key, value in data.items():
+            if hasattr(customer, key) and key != "id":
+                setattr(customer, key, value)
 
-        :param data: Mapping of customer attributes.
-        :return: Created customer mapping (with id/uuid fields).
-        """
-        raise NotImplementedError()
+        db.session.add(customer)
+        db.session.flush()
+        return customer
 
-    def update(self, customer_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Update an existing customer.
+    def delete(self, customer_id: int, company_id: int | None = None) -> None:
+        """Soft delete a customer by marking it inactive."""
+        customer = self.get_by_id(customer_id, company_id=company_id)
+        if customer is None:
+            return
 
-        :param customer_id: Primary key of the customer to update.
-        :param data: Fields to update.
-        :return: Updated customer mapping.
-        """
-        raise NotImplementedError()
+        customer.is_active = False
+        db.session.add(customer)
+        db.session.flush()
 
-    def delete(self, customer_id: int) -> None:
-        """Delete (or soft-delete) a customer by id.
+    def exists_by_nip(self, nip: str, company_id: int | None = None) -> bool:
+        """Return True if an active customer exists with the given NIP."""
+        query = select(func.count()).select_from(Customer).where(Customer.nip == nip).where(*self._active_filters(company_id))
+        return db.session.scalar(query) > 0
 
-        :param customer_id: Primary key of the customer to delete.
-        :return: None
-        """
-        raise NotImplementedError()
+    def exists_by_email(self, email: str, company_id: int | None = None) -> bool:
+        """Return True if an active customer exists with the given email."""
+        query = select(func.count()).select_from(Customer).where(Customer.email == email).where(*self._active_filters(company_id))
+        return db.session.scalar(query) > 0
 
-    def exists_by_nip(self, nip: str) -> bool:
-        """Return True if a customer exists with the given NIP.
+    def exists_by_phone(self, phone: str, company_id: int | None = None) -> bool:
+        """Return True if an active customer exists with the given phone."""
+        query = select(func.count()).select_from(Customer).where(Customer.phone == phone).where(*self._active_filters(company_id))
+        return db.session.scalar(query) > 0
 
-        :param nip: NIP identifier to check.
-        :return: Boolean existence flag.
-        """
-        raise NotImplementedError()
+    def exists_by_nip_except_id(
+        self,
+        nip: str,
+        exclude_id: int,
+        company_id: int | None = None,
+    ) -> bool:
+        """Return True if another active customer uses the same NIP."""
+        return db.session.scalar(
+            select(func.count())
+            .select_from(Customer)
+            .where(Customer.nip == nip)
+            .where(Customer.id != exclude_id)
+            .where(*self._active_filters(company_id))
+        ) > 0
 
-    def exists_by_email(self, email: str) -> bool:
-        """Return True if a customer exists with the given email.
+    def exists_by_email_except_id(
+        self,
+        email: str,
+        exclude_id: int,
+        company_id: int | None = None,
+    ) -> bool:
+        """Return True if another active customer uses the same email."""
+        return db.session.scalar(
+            select(func.count())
+            .select_from(Customer)
+            .where(Customer.email == email)
+            .where(Customer.id != exclude_id)
+            .where(*self._active_filters(company_id))
+        ) > 0
 
-        :param email: Email to check.
-        :return: Boolean existence flag.
-        """
-        raise NotImplementedError()
+    def exists_by_phone_except_id(
+        self,
+        phone: str,
+        exclude_id: int,
+        company_id: int | None = None,
+    ) -> bool:
+        """Return True if another active customer uses the same phone."""
+        return db.session.scalar(
+            select(func.count())
+            .select_from(Customer)
+            .where(Customer.phone == phone)
+            .where(Customer.id != exclude_id)
+            .where(*self._active_filters(company_id))
+        ) > 0
 
-    def exists_by_phone(self, phone: str) -> bool:
-        """Return True if a customer exists with the given phone number.
-
-        :param phone: Phone number to check.
-        :return: Boolean existence flag.
-        """
-        raise NotImplementedError()
-
-    def paginate(self, page: int = 1, per_page: int = 20) -> Dict[str, Any]:
-        """Return a pagination page of customers.
-
-        :param page: Page number (1-based).
-        :param per_page: Items per page.
-        :return: Mapping with keys like `items`, `total`, `page`, `per_page`.
-        """
-        raise NotImplementedError()
-
-    def count(self) -> int:
-        """Return total number of customers.
-
-        :return: Integer count.
-        """
-        raise NotImplementedError()
+    def count(self, company_id: int | None = None) -> int:
+        """Return the total count of active customers."""
+        return db.session.scalar(
+            select(func.count())
+            .select_from(Customer).where(*self._active_filters(company_id))
+        ) or 0
 

@@ -1,11 +1,20 @@
 from __future__ import annotations
 
-from typing import List
+from typing import TYPE_CHECKING, List
 
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import BaseModel
+
+if TYPE_CHECKING:
+    from app.models.audit_log import AuditLog
+    from app.models.branch import Branch
+    from app.models.customer import Customer
+    from app.models.permission import Permission
+    from app.models.role import Role
+    from app.models.setting import Setting
+    from app.models.user import User
 
 
 class Company(BaseModel):

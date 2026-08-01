@@ -1,87 +1,130 @@
 {% extends "base.html" %}
 
-{% from 'components/page_header.html' import page_header %}
-{% from 'components/stat_card.html' import stat_card %}
-{% from 'components/breadcrumb.html' import breadcrumb %}
-{% from 'components/table.html' import table %}
-{% from 'components/empty_state.html' import empty_state %}
-
-{% block title %}Dashboard{% endblock %}
+{% block title %}Panel startowy{% endblock %}
 
 {% block content %}
 
-{{ breadcrumb([('Dashboard', None)]) }}
-
-{{ page_header(title='Dzień dobry, ' ~ (current_user.full_name if current_user.is_authenticated else 'Użytkowniku'),
-right=(current_date or "—")) }}
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-2">
+    <div>
+        <h1 class="h3 mb-0">Panel startowy SerwisPRO</h1>
+        <small class="text-muted">Podglad biezacej sytuacji serwisu</small>
+    </div>
+</div>
 
 <div class="row g-3 mb-4">
-    <div class="col-12 col-sm-6 col-md-3">
-        {{ stat_card('Otwarte zlecenia', 0, color='body', small=False, classes='shadow-sm') }}
-    </div>
-
-    <div class="col-12 col-sm-6 col-md-3">
-        {{ stat_card('Przyjęcia dzisiaj', 0, color='body', small=False, classes='shadow-sm') }}
-    </div>
-
-    <div class="col-12 col-sm-6 col-md-3">
-        {{ stat_card('Oczekujące części', 0, color='body', small=False, classes='shadow-sm') }}
-    </div>
-
-    <div class="col-12 col-sm-6 col-md-3">
-        {{ stat_card('Sprzęt do wydania', 0, color='body', small=False, classes='shadow-sm') }}
-    </div>
-</div>
-
-<div class="row">
-    <div class="col-12 col-lg-8 mb-3">
-        <div class="card">
+    <div class="col-12 col-sm-6 col-lg">
+        <div class="card h-100 shadow-sm">
             <div class="card-body">
-                <h5 class="card-title">Ostatnie zlecenia</h5>
-
-                {# sample data provided locally for now; replace with real data in view code #}
-                {% set r1 = ['#2026-001', 'Jan Kowalski', 'HP LaserJet Pro', '<span
-                    class="badge bg-secondary">Nowe</span>'|safe] %}
-                {% set r2 = ['#2026-002', 'Anna Nowak', 'Samsung Galaxy A13', '<span
-                    class="badge bg-warning text-dark">W trakcie</span>'|safe] %}
-                {% set r3 = ['#2026-003', 'Firma X Sp. z o.o.', 'Dell Inspiron', '<span
-                    class="badge bg-success">Zakończone</span>'|safe] %}
-                {% set recent_rows = [r1, r2, r3] %}
-
-                {% if recent_rows and recent_rows|length > 0 %}
-                {{ table(['Numer','Klient','Urządzenie','Status'], recent_rows) }}
-                {% else %}
-                {{ empty_state('Brak zleceń', 'Brak ostatnich zleceń do wyświetlenia.', btn_text='Utwórz zlecenie',
-                btn_href='#') }}
-                {% endif %}
-
+                <p class="text-muted small mb-1">Liczba klientów</p>
+                <p class="display-6 mb-0">{{ stats.customers_count }}</p>
             </div>
         </div>
     </div>
-
-    <div class="col-12 col-lg-4 mb-3">
-        <div class="card">
+    <div class="col-12 col-sm-6 col-lg">
+        <div class="card h-100 shadow-sm">
             <div class="card-body">
-                <h5 class="card-title">Szybkie akcje</h5>
+                <p class="text-muted small mb-1">Liczba urządzeń</p>
+                <p class="display-6 mb-0">{{ stats.devices_count }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-lg">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body">
+                <p class="text-muted small mb-1">Liczba aktywnych napraw</p>
+                <p class="display-6 mb-0">{{ stats.active_repairs_count }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-lg">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body">
+                <p class="text-muted small mb-1">Liczba napraw zakończonych</p>
+                <p class="display-6 mb-0">{{ stats.completed_repairs_count }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-lg">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body">
+                <p class="text-muted small mb-1">Liczba nowych zgłoszeń dzisiaj</p>
+                <p class="display-6 mb-0">{{ stats.new_reports_today_count }}</p>
+            </div>
+        </div>
+    </div>
+</div>
 
-                <div class="d-grid gap-2">
-                    <a href="#" class="btn btn-primary">Nowe zlecenie</a>
-                    <a href="#" class="btn btn-outline-primary">Nowy klient</a>
-                    <a href="#" class="btn btn-outline-secondary">Nowe urządzenie</a>
-                    <a href="#" class="btn btn-outline-success">Magazyn</a>
+<div class="row g-3">
+    <div class="col-12 col-xl-6">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title mb-3">Ostatnio dodani klienci</h5>
+                {% if recent_customers %}
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle">
+                        <thead>
+                            <tr>
+                                <th scope="col">Klient</th>
+                                <th scope="col">Email</th>
+                                <th scope="col">Telefon</th>
+                                <th scope="col">Dodano</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for customer in recent_customers %}
+                            <tr>
+                                <td>{{ customer.full_name or customer.short_name or ((customer.first_name or '') ~ ' ' ~ (customer.last_name or '')).strip() or '-' }}</td>
+                                <td>{{ customer.email or '-' }}</td>
+                                <td>{{ customer.phone or '-' }}</td>
+                                <td>{{ customer.created_at.strftime('%Y-%m-%d %H:%M') if customer.created_at else '-' }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
+                {% else %}
+                <p class="text-muted mb-0">Brak klientów do wyświetlenia.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
 
+    <div class="col-12 col-xl-6">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title mb-3">Ostatnie naprawy</h5>
+
+                {% if not repairs_module_available %}
+                <p class="text-muted mb-0">Moduł napraw nie został jeszcze uruchomiony.</p>
+                {% elif recent_repairs %}
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle">
+                        <thead>
+                            <tr>
+                                <th scope="col">Numer</th>
+                                <th scope="col">Klient</th>
+                                <th scope="col">Status</th>
+                                <th scope="col">Dodano</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for repair in recent_repairs %}
+                            <tr>
+                                <td>{{ repair.number }}</td>
+                                <td>{{ repair.customer }}</td>
+                                <td>{{ repair.status }}</td>
+                                <td>{{ repair.created_at }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted mb-0">Brak napraw do wyświetlenia.</p>
+                {% endif %}
             </div>
         </div>
     </div>
 </div>
-
-{# Examples of component usage:
-page_header: {{ page_header(title='Tytuł', subtitle='Podtytuł', right='Dodatkowo') }}
-stat_card: {{ stat_card('Label', 123, color='body') }}
-breadcrumb: {{ breadcrumb([('Home','/'), ('Page', None)]) }}
-table: {{ table(['A','B'], [['1','2']]) }}
-empty_state: {{ empty_state('Brak','Brak danych', btn_text='Dodaj', btn_href='#') }}
-#}
 
 {% endblock %}

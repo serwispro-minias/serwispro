@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import cast
 
 from flask import Flask
+from flask import render_template
 from flask_login import login_required
 from sqlalchemy import text
 
@@ -14,9 +15,10 @@ from app.dashboard import bp as dashboard_bp
 from app.devices import bp as devices_bp
 from app.extensions import db, login_manager, migrate
 from app.inventory import bp as inventory_bp
-from app.models import Company, SystemLog, User
+from app.models import Company, User
 from app.orders import bp as orders_bp
 from app.reports import bp as reports_bp
+from app.bootstrap import bootstrap_database, is_database_empty, register_bootstrap_command
 from app.services import bp as services_bp
 from app.settings import bp as settings_bp
 from app.utils import bp as utils_bp
@@ -31,10 +33,22 @@ def create_app(environment: str | None = None) -> Flask:
     app.config.from_pyfile('config.py', silent=True)
 
     register_extensions(app)
+    register_cli_commands(app)
     register_blueprints(app)
     register_routes(app)
 
+    with app.app_context():
+        if is_database_empty():
+            bootstrap_database()
+
     return app
+
+
+def register_cli_commands(app: Flask) -> None:
+    from app.seed import register_seed_command
+
+    register_seed_command(app)
+    register_bootstrap_command(app)
 
 
 def register_extensions(app: Flask) -> None:
@@ -44,7 +58,10 @@ def register_extensions(app: Flask) -> None:
 
     @login_manager.user_loader
     def load_user(user_id: str) -> User | None:
-        return User.query.get(int(user_id))
+        try:
+            return db.session.get(User, int(user_id))
+        except (TypeError, ValueError):
+            return None
 
 
 def register_blueprints(app: Flask) -> None:
@@ -85,8 +102,4 @@ def register_routes(app: Flask) -> None:
     @app.route('/dashboard')
     @login_required
     def dashboard() -> str:
-        return (
-            '<h1>Panel SerwisPRO</h1>'
-            '<p>Zalogowano poprawnie.</p>'
-            '<a href="/logout">Wyloguj</a>'
-        )
+        return render_template('dashboard/index.html')

@@ -37,7 +37,7 @@
             <div class="user">
                 {{ current_user.full_name if current_user.is_authenticated else "Gość" }}
                 {% if current_user.is_authenticated %}
-                <a href="/logout">Wyloguj</a>
+                <a href="{{ url_for('auth.logout') }}">Wyloguj</a>
                 {% endif %}
                 <div class="company-branch small text-muted">
                     <div>Firma: {{ current_company.name if current_company else "Brak firmy" }}</div>
@@ -56,37 +56,37 @@
             <nav class="menu">
 
 
-                <a href="/dashboard">
+                <a href="{{ url_for('dashboard.index') }}">
                     ?? Panel g��wny
                 </a>
 
 
-                <a href="#">
+                <a href="{{ url_for('customers.index') }}">
                     ?? Klienci
                 </a>
 
 
-                <a href="#">
+                <a href="{{ url_for('devices.index') }}">
                     ?? Urz�dzenia
                 </a>
 
 
-                <a href="#">
+                <a href="{{ url_for('orders.index') }}">
                     ?? Zlecenia
                 </a>
 
 
-                <a href="#">
+                <a href="{{ url_for('services.index') }}">
                     ?? Wyceny
                 </a>
 
 
-                <a href="#">
+                <a href="{{ url_for('reports.index') }}">
                     ?? Raporty
                 </a>
 
 
-                <a href="#">
+                <a href="{{ url_for('settings.index') }}">
                     ? Ustawienia
                 </a>
 
@@ -97,6 +97,15 @@
 
             <main class="content">
 
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                <div class="flash-container">
+                    {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% endwith %}
 
                 {% block content %}
 

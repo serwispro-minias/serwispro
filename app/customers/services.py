@@ -1,82 +1,167 @@
-"""
-Customer service layer skeleton.
-
-This module defines `CustomerService`, a thin orchestration layer that
-will call repository functions and apply business rules. At this stage
-the methods are intentionally unimplemented and raise
-`NotImplementedError` so the service contract is clear.
-
-Do not import Flask, SQLAlchemy, or request objects here.
-"""
-
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
+
+from app.extensions import db
+from app.models.customer import Customer
+
+from .exceptions import (
+    CustomerAlreadyExistsError,
+    CustomerNotFoundError,
+    CustomerValidationError,
+)
+from .repository import CustomerRepository
+from .validators import CustomerValidator
 
 
 class CustomerService:
     """Service API for customer operations.
 
-    The constructor receives a repository instance (implements data
-    access). Methods are declared with type hints and docstrings but
-    do not contain business logic yet.
+    This class orchestrates repository access and business validation
+    for the customer module.
     """
 
-    def __init__(self, repository: "CustomerRepository") -> None:
-        """Initialize service with a `CustomerRepository`.
-
-        :param repository: Repository used for data access.
-        """
+    def __init__(
+        self,
+        repository: CustomerRepository,
+        validator: CustomerValidator | None = None,
+    ) -> None:
         self.repository = repository
+        self.validator = validator or CustomerValidator()
 
-    from app.models import Customer
+    def get_customer(
+        self,
+        customer_id: int,
+        company_id: int | None = None,
+    ) -> Optional[Customer]:
+        return self.repository.get_by_id(customer_id, company_id=company_id)
 
-    def get_customer(self, customer_id: int) -> Optional[Dict[str, Any]]:
-        """Return a single customer by id.
+    def list_customers(
+        self,
+        page: int = 1,
+        per_page: int = 20,
+        company_id: int | None = None,
+    ) -> Dict[str, Any]:
+        return self.repository.paginate(page=page, per_page=per_page, company_id=company_id)
 
-        :param customer_id: Primary key of the customer.
-        :return: Mapping representing the customer or None.
-        :raises NotImplementedError: not implemented yet.
-        """
-        raise NotImplementedError()
+    def create_customer(
+        self,
+        data: Dict[str, Any],
+        company_id: int | None,
+    ) -> Customer:
+        if company_id is None:
+            raise CustomerValidationError("Brak identyfikatora firmy."
+            )
 
-    def list_customers(self) -> List[Dict[str, Any]]:
-        """Return a list of customers.
+        normalized = self.validator.normalize(data)
+        payload = self._filter_payload(normalized)
+        payload["company_id"] = company_id
+        self.validator.validate_create(payload)
 
-        :return: List of customer mappings.
-        """
-        raise NotImplementedError()
+        self._validate_unique(payload, company_id=company_id)
 
-    def create_customer(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Create a new customer using provided data.
+        customer = self.repository.create(payload)
+        db.session.commit()
+        return customer
 
-        :param data: Mapping of customer fields.
-        :return: Created customer mapping.
-        """
-        raise NotImplementedError()
+    def update_customer(
+        self,
+        customer_id: int,
+        data: Dict[str, Any],
+        company_id: int | None,
+    ) -> Customer:
+        normalized = self.validator.normalize(data)
+        payload = self._filter_payload(normalized)
+        self.validator.validate_update(customer_id, payload)
 
-    def update_customer(self, customer_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Update an existing customer.
+        self._validate_unique(payload, exclude_id=customer_id, company_id=company_id)
 
-        :param customer_id: Primary key of the customer to update.
-        :param data: Fields to update.
-        :return: Updated customer mapping.
-        """
-        raise NotImplementedError()
+        customer = self.repository.update(customer_id, payload, company_id=company_id)
+        if customer is None:
+            raise CustomerNotFoundError(f"Klient o id {customer_id} nie istnieje.")
 
-    def delete_customer(self, customer_id: int) -> None:
-        """Delete (or soft-delete) a customer.
+        db.session.commit()
+        return customer
 
-        :param customer_id: Primary key of the customer to delete.
-        :return: None
-        """
-        raise NotImplementedError()
+    def delete_customer(
+        self,
+        customer_id: int,
+        company_id: int | None,
+    ) -> None:
+        customer = self.repository.get_by_id(customer_id, company_id=company_id)
+        if customer is None:
+            raise CustomerNotFoundError(f"Klient o id {customer_id} nie istnieje.")
 
-    def search_customers(self, query: str) -> List[Dict[str, Any]]:
-        """Search customers by a query string.
+        self.repository.delete(customer_id, company_id=company_id)
+        db.session.commit()
 
-        :param query: Search expression.
-        :return: List of matching customers.
-        """
-        raise NotImplementedError()
+    def search_customers(
+        self,
+        query: str,
+        page: int = 1,
+        per_page: int = 20,
+        company_id: int | None = None,
+    ) -> Dict[str, Any]:
+        if not query or not query.strip():
+            return self.list_customers(page=page, per_page=per_page, company_id=company_id)
+        return self.repository.search(
+            query=query,
+            page=page,
+            per_page=per_page,
+            company_id=company_id,
+        )
+
+    def _filter_payload(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        allowed_keys = {
+            "customer_type",
+            "full_name",
+            "first_name",
+            "last_name",
+            "short_name",
+            "nip",
+            "regon",
+            "krs",
+            "pesel",
+            "email",
+            "phone",
+            "phone2",
+            "website",
+            "country",
+            "state",
+            "postal_code",
+            "city",
+            "street",
+            "building_no",
+            "apartment_no",
+            "notes",
+            "company_id",
+        }
+        return {key: value for key, value in data.items() if key in allowed_keys}
+
+    def _validate_unique(
+        self,
+        payload: Dict[str, Any],
+        exclude_id: int | None = None,
+        company_id: int | None = None,
+    ) -> None:
+        if payload.get("nip"):
+            if exclude_id is None:
+                if self.repository.exists_by_nip(payload["nip"], company_id=company_id):
+                    raise CustomerAlreadyExistsError("Klient z takim NIP już istnieje.")
+            elif self.repository.exists_by_nip_except_id(payload["nip"], exclude_id, company_id=company_id):
+                raise CustomerAlreadyExistsError("Klient z takim NIP już istnieje.")
+
+        if payload.get("email"):
+            if exclude_id is None:
+                if self.repository.exists_by_email(payload["email"], company_id=company_id):
+                    raise CustomerAlreadyExistsError("Klient z takim adresem email już istnieje.")
+            elif self.repository.exists_by_email_except_id(payload["email"], exclude_id, company_id=company_id):
+                raise CustomerAlreadyExistsError("Klient z takim adresem email już istnieje.")
+
+        if payload.get("phone"):
+            if exclude_id is None:
+                if self.repository.exists_by_phone(payload["phone"], company_id=company_id):
+                    raise CustomerAlreadyExistsError("Klient z takim numerem telefonu już istnieje.")
+            elif self.repository.exists_by_phone_except_id(payload["phone"], exclude_id, company_id=company_id):
+                raise CustomerAlreadyExistsError("Klient z takim numerem telefonu już istnieje.")
 

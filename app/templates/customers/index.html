@@ -11,13 +11,73 @@ TODO: Customers index template.
 
 {% block content %}
 
-<h1 class="h3">Klienci</h1>
-<p class="text-muted">Lista klientów - TODO: zastąpić dynamicznymi danymi.</p>
+<div class="page-header d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3">Klienci</h1>
+    <a class="btn btn-primary" href="{{ url_for('customers.create') }}">Dodaj klienta</a>
+</div>
 
+<form method="get" class="mb-4">
+    <div class="input-group w-50">
+        <input type="search" name="q" class="form-control" placeholder="Szukaj klientów..." value="{{ q }}" />
+        <button class="btn btn-secondary" type="submit">Szukaj</button>
+    </div>
+</form>
+
+{% if customers["items"] %}
+<div class="table-responsive">
+    <table class="table table-striped table-hover">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nazwa</th>
+                <th>NIP</th>
+                <th>Email</th>
+                <th>Telefon</th>
+                <th>Miasto</th>
+                <th>Firma</th>
+                <th>Akcje</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for customer in customers["items"] %}
+            <tr>
+                <td>{{ customer.id }}</td>
+                <td>{{ customer.full_name or customer.short_name or (customer.first_name ~ ' ' ~ customer.last_name) }}
+                </td>
+                <td>{{ customer.nip or '-' }}</td>
+                <td>{{ customer.email or '-' }}</td>
+                <td>{{ customer.phone or '-' }}</td>
+                <td>{{ customer.city or '-' }}</td>
+                <td>{{ customer.company.name if customer.company else '-' }}</td>
+                <td>
+                    <a class="btn btn-sm btn-outline-primary"
+                        href="{{ url_for('customers.details', customer_id=customer.id) }}">Szczegóły</a>
+                    <a class="btn btn-sm btn-outline-secondary"
+                        href="{{ url_for('customers.edit', customer_id=customer.id) }}">Edytuj</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if customers["pages"] > 1 %}
+<nav aria-label="Pagination">
+    <ul class="pagination">
+        {% for page_num in range(1, customers["pages"] + 1) %}
+        <li class="page-item{% if page_num == customers[" page"] %} active{% endif %}">
+            <a class="page-link" href="?q={{ q }}&page={{ page_num }}">{{ page_num }}</a>
+        </li>
+        {% endfor %}
+    </ul>
+</nav>
+{% endif %}
+{% else %}
 <div class="card">
     <div class="card-body">
-        <p>TODO: render customers table here.</p>
+        <p>Brak klientów do wyświetlenia. Użyj przycisku "Dodaj klienta", aby rozpocząć.</p>
     </div>
 </div>
+{% endif %}
 
 {% endblock %}

@@ -1,9 +1,14 @@
 from __future__ import annotations
 
-from sqlalchemy import ForeignKey, String
+from typing import TYPE_CHECKING
+
+from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import BaseTenantModel
+
+if TYPE_CHECKING:
+    from app.models.company import Company
 
 
 class Branch(BaseTenantModel):
