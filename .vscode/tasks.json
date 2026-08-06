@@ -1,0 +1,54 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "pytest-annotations",
+			"type": "shell",
+			"command": "c:/serwispro/venv/Scripts/python.exe",
+			"args": [
+				"-m",
+				"pytest",
+				"tests/test_photo_annotations_module.py"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "pytest-annotations-rerun",
+			"type": "shell",
+			"command": "c:/serwispro/venv/Scripts/python.exe",
+			"args": [
+				"-m",
+				"pytest",
+				"tests/test_photo_annotations_module.py"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "pytest-annotations-rerun2",
+			"type": "shell",
+			"command": "c:/serwispro/venv/Scripts/python.exe",
+			"args": [
+				"-m",
+				"pytest",
+				"tests/test_photo_annotations_module.py"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "pytest-photo-regression",
+			"type": "shell",
+			"command": "c:/serwispro/venv/Scripts/python.exe",
+			"args": [
+				"-m",
+				"pytest",
+				"tests/test_order_photos_module.py",
+				"tests/test_order_protocol_pdf.py"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		}
+	]
+}

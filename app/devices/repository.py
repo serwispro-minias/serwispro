@@ -9,9 +9,11 @@ import math
 from typing import Any
 
 from sqlalchemy import func, or_, select
+from sqlalchemy.orm import selectinload
 
 from app.extensions import db
 from app.models.device import Device
+from app.models.service_order import ServiceOrder
 
 
 class DeviceRepository:
@@ -191,3 +193,39 @@ class DeviceRepository:
             )
             or 0
         )
+
+    def list_device_service_orders(
+        self,
+        *,
+        device_id: int,
+        company_id: int,
+        branch_id: int | None,
+        query_text: str | None,
+    ) -> list[ServiceOrder]:
+        """Return service orders history for one device sorted by intake date desc."""
+
+        filters: list[Any] = [
+            ServiceOrder.device_id == device_id,
+            ServiceOrder.company_id == company_id,
+            ServiceOrder.is_active.is_(True),
+        ]
+        if branch_id is not None:
+            filters.append(ServiceOrder.branch_id == branch_id)
+
+        if query_text:
+            term = f"%{query_text.strip()}%"
+            filters.append(
+                or_(
+                    ServiceOrder.order_number.ilike(term),
+                    ServiceOrder.issue_description.ilike(term),
+                    ServiceOrder.repair_description.ilike(term),
+                )
+            )
+
+        query = (
+            select(ServiceOrder)
+            .where(*filters)
+            .options(selectinload(ServiceOrder.customer))
+            .order_by(ServiceOrder.intake_date.desc(), ServiceOrder.id.desc())
+        )
+        return list(db.session.scalars(query).all())

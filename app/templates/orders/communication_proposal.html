@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Powiadomienie klienta{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h1 class="h3">Propozycja wysyłki powiadomienia</h1>
+        {% if status_value %}
+        <small class="text-muted">Status zlecenia: {{ status_value }}</small>
+        {% endif %}
+    </div>
+    <a class="btn btn-outline-secondary" href="{{ url_for('orders.details', order_id=order_id, tab='communication') }}">Powrót</a>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        {% if drafts|length > 1 %}
+        <div class="alert alert-info">
+            Dostępnych propozycji kanałów: {% for draft in drafts %}<strong>{{ draft.channel }}</strong>{% if not loop.last %}, {% endif %}{% endfor %}
+        </div>
+        {% endif %}
+
+        <form method="post">
+            {{ form.hidden_tag() }}
+            {% if status_value %}
+            <input type="hidden" name="status" value="{{ status_value }}" />
+            {% endif %}
+
+            <div class="row g-3">
+                <div class="col-md-3">
+                    {{ form.channel.label(class="form-label") }}
+                    {{ form.channel(class="form-select") }}
+                </div>
+                <div class="col-md-5">
+                    {{ form.recipient.label(class="form-label") }}
+                    {{ form.recipient(class="form-control") }}
+                </div>
+                <div class="col-md-4">
+                    {{ form.subject.label(class="form-label") }}
+                    {{ form.subject(class="form-control") }}
+                </div>
+                <div class="col-12">
+                    {{ form.content.label(class="form-label") }}
+                    {{ form.content(class="form-control", rows=8) }}
+                </div>
+            </div>
+
+            {{ form.event_key(type='hidden') }}
+            {{ form.template_id(type='hidden') }}
+
+            <div class="mt-4 d-flex gap-2">
+                <button type="submit" name="action" value="send" class="btn btn-primary">Wyślij</button>
+                <button type="submit" name="action" value="cancel" class="btn btn-outline-danger">Anuluj wysyłkę</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

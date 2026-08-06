@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}Zapotrzebowanie zbiorcze{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h1 class="h3 mb-0">Widok zbiorczy zapotrzebowań</h1>
+        <small class="text-muted">Agregacja brakujących części dla wszystkich zleceń</small>
+    </div>
+    <a class="btn btn-outline-secondary" href="{{ url_for('part_demands.index', **request.args) }}">Widok listy</a>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-md-3">{{ filter_form.status.label(class="form-label") }}{{ filter_form.status(class="form-select") }}</div>
+            <div class="col-md-3">{{ filter_form.priority.label(class="form-label") }}{{ filter_form.priority(class="form-select") }}</div>
+            <div class="col-md-3">{{ filter_form.branch_id.label(class="form-label") }}{{ filter_form.branch_id(class="form-select") }}</div>
+            <div class="col-md-3">{{ filter_form.expected_date_from.label(class="form-label") }}{{ filter_form.expected_date_from(class="form-control") }}</div>
+            <div class="col-md-3">{{ filter_form.expected_date_to.label(class="form-label") }}{{ filter_form.expected_date_to(class="form-control") }}</div>
+            <div class="col-md-3 d-grid">{{ filter_form.submit(class="btn btn-outline-primary") }}</div>
+        </form>
+    </div>
+</div>
+
+<div class="row g-3">
+    {% for row in grouped_rows %}
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-body">
+                <h2 class="h5">{{ row.part_name }}</h2>
+                <div class="text-muted small mb-2">{{ row.part_code }}</div>
+                <p class="mb-2"><strong>Potrzebne:</strong> {{ row.total_missing }} szt.</p>
+                <p class="mb-1"><strong>Dla zleceń:</strong></p>
+                <ul class="mb-0">
+                    {% for order_no in row.order_numbers %}
+                    <li>{{ order_no }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="col-12">
+        <div class="alert alert-light mb-0">Brak pozycji zbiorczych dla wybranego zakresu.</div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

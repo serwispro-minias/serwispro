@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}Kosztorysy naprawy{% endblock %}
+
+{% block content %}
+<div class="page-header mb-3">
+    <h1 class="h3 mb-1">Kosztorysy naprawy</h1>
+    <p class="text-muted mb-0">Przegląd wersji kosztorysów dla wszystkich zleceń.</p>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        {% if estimates %}
+        <div class="table-responsive">
+            <table class="table table-sm table-striped align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Zlecenie</th>
+                        <th>Wersja</th>
+                        <th>Status</th>
+                        <th>Ważny do</th>
+                        <th>Brutto</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for estimate in estimates %}
+                    <tr>
+                        <td>{{ estimate.service_order.order_number if estimate.service_order else estimate.service_order_id }}</td>
+                        <td>v{{ estimate.version_number }}</td>
+                        <td>{{ status_labels.get(estimate.status, estimate.status) }}</td>
+                        <td>{{ estimate.valid_until or '-' }}</td>
+                        <td>{{ '%.2f'|format(estimate.gross_total) }} PLN</td>
+                        <td class="text-end">
+                            <a class="btn btn-sm btn-outline-primary" href="{{ url_for('services.details', estimate_id=estimate.id) }}">Otwórz</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted mb-0">Brak kosztorysów.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

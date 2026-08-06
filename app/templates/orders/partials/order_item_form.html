@@ -1,0 +1,63 @@
+<form method="post" action="{{ url_for('orders.add_order_item', order_id=order.id) }}" class="js-order-item-form">
+    {{ item_form.hidden_tag() }}
+    <div class="row g-3">
+        <div class="col-md-3">
+            {{ item_form.item_type.label(class="form-label") }}
+            {{ item_form.item_type(class="form-select", id="order_item_type") }}
+            {% if item_form.item_type.errors %}
+            <div class="form-text text-danger">{{ item_form.item_type.errors[0] }}</div>
+            {% endif %}
+        </div>
+        <div class="col-md-5">
+            {{ item_form.search_query.label(class="form-label") }}
+            {{ item_form.search_query(class="form-control", id="order_item_search", placeholder="Szukaj części, materiału lub usługi") }}
+            {% if item_form.search_query.errors %}
+            <div class="form-text text-danger">{{ item_form.search_query.errors[0] }}</div>
+            {% endif %}
+            <div class="border rounded p-2 mt-2 small bg-light" id="order-item-search-results">
+                <span class="text-muted">Wpisz frazę, aby wyszukać element.</span>
+            </div>
+        </div>
+        <div class="col-md-4">
+            {{ item_form.item_id }}
+            <div class="form-label">Wybrany element</div>
+            <div class="border rounded p-2 bg-light">
+                <div id="order-item-selected" class="small text-muted">Brak wyboru</div>
+            </div>
+            {% if item_form.item_id.errors %}
+            <div class="form-text text-danger">{{ item_form.item_id.errors[0] }}</div>
+            {% endif %}
+        </div>
+        <div class="col-md-3">
+            {{ item_form.quantity.label(class="form-label") }}
+            {{ item_form.quantity(class="form-control", id="order_item_quantity", step="0.001", min="0.001") }}
+            {% if item_form.quantity.errors %}
+            <div class="form-text text-danger">{{ item_form.quantity.errors[0] }}</div>
+            {% endif %}
+        </div>
+        <div class="col-md-3">
+            {{ item_form.unit_price_net.label(class="form-label") }}
+            {{ item_form.unit_price_net(class="form-control", id="order_item_unit_price", step="0.01", min="0") }}
+            {% if item_form.unit_price_net.errors %}
+            <div class="form-text text-danger">{{ item_form.unit_price_net.errors[0] }}</div>
+            {% endif %}
+        </div>
+        <div class="col-md-3">
+            {{ item_form.discount_percent.label(class="form-label") }}
+            {{ item_form.discount_percent(class="form-control", id="order_item_discount", step="0.01", min="0", max="100") }}
+            {% if item_form.discount_percent.errors %}
+            <div class="form-text text-danger">{{ item_form.discount_percent.errors[0] }}</div>
+            {% endif %}
+        </div>
+        <div class="col-12">
+            {{ item_form.notes.label(class="form-label") }}
+            {{ item_form.notes(class="form-control", rows=2) }}
+            {% if item_form.notes.errors %}
+            <div class="form-text text-danger">{{ item_form.notes.errors[0] }}</div>
+            {% endif %}
+        </div>
+    </div>
+    <div class="mt-3">
+        {{ item_form.submit(class="btn btn-primary") }}
+    </div>
+</form>

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3">{{ title }}</h1>
+    <a class="btn btn-outline-secondary" href="{{ url_for('catalog.categories_index') }}">Powrót</a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form method="post">
+            {{ form.hidden_tag() }}
+            <div class="row g-3">
+                <div class="col-md-3">{{ form.code.label(class="form-label") }}{{ form.code(class="form-control") }}</div>
+                <div class="col-md-6">{{ form.name.label(class="form-label") }}{{ form.name(class="form-control") }}</div>
+                <div class="col-md-3">{{ form.kind.label(class="form-label") }}{{ form.kind(class="form-select") }}</div>
+                <div class="col-12">{{ form.description.label(class="form-label") }}{{ form.description(class="form-control", rows=4) }}</div>
+            </div>
+            <div class="mt-4">{{ form.submit(class="btn btn-primary") }}</div>
+        </form>
+    </div>
+</div>
+{% endblock %}

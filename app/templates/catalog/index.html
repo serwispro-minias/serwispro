@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}Katalog i Magazyn{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h1 class="h3">Katalog i Magazyn</h1>
+        <small class="text-muted">Rozdzielony katalog części, materiałów i usług</small>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h2 class="h6">Słowniki</h2>
+                <p class="mb-1">Kategorie: <strong>{{ counts["categories"] }}</strong></p>
+                <p class="mb-1">Dostawcy: <strong>{{ counts["suppliers"] }}</strong></p>
+                <p class="mb-3">Producenci: <strong>{{ counts["manufacturers"] }}</strong></p>
+                <div class="d-flex gap-2">
+                    <a class="btn btn-sm btn-outline-primary" href="{{ url_for('catalog.categories_index') }}">Kategorie</a>
+                    <a class="btn btn-sm btn-outline-primary" href="{{ url_for('catalog.suppliers_index') }}">Dostawcy</a>
+                    <a class="btn btn-sm btn-outline-primary" href="{{ url_for('catalog.manufacturers_index') }}">Producenci</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h2 class="h6">Magazyn</h2>
+                <p class="mb-1">Części: <strong>{{ counts["parts"] }}</strong></p>
+                <p class="mb-3">Materiały: <strong>{{ counts["materials"] }}</strong></p>
+                <div class="d-flex gap-2">
+                    <a class="btn btn-sm btn-outline-success" href="{{ url_for('catalog.parts_index') }}">Części</a>
+                    <a class="btn btn-sm btn-outline-success" href="{{ url_for('catalog.materials_index') }}">Materiały</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h2 class="h6">Usługi</h2>
+                <p class="mb-3">Pozycje usługowe: <strong>{{ counts["services"] }}</strong></p>
+                <a class="btn btn-sm btn-outline-warning" href="{{ url_for('catalog.services_index') }}">Katalog usług</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

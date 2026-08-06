@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}Usługa {{ entity.code }}{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h1 class="h3">Usługa: {{ entity.name }}</h1>
+        <small class="text-muted">Kod: {{ entity.code }}</small>
+    </div>
+    <div class="d-flex gap-2">
+        <a class="btn btn-secondary" href="{{ url_for('catalog.services_edit', service_id=entity.id) }}">Edytuj</a>
+        <a class="btn btn-outline-secondary" href="{{ url_for('catalog.services_index') }}">Powrót</a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <p><strong>Kategoria:</strong> {{ entity.category.name if entity.category else '-' }}</p>
+        <p><strong>Cena netto:</strong> {{ '%.2f'|format(entity.default_price_net) }} PLN</p>
+        <p><strong>VAT:</strong> {{ '%.2f'|format(entity.vat_rate) }}%</p>
+        <p><strong>Czas standardowy:</strong> {{ entity.standard_duration_minutes }} min</p>
+        <p><strong>Sprzedaż:</strong> {{ 'Tak' if entity.is_sellable else 'Nie' }}</p>
+        <p><strong>Opis:</strong> {{ entity.description or '-' }}</p>
+        <form method="post" action="{{ url_for('catalog.services_delete', service_id=entity.id) }}" onsubmit="return confirm('Usunąć usługę?');">
+            <button type="submit" class="btn btn-outline-danger">Usuń</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

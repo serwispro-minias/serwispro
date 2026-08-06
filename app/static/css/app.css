@@ -100,6 +100,23 @@ body {
     color: var(--primary);
 }
 
+.topbar a {
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.topbar a:hover {
+    text-decoration: underline;
+}
+
+.company-branch {
+    margin-top: 4px;
+}
+
+.page-header {
+    margin-bottom: 1rem;
+}
+
 .flash-container .alert {
     border-radius: 12px;
     box-shadow: var(--shadow-soft);
@@ -115,6 +132,124 @@ body {
     box-shadow: var(--shadow-soft);
 }
 
+.repair-timeline {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding-left: 20px;
+}
+
+.repair-timeline::before {
+    content: "";
+    position: absolute;
+    left: 6px;
+    top: 4px;
+    bottom: 4px;
+    width: 2px;
+    background: #d3ddea;
+}
+
+.timeline-item {
+    position: relative;
+}
+
+.timeline-item-dot {
+    position: absolute;
+    left: -18px;
+    top: 16px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 0 3px #eef4fb;
+}
+
+.timeline-item-card {
+    border-radius: 12px;
+}
+
+.login-body {
+    min-height: 100vh;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background: linear-gradient(145deg, #eef3fb 0%, #f8fbff 100%);
+    padding: 24px;
+}
+
+.login-box {
+    width: 100%;
+    max-width: 460px;
+    background: #ffffff;
+    border-radius: 16px;
+    box-shadow: var(--shadow-soft);
+    padding: 28px;
+}
+
+.login-box h1 {
+    margin-top: 0;
+    margin-bottom: 8px;
+    color: var(--primary);
+}
+
+.login-box p {
+    margin-top: 0;
+    margin-bottom: 18px;
+    color: var(--muted);
+}
+
+.login-box label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 600;
+}
+
+.login-box input {
+    width: 100%;
+    border: 1px solid #dee2e6;
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 14px;
+}
+
+.login-box button {
+    width: 100%;
+    border: none;
+    border-radius: 10px;
+    padding: 11px 14px;
+    background: var(--accent);
+    color: #ffffff;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.login-footer {
+    margin-top: 20px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.95rem;
+}
+
+.producer strong {
+    color: var(--text);
+}
+
+.links {
+    margin-top: 6px;
+}
+
+.links a {
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.links a:hover {
+    text-decoration: underline;
+}
+
 @media (max-width: 992px) {
     .app-layout {
         flex-direction: column;
@@ -128,5 +263,9 @@ body {
 
     .content-area {
         padding: 24px;
+    }
+
+    .login-box {
+        padding: 22px;
     }
 }

@@ -1,0 +1,824 @@
+{% set gallery_order_id = order_id if order_id is defined else order.id %}
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h5 class="card-title">Dodaj zdjęcia</h5>
+        <p class="text-muted small mb-3">Dozwolone formaty: JPG, JPEG, PNG, WEBP. Maksymalny rozmiar pliku: 10 MB.</p>
+
+        <form method="post" action="{{ url_for('order_photos.upload', order_id=gallery_order_id) }}" enctype="multipart/form-data" id="order-photos-upload-form">
+            {{ upload_form.hidden_tag() }}
+            <div class="row g-3">
+                <div class="col-md-3">
+                    {{ upload_form.photo_type.label(class='form-label') }}
+                    {{ upload_form.photo_type(class='form-select', id='photo_type') }}
+                </div>
+                <div class="col-md-3">
+                    {{ upload_form.taken_at.label(class='form-label') }}
+                    {{ upload_form.taken_at(class='form-control') }}
+                </div>
+                <div class="col-md-3">
+                    {{ upload_form.sort_order.label(class='form-label') }}
+                    {{ upload_form.sort_order(class='form-control', placeholder='100') }}
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <div class="form-check">
+                        {{ upload_form.is_visible_for_customer(class='form-check-input') }}
+                        {{ upload_form.is_visible_for_customer.label(class='form-check-label') }}
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    {{ upload_form.title.label(class='form-label') }}
+                    {{ upload_form.title(class='form-control') }}
+                </div>
+                <div class="col-md-6">
+                    {{ upload_form.description.label(class='form-label') }}
+                    {{ upload_form.description(class='form-control', rows=2) }}
+                </div>
+                <div class="col-12">
+                    {{ upload_form.main_photo_index }}
+                    {{ upload_form.files(class='form-control', id='photo-files-input', accept='image/jpeg,image/png,image/webp', multiple=true) }}
+                    <input type="file" id="photo-camera-input" class="d-none" accept="image/*" capture="environment" multiple>
+                    <div id="photo-drop-zone" class="border rounded p-4 mt-2 text-center bg-light" style="cursor:pointer;">
+                        <div class="fw-semibold">Przeciągnij zdjęcia tutaj lub kliknij aby wybrać</div>
+                        <div class="small text-muted">Możesz także skorzystać z kamery urządzenia</div>
+                        <div class="mt-2 d-flex justify-content-center gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-primary" id="btn-capture-reception">Zdjęcie przyjęcia</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-capture-handover">Zdjęcie wydania</button>
+                        </div>
+                    </div>
+                    <div id="photo-files-preview" class="small text-muted mt-2">Brak wybranych plików.</div>
+                </div>
+            </div>
+            <div class="mt-3 d-flex gap-2">
+                {{ upload_form.submit(class='btn btn-primary') }}
+                <button type="button" class="btn btn-outline-secondary" id="btn-set-reception">Ustaw typ: Przyjęcie</button>
+                <button type="button" class="btn btn-outline-secondary" id="btn-set-handover">Ustaw typ: Wydanie</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h5 class="card-title">Filtry galerii</h5>
+        <form method="get" action="{{ url_for('orders.details', order_id=gallery_order_id) }}" class="row g-3">
+            <input type="hidden" name="tab" value="photos">
+            <div class="col-md-3">{{ filter_form.photo_type.label(class='form-label') }}{{ filter_form.photo_type(class='form-select') }}</div>
+            <div class="col-md-2">{{ filter_form.date_from.label(class='form-label') }}{{ filter_form.date_from(class='form-control') }}</div>
+            <div class="col-md-2">{{ filter_form.date_to.label(class='form-label') }}{{ filter_form.date_to(class='form-control') }}</div>
+            <div class="col-md-3">{{ filter_form.author_id.label(class='form-label') }}{{ filter_form.author_id(class='form-select') }}</div>
+            <div class="col-md-2 d-grid">{{ filter_form.submit(class='btn btn-secondary') }}</div>
+        </form>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h5 class="card-title">Zdjęcia do protokołu PDF</h5>
+        <div class="row g-2 align-items-end mb-2">
+            <div class="col-md-4">
+                <label for="photo_render_mode_intake" class="form-label small mb-1">Wariant dla protokołu przyjęcia</label>
+                <select class="form-select form-select-sm" id="photo_render_mode_intake" name="photo_render_mode">
+                    <option value="original">Zdjęcie oryginalne</option>
+                    <option value="annotated">Zdjęcie z oznaczeniami</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label for="photo_render_mode_release" class="form-label small mb-1">Wariant dla protokołu wydania</label>
+                <select class="form-select form-select-sm" id="photo_render_mode_release" name="photo_render_mode">
+                    <option value="original">Zdjęcie oryginalne</option>
+                    <option value="annotated">Zdjęcie z oznaczeniami</option>
+                </select>
+            </div>
+        </div>
+        <form method="get" action="{{ url_for('orders.print_intake_protocol', order_id=gallery_order_id) }}" target="_blank" class="d-inline">
+            <input type="hidden" name="mode" value="download">
+            <input type="hidden" name="photo_ids" id="photo_ids_intake" value="">
+            <input type="hidden" name="photo_render_mode" id="photo_render_mode_intake_hidden" value="original">
+            <button type="submit" class="btn btn-outline-primary btn-sm">Drukuj protokół przyjęcia z wybranymi zdjęciami</button>
+        </form>
+        <form method="get" action="{{ url_for('orders.print_release_protocol', order_id=gallery_order_id) }}" target="_blank" class="d-inline ms-2">
+            <input type="hidden" name="mode" value="download">
+            <input type="hidden" name="photo_ids" id="photo_ids_release" value="">
+            <input type="hidden" name="photo_render_mode" id="photo_render_mode_release_hidden" value="original">
+            <button type="submit" class="btn btn-outline-primary btn-sm">Drukuj protokół wydania z wybranymi zdjęciami</button>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <h5 class="card-title">Galeria zdjęć</h5>
+        {% if photos %}
+        <div class="row g-3" id="order-photo-grid">
+            {% for photo in photos %}
+            <div class="col-xl-3 col-lg-4 col-md-6">
+                <div class="card h-100">
+                    <img
+                        src="{{ url_for('order_photos.thumbnail', photo_id=photo.id) }}"
+                        class="card-img-top js-photo-open"
+                        alt="{{ photo.title or photo.original_file_name }}"
+                        style="height: 180px; object-fit: cover; cursor: zoom-in;"
+                        data-photo-id="{{ photo.id }}"
+                        data-full-url="{{ url_for('order_photos.file', photo_id=photo.id) }}"
+                        data-download-url="{{ url_for('order_photos.file', photo_id=photo.id, download=1) }}"
+                        data-delete-url="{{ url_for('order_photos.delete', photo_id=photo.id) }}"
+                        data-title="{{ photo.title or photo.original_file_name }}"
+                        data-description="{{ photo.description or '' }}"
+                        data-type="{{ type_labels.get(photo.photo_type, photo.photo_type) }}"
+                        data-author="{{ photo.author_user.login if photo.author_user else '-' }}"
+                        data-date="{{ photo.taken_at.strftime('%Y-%m-%d %H:%M') if photo.taken_at else '-' }}"
+                    >
+                    <div class="card-body py-2">
+                        <div class="form-check mb-1">
+                            <input class="form-check-input js-photo-select" type="checkbox" value="{{ photo.id }}" id="photo-select-{{ photo.id }}">
+                            <label class="form-check-label small" for="photo-select-{{ photo.id }}">Do protokołu PDF</label>
+                        </div>
+                        <div class="fw-semibold small">{{ photo.title or photo.original_file_name }}</div>
+                        <div class="text-muted small">{{ type_labels.get(photo.photo_type, photo.photo_type) }}</div>
+                        <div class="text-muted small">{{ photo.taken_at.strftime('%Y-%m-%d') if photo.taken_at else '-' }}</div>
+                    </div>
+                    <div class="card-footer bg-white border-0 pt-0 pb-2 d-flex gap-2">
+                        <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('order_photos.file', photo_id=photo.id, download=1) }}">Pobierz</a>
+                        <form method="post" action="{{ url_for('order_photos.delete', photo_id=photo.id) }}" onsubmit="return confirm('Usunąć zdjęcie?');">
+                            {{ delete_form.hidden_tag() }}
+                            <button type="submit" class="btn btn-sm btn-outline-danger">Usuń</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-muted mb-0">Brak zdjęć dla wybranych filtrów.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="modal fade" id="photoPreviewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="photo-modal-title">Podgląd zdjęcia</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zamknij"></button>
+            </div>
+            <div class="modal-body">
+                <div class="d-flex flex-wrap gap-2 mb-3">
+                    <div class="btn-group btn-group-sm" role="group" aria-label="Narzędzia oznaczeń">
+                        <button type="button" class="btn btn-outline-secondary js-annot-tool" data-tool="PIN">Pin</button>
+                        <button type="button" class="btn btn-outline-secondary js-annot-tool" data-tool="CIRCLE">Koło</button>
+                        <button type="button" class="btn btn-outline-secondary js-annot-tool" data-tool="RECTANGLE">Prostokąt</button>
+                        <button type="button" class="btn btn-outline-secondary js-annot-tool" data-tool="ARROW">Strzałka</button>
+                        <button type="button" class="btn btn-outline-secondary js-annot-tool" data-tool="LINE">Linia</button>
+                        <button type="button" class="btn btn-outline-secondary js-annot-tool" data-tool="POLYGON">Poligon</button>
+                        <button type="button" class="btn btn-outline-secondary js-annot-tool" data-tool="TEXT">Tekst</button>
+                        <button type="button" class="btn btn-outline-secondary js-annot-tool" data-tool="NUMBER">Numer</button>
+                    </div>
+                    <div class="form-check ms-2 mt-1">
+                        <input class="form-check-input" type="checkbox" id="annotations-visible-toggle" checked>
+                        <label class="form-check-label small" for="annotations-visible-toggle">Pokaż oznaczenia</label>
+                    </div>
+                </div>
+
+                <div class="text-center mb-3" style="overflow:auto; max-height:65vh;">
+                    <div id="photo-annot-canvas-wrapper" class="d-inline-block position-relative" style="max-width:100%;">
+                        <img id="photo-modal-image" src="" alt="" style="max-width:100%; transform: scale(1); transform-origin:center center; transition: transform .2s; display:block;">
+                        <svg id="photo-annotation-layer" xmlns="http://www.w3.org/2000/svg" class="position-absolute top-0 start-0" style="width:100%; height:100%; pointer-events:auto;"></svg>
+                    </div>
+                </div>
+                <div class="row g-2 mb-2">
+                    <div class="col-md-2">
+                        <label class="form-label small mb-1" for="annotation-color">Kolor</label>
+                        <input type="color" class="form-control form-control-color" id="annotation-color" value="#ff3b30">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small mb-1" for="annotation-width">Szerokość</label>
+                        <input type="number" min="0" step="0.01" class="form-control form-control-sm" id="annotation-width" value="0.15">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small mb-1" for="annotation-height">Wysokość</label>
+                        <input type="number" min="0" step="0.01" class="form-control form-control-sm" id="annotation-height" value="0.15">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small mb-1" for="annotation-rotation">Rotacja</label>
+                        <input type="number" min="-360" max="360" step="1" class="form-control form-control-sm" id="annotation-rotation" value="0">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small mb-1" for="annotation-priority">Priorytet</label>
+                        <select id="annotation-priority" class="form-select form-select-sm">
+                            {% for value, label in annotation_priority_choices %}
+                            <option value="{{ value }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button type="button" class="btn btn-sm btn-outline-danger w-100" id="annotation-delete-selected">Usuń zaznaczone</button>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small mb-1" for="annotation-title">Tytuł</label>
+                        <input type="text" id="annotation-title" class="form-control form-control-sm" maxlength="255">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small mb-1" for="annotation-description">Opis</label>
+                        <input type="text" id="annotation-description" class="form-control form-control-sm" maxlength="5000">
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="annotation-visible-customer">
+                            <label class="form-check-label small" for="annotation-visible-customer">Widoczne dla klienta</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="small text-muted" id="photo-modal-meta"></div>
+            </div>
+            <div class="modal-footer d-flex justify-content-between">
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-secondary" id="photo-prev">Poprzednie</button>
+                    <button type="button" class="btn btn-outline-secondary" id="photo-next">Następne</button>
+                    <button type="button" class="btn btn-outline-secondary" id="photo-zoom-in">+</button>
+                    <button type="button" class="btn btn-outline-secondary" id="photo-zoom-out">-</button>
+                </div>
+                <div class="d-flex gap-2">
+                    <a class="btn btn-outline-primary" id="photo-download" href="#">Pobierz</a>
+                    <form method="post" id="photo-delete-form" action="" onsubmit="return confirm('Usunąć zdjęcie?');">
+                        {{ delete_form.hidden_tag() }}
+                        <button type="submit" class="btn btn-outline-danger">Usuń</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<form id="annotation-create-form" class="d-none">
+    {{ annotation_create_form.hidden_tag() }}
+</form>
+<form id="annotation-update-form" class="d-none">
+    {{ annotation_update_form.hidden_tag() }}
+</form>
+<form id="annotation-delete-form" class="d-none">
+    {{ annotation_delete_form.hidden_tag() }}
+</form>
+
+<script>
+(function () {
+    const dropZone = document.getElementById('photo-drop-zone');
+    const filesInput = document.getElementById('photo-files-input');
+    const cameraInput = document.getElementById('photo-camera-input');
+    const preview = document.getElementById('photo-files-preview');
+    const photoTypeSelect = document.getElementById('photo_type');
+    const mainIndexInput = document.querySelector("input[name='main_photo_index']");
+
+    function renderPreview() {
+        const files = filesInput.files || [];
+        if (!files.length) {
+            preview.textContent = 'Brak wybranych plików.';
+            mainIndexInput.value = '';
+            return;
+        }
+        preview.textContent = Array.from(files).map((f, idx) => `${idx + 1}. ${f.name}`).join(' | ');
+        if (mainIndexInput.value === '' || Number(mainIndexInput.value) >= files.length) {
+            mainIndexInput.value = '0';
+        }
+    }
+
+    function mergeFiles(incoming) {
+        const dt = new DataTransfer();
+        Array.from(filesInput.files || []).forEach((f) => dt.items.add(f));
+        Array.from(incoming || []).forEach((f) => dt.items.add(f));
+        filesInput.files = dt.files;
+        renderPreview();
+    }
+
+    if (dropZone && filesInput) {
+        dropZone.addEventListener('click', () => filesInput.click());
+        dropZone.addEventListener('dragover', (event) => {
+            event.preventDefault();
+            dropZone.classList.add('border-primary');
+        });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('border-primary'));
+        dropZone.addEventListener('drop', (event) => {
+            event.preventDefault();
+            dropZone.classList.remove('border-primary');
+            mergeFiles(event.dataTransfer.files);
+        });
+        filesInput.addEventListener('change', renderPreview);
+    }
+
+    if (cameraInput) {
+        cameraInput.addEventListener('change', () => mergeFiles(cameraInput.files));
+    }
+
+    const receptionBtn = document.getElementById('btn-set-reception');
+    const handoverBtn = document.getElementById('btn-set-handover');
+    const captureReceptionBtn = document.getElementById('btn-capture-reception');
+    const captureHandoverBtn = document.getElementById('btn-capture-handover');
+
+    if (receptionBtn) {
+        receptionBtn.addEventListener('click', () => { photoTypeSelect.value = 'RECEPTION'; });
+    }
+    if (handoverBtn) {
+        handoverBtn.addEventListener('click', () => { photoTypeSelect.value = 'HANDOVER'; });
+    }
+    if (captureReceptionBtn) {
+        captureReceptionBtn.addEventListener('click', () => {
+            photoTypeSelect.value = 'RECEPTION';
+            cameraInput.click();
+        });
+    }
+    if (captureHandoverBtn) {
+        captureHandoverBtn.addEventListener('click', () => {
+            photoTypeSelect.value = 'HANDOVER';
+            cameraInput.click();
+        });
+    }
+
+    const selectedTargets = document.querySelectorAll('.js-photo-select');
+    const photoIdsIntake = document.getElementById('photo_ids_intake');
+    const photoIdsRelease = document.getElementById('photo_ids_release');
+    const renderModeIntakeSelect = document.getElementById('photo_render_mode_intake');
+    const renderModeReleaseSelect = document.getElementById('photo_render_mode_release');
+    const renderModeIntakeHidden = document.getElementById('photo_render_mode_intake_hidden');
+    const renderModeReleaseHidden = document.getElementById('photo_render_mode_release_hidden');
+    function syncSelectedIds() {
+        const ids = Array.from(selectedTargets).filter((el) => el.checked).map((el) => el.value).join(',');
+        if (photoIdsIntake) photoIdsIntake.value = ids;
+        if (photoIdsRelease) photoIdsRelease.value = ids;
+    }
+    selectedTargets.forEach((el) => el.addEventListener('change', syncSelectedIds));
+    if (renderModeIntakeSelect && renderModeIntakeHidden) {
+        renderModeIntakeSelect.addEventListener('change', () => {
+            renderModeIntakeHidden.value = renderModeIntakeSelect.value;
+        });
+    }
+    if (renderModeReleaseSelect && renderModeReleaseHidden) {
+        renderModeReleaseSelect.addEventListener('change', () => {
+            renderModeReleaseHidden.value = renderModeReleaseSelect.value;
+        });
+    }
+
+    const modalElement = document.getElementById('photoPreviewModal');
+    if (!modalElement || !window.bootstrap) {
+        return;
+    }
+    const modal = new bootstrap.Modal(modalElement);
+    const openers = Array.from(document.querySelectorAll('.js-photo-open'));
+    const modalImage = document.getElementById('photo-modal-image');
+    const modalTitle = document.getElementById('photo-modal-title');
+    const modalMeta = document.getElementById('photo-modal-meta');
+    const modalDownload = document.getElementById('photo-download');
+    const modalDeleteForm = document.getElementById('photo-delete-form');
+    const prevButton = document.getElementById('photo-prev');
+    const nextButton = document.getElementById('photo-next');
+    const zoomInButton = document.getElementById('photo-zoom-in');
+    const zoomOutButton = document.getElementById('photo-zoom-out');
+    const annotationLayer = document.getElementById('photo-annotation-layer');
+    const toolButtons = Array.from(document.querySelectorAll('.js-annot-tool'));
+    const annotationColor = document.getElementById('annotation-color');
+    const annotationWidth = document.getElementById('annotation-width');
+    const annotationHeight = document.getElementById('annotation-height');
+    const annotationRotation = document.getElementById('annotation-rotation');
+    const annotationTitle = document.getElementById('annotation-title');
+    const annotationDescription = document.getElementById('annotation-description');
+    const annotationPriority = document.getElementById('annotation-priority');
+    const annotationVisibleCustomer = document.getElementById('annotation-visible-customer');
+    const annotationDeleteSelected = document.getElementById('annotation-delete-selected');
+    const annotationsVisibleToggle = document.getElementById('annotations-visible-toggle');
+    const annotationCreateForm = document.getElementById('annotation-create-form');
+    const annotationUpdateForm = document.getElementById('annotation-update-form');
+    const annotationDeleteForm = document.getElementById('annotation-delete-form');
+    let zoom = 1;
+    let currentIndex = -1;
+    let activeTool = 'PIN';
+    let annotations = [];
+    let selectedAnnotationId = null;
+    let dragState = null;
+    let polygonDraft = [];
+
+    function csrfToken(sourceForm) {
+        const tokenInput = sourceForm ? sourceForm.querySelector("input[name='csrf_token']") : null;
+        return tokenInput ? tokenInput.value : '';
+    }
+
+    function photoIdForModal() {
+        if (currentIndex < 0 || currentIndex >= openers.length) return null;
+        return Number(openers[currentIndex].dataset.photoId || 0) || null;
+    }
+
+    function currentPhotoRect() {
+        return modalImage.getBoundingClientRect();
+    }
+
+    function toRelativePosition(clientX, clientY) {
+        const rect = currentPhotoRect();
+        if (!rect.width || !rect.height) return { x: 0, y: 0 };
+        return {
+            x: Math.max(0, Math.min(1, (clientX - rect.left) / rect.width)),
+            y: Math.max(0, Math.min(1, (clientY - rect.top) / rect.height)),
+        };
+    }
+
+    function fromRelativePosition(x, y) {
+        const rect = currentPhotoRect();
+        return {
+            x: x * rect.width,
+            y: y * rect.height,
+        };
+    }
+
+    function drawArrowMarker() {
+        const existing = annotationLayer.querySelector('defs');
+        if (existing) return;
+        const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+        const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+        marker.setAttribute('id', 'annotation-arrow-head');
+        marker.setAttribute('markerWidth', '10');
+        marker.setAttribute('markerHeight', '7');
+        marker.setAttribute('refX', '10');
+        marker.setAttribute('refY', '3.5');
+        marker.setAttribute('orient', 'auto');
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', 'M0,0 L10,3.5 L0,7 Z');
+        path.setAttribute('fill', '#ff3b30');
+        marker.appendChild(path);
+        defs.appendChild(marker);
+        annotationLayer.appendChild(defs);
+    }
+
+    function applySelectedToForm(annotation) {
+        if (!annotation) {
+            annotationTitle.value = '';
+            annotationDescription.value = '';
+            annotationColor.value = '#ff3b30';
+            annotationWidth.value = '0.15';
+            annotationHeight.value = '0.15';
+            annotationRotation.value = '0';
+            annotationVisibleCustomer.checked = false;
+            return;
+        }
+        annotationTitle.value = annotation.title || '';
+        annotationDescription.value = annotation.description || '';
+        annotationColor.value = annotation.color || '#ff3b30';
+        annotationWidth.value = String(annotation.width || 0);
+        annotationHeight.value = String(annotation.height || 0);
+        annotationRotation.value = String(annotation.rotation || 0);
+        annotationPriority.value = annotation.priority || 'NORMAL';
+        annotationVisibleCustomer.checked = Boolean(annotation.is_visible_for_customer);
+    }
+
+    function selectedAnnotation() {
+        return annotations.find((item) => Number(item.id) === Number(selectedAnnotationId)) || null;
+    }
+
+    function drawAnnotations() {
+        if (!annotationLayer) return;
+        drawArrowMarker();
+        const defs = annotationLayer.querySelector('defs');
+        annotationLayer.innerHTML = '';
+        if (defs) annotationLayer.appendChild(defs);
+        if (annotationsVisibleToggle && !annotationsVisibleToggle.checked) {
+            return;
+        }
+
+        annotations.forEach((item) => {
+            const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            group.dataset.annotationId = String(item.id);
+            if (Number(item.id) === Number(selectedAnnotationId)) {
+                group.setAttribute('opacity', '1');
+            } else {
+                group.setAttribute('opacity', '0.85');
+            }
+            const start = fromRelativePosition(item.x, item.y);
+            const widthPx = Math.max(8, item.width * currentPhotoRect().width);
+            const heightPx = Math.max(8, item.height * currentPhotoRect().height);
+
+            let shape;
+            if (item.annotation_type === 'PIN') {
+                shape = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                shape.setAttribute('cx', start.x);
+                shape.setAttribute('cy', start.y);
+                shape.setAttribute('r', '8');
+                shape.setAttribute('fill', item.color || '#ff3b30');
+                shape.setAttribute('stroke', '#ffffff');
+                shape.setAttribute('stroke-width', '2');
+            } else if (item.annotation_type === 'CIRCLE') {
+                shape = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+                shape.setAttribute('cx', start.x + widthPx / 2);
+                shape.setAttribute('cy', start.y + heightPx / 2);
+                shape.setAttribute('rx', widthPx / 2);
+                shape.setAttribute('ry', heightPx / 2);
+                shape.setAttribute('fill', 'none');
+                shape.setAttribute('stroke', item.color || '#ff3b30');
+                shape.setAttribute('stroke-width', '3');
+            } else if (item.annotation_type === 'RECTANGLE') {
+                shape = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                shape.setAttribute('x', start.x);
+                shape.setAttribute('y', start.y);
+                shape.setAttribute('width', widthPx);
+                shape.setAttribute('height', heightPx);
+                shape.setAttribute('fill', 'none');
+                shape.setAttribute('stroke', item.color || '#ff3b30');
+                shape.setAttribute('stroke-width', '3');
+            } else if (item.annotation_type === 'POLYGON') {
+                shape = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                let points = [];
+                try {
+                    points = item.points_json ? JSON.parse(item.points_json) : [];
+                } catch (error) {
+                    points = [];
+                }
+                const scaled = points.map((p) => fromRelativePosition(Number(p.x || 0), Number(p.y || 0)));
+                shape.setAttribute('points', scaled.map((p) => `${p.x},${p.y}`).join(' '));
+                shape.setAttribute('fill', 'rgba(0,0,0,0)');
+                shape.setAttribute('stroke', item.color || '#ff3b30');
+                shape.setAttribute('stroke-width', '3');
+            } else if (item.annotation_type === 'TEXT' || item.annotation_type === 'NUMBER') {
+                shape = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                shape.setAttribute('x', start.x);
+                shape.setAttribute('y', start.y);
+                shape.setAttribute('fill', item.color || '#ff3b30');
+                shape.setAttribute('font-size', '20');
+                shape.textContent = item.title || item.description || (item.annotation_type === 'NUMBER' ? '#' : 'TXT');
+            } else {
+                shape = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                let points = null;
+                try {
+                    points = item.points_json ? JSON.parse(item.points_json) : null;
+                } catch (error) {
+                    points = null;
+                }
+                let end = { x: start.x + widthPx, y: start.y + heightPx };
+                if (points && points.length >= 2) {
+                    end = fromRelativePosition(Number(points[1].x || 0), Number(points[1].y || 0));
+                }
+                shape.setAttribute('x1', start.x);
+                shape.setAttribute('y1', start.y);
+                shape.setAttribute('x2', end.x);
+                shape.setAttribute('y2', end.y);
+                shape.setAttribute('stroke', item.color || '#ff3b30');
+                shape.setAttribute('stroke-width', '3');
+                if (item.annotation_type === 'ARROW') {
+                    shape.setAttribute('marker-end', 'url(#annotation-arrow-head)');
+                }
+            }
+
+            shape.dataset.annotationId = String(item.id);
+            group.appendChild(shape);
+            annotationLayer.appendChild(group);
+        });
+    }
+
+    async function loadAnnotations() {
+        const photoId = photoIdForModal();
+        if (!photoId) {
+            annotations = [];
+            drawAnnotations();
+            return;
+        }
+        const response = await fetch(`/order-photos/${photoId}/annotations`);
+        if (!response.ok) {
+            annotations = [];
+            drawAnnotations();
+            return;
+        }
+        const payload = await response.json();
+        annotations = payload.items || [];
+        selectedAnnotationId = null;
+        drawAnnotations();
+    }
+
+    async function createAnnotation(payload) {
+        const photoId = photoIdForModal();
+        if (!photoId) return;
+        const body = new URLSearchParams();
+        body.set('csrf_token', csrfToken(annotationCreateForm));
+        Object.entries(payload).forEach(([key, value]) => {
+            body.set(key, value === undefined || value === null ? '' : String(value));
+        });
+        const response = await fetch(`/order-photos/${photoId}/annotations`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+            body,
+        });
+        if (!response.ok) return;
+        const result = await response.json();
+        if (result.ok && result.item) {
+            annotations.push(result.item);
+            selectedAnnotationId = result.item.id;
+            applySelectedToForm(result.item);
+            drawAnnotations();
+        }
+    }
+
+    async function updateSelectedAnnotation() {
+        const current = selectedAnnotation();
+        if (!current) return;
+        const body = new URLSearchParams();
+        body.set('csrf_token', csrfToken(annotationUpdateForm));
+        body.set('annotation_id', String(current.id));
+        body.set('annotation_type', current.annotation_type);
+        body.set('x', String(current.x));
+        body.set('y', String(current.y));
+        body.set('width', String(current.width));
+        body.set('height', String(current.height));
+        body.set('rotation', String(current.rotation || 0));
+        body.set('color', current.color || '#ff3b30');
+        body.set('title', current.title || '');
+        body.set('description', current.description || '');
+        body.set('priority', current.priority || 'NORMAL');
+        body.set('points_json', current.points_json || '');
+        if (current.is_visible_for_customer) {
+            body.set('is_visible_for_customer', 'y');
+        }
+        const response = await fetch(`/order-photos/annotations/${current.id}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+            body,
+        });
+        if (!response.ok) return;
+        const result = await response.json();
+        if (result.ok && result.item) {
+            const index = annotations.findIndex((item) => Number(item.id) === Number(result.item.id));
+            if (index >= 0) annotations[index] = result.item;
+            drawAnnotations();
+        }
+    }
+
+    async function deleteSelectedAnnotation() {
+        const current = selectedAnnotation();
+        if (!current) return;
+        const body = new URLSearchParams();
+        body.set('csrf_token', csrfToken(annotationDeleteForm));
+        body.set('annotation_id', String(current.id));
+        const response = await fetch(`/order-photos/annotations/${current.id}/delete`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+            body,
+        });
+        if (!response.ok) return;
+        const result = await response.json();
+        if (result.ok) {
+            annotations = annotations.filter((item) => Number(item.id) !== Number(current.id));
+            selectedAnnotationId = null;
+            applySelectedToForm(null);
+            drawAnnotations();
+        }
+    }
+
+    function applyZoom() {
+        modalImage.style.transform = `scale(${zoom})`;
+    }
+
+    function renderModal(index) {
+        if (index < 0 || index >= openers.length) return;
+        currentIndex = index;
+        zoom = 1;
+        polygonDraft = [];
+        applyZoom();
+        const el = openers[index];
+        modalImage.src = el.dataset.fullUrl;
+        modalTitle.textContent = el.dataset.title || 'Podgląd zdjęcia';
+        modalMeta.textContent = `${el.dataset.type || '-'} | ${el.dataset.date || '-'} | Autor: ${el.dataset.author || '-'}${el.dataset.description ? ' | ' + el.dataset.description : ''}`;
+        modalDownload.href = el.dataset.downloadUrl;
+        modalDeleteForm.action = el.dataset.deleteUrl;
+        loadAnnotations();
+    }
+
+    openers.forEach((el, idx) => {
+        el.addEventListener('click', () => {
+            renderModal(idx);
+            modal.show();
+        });
+    });
+
+    prevButton.addEventListener('click', () => {
+        if (!openers.length) return;
+        renderModal((currentIndex - 1 + openers.length) % openers.length);
+    });
+    nextButton.addEventListener('click', () => {
+        if (!openers.length) return;
+        renderModal((currentIndex + 1) % openers.length);
+    });
+    zoomInButton.addEventListener('click', () => {
+        zoom = Math.min(zoom + 0.2, 3);
+        applyZoom();
+    });
+    zoomOutButton.addEventListener('click', () => {
+        zoom = Math.max(zoom - 0.2, 1);
+        applyZoom();
+    });
+
+    toolButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+            activeTool = button.dataset.tool;
+            toolButtons.forEach((item) => item.classList.remove('active'));
+            button.classList.add('active');
+            polygonDraft = [];
+        });
+    });
+    if (toolButtons.length) toolButtons[0].classList.add('active');
+
+    if (annotationsVisibleToggle) {
+        annotationsVisibleToggle.addEventListener('change', drawAnnotations);
+    }
+
+    if (annotationDeleteSelected) {
+        annotationDeleteSelected.addEventListener('click', () => {
+            deleteSelectedAnnotation();
+        });
+    }
+
+    [annotationColor, annotationTitle, annotationDescription, annotationPriority, annotationVisibleCustomer, annotationRotation, annotationWidth, annotationHeight]
+        .forEach((control) => {
+            if (!control) return;
+            control.addEventListener('change', () => {
+                const current = selectedAnnotation();
+                if (!current) return;
+                current.color = annotationColor.value;
+                current.title = annotationTitle.value;
+                current.description = annotationDescription.value;
+                current.priority = annotationPriority.value;
+                current.is_visible_for_customer = annotationVisibleCustomer.checked;
+                current.rotation = Number(annotationRotation.value || 0);
+                current.width = Number(annotationWidth.value || current.width || 0);
+                current.height = Number(annotationHeight.value || current.height || 0);
+                updateSelectedAnnotation();
+            });
+        });
+
+    annotationLayer.addEventListener('pointerdown', (event) => {
+        const target = event.target;
+        const annotationId = target.dataset.annotationId;
+        if (annotationId) {
+            selectedAnnotationId = Number(annotationId);
+            applySelectedToForm(selectedAnnotation());
+            drawAnnotations();
+            dragState = { id: Number(annotationId), start: toRelativePosition(event.clientX, event.clientY) };
+            return;
+        }
+
+        const point = toRelativePosition(event.clientX, event.clientY);
+        const basePayload = {
+            annotation_type: activeTool,
+            x: point.x,
+            y: point.y,
+            width: Number(annotationWidth.value || 0.15),
+            height: Number(annotationHeight.value || 0.15),
+            rotation: Number(annotationRotation.value || 0),
+            color: annotationColor.value,
+            title: annotationTitle.value,
+            description: annotationDescription.value,
+            priority: annotationPriority.value,
+            is_visible_for_customer: annotationVisibleCustomer.checked ? 'y' : '',
+            points_json: '',
+        };
+
+        if (activeTool === 'POLYGON') {
+            polygonDraft.push(point);
+            if (polygonDraft.length >= 3 && event.detail >= 2) {
+                basePayload.points_json = JSON.stringify(polygonDraft.map((item) => ({ x: item.x, y: item.y })));
+                basePayload.width = 0;
+                basePayload.height = 0;
+                createAnnotation(basePayload);
+                polygonDraft = [];
+            }
+            return;
+        }
+
+        if (activeTool === 'LINE' || activeTool === 'ARROW') {
+            const endPoint = {
+                x: Math.min(1, point.x + Number(annotationWidth.value || 0.15)),
+                y: Math.min(1, point.y + Number(annotationHeight.value || 0.15)),
+            };
+            basePayload.points_json = JSON.stringify([
+                { x: point.x, y: point.y },
+                { x: endPoint.x, y: endPoint.y },
+            ]);
+        }
+
+        createAnnotation(basePayload);
+    });
+
+    window.addEventListener('pointermove', (event) => {
+        if (!dragState) return;
+        const current = annotations.find((item) => Number(item.id) === Number(dragState.id));
+        if (!current) return;
+        const now = toRelativePosition(event.clientX, event.clientY);
+        const dx = now.x - dragState.start.x;
+        const dy = now.y - dragState.start.y;
+        current.x = Math.max(0, Math.min(1, current.x + dx));
+        current.y = Math.max(0, Math.min(1, current.y + dy));
+        dragState.start = now;
+        drawAnnotations();
+    });
+
+    window.addEventListener('pointerup', () => {
+        if (!dragState) return;
+        const current = selectedAnnotation();
+        dragState = null;
+        if (current) {
+            updateSelectedAnnotation();
+        }
+    });
+})();
+</script>

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}Kategoria {{ entity.code }}{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h1 class="h3">Kategoria: {{ entity.name }}</h1>
+        <small class="text-muted">Kod: {{ entity.code }}</small>
+    </div>
+    <div class="d-flex gap-2">
+        <a class="btn btn-secondary" href="{{ url_for('catalog.categories_edit', category_id=entity.id) }}">Edytuj</a>
+        <a class="btn btn-outline-secondary" href="{{ url_for('catalog.categories_index') }}">Powrót</a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <p><strong>Typ:</strong> {{ entity.kind }}</p>
+        <p><strong>Opis:</strong> {{ entity.description or '-' }}</p>
+        <form method="post" action="{{ url_for('catalog.categories_delete', category_id=entity.id) }}" onsubmit="return confirm('Usunąć kategorię?');">
+            <button type="submit" class="btn btn-outline-danger">Usuń</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

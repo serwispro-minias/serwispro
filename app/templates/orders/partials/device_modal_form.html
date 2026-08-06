@@ -1,0 +1,51 @@
+<form method="post" action="{{ action_url }}" class="js-modal-form" data-entity="device">
+    <div class="modal-header">
+        <h5 class="modal-title">{{ modal_title }}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zamknij"></button>
+    </div>
+    <div class="modal-body">
+        {{ form.hidden_tag() }}
+
+        <div class="row g-3">
+            <div class="col-md-6">
+                {{ form.customer_id.label(class="form-label") }}
+                {{ form.customer_id(class="form-select") }}
+                {% if form.customer_id.errors %}
+                <div class="form-text text-danger">{{ form.customer_id.errors[0] }}</div>
+                {% endif %}
+            </div>
+            <div class="col-md-6">
+                {{ form.device_type.label(class="form-label") }}
+                {{ form.device_type(class="form-control") }}
+            </div>
+            <div class="col-md-6">
+                {{ form.manufacturer.label(class="form-label") }}
+                {{ form.manufacturer(class="form-control") }}
+            </div>
+            <div class="col-md-6">
+                {{ form.model.label(class="form-label") }}
+                {{ form.model(class="form-control") }}
+            </div>
+            <div class="col-md-6">
+                {{ form.serial_number.label(class="form-label") }}
+                {{ form.serial_number(class="form-control") }}
+            </div>
+            <div class="col-md-6">
+                {{ form.inventory_number.label(class="form-label") }}
+                {{ form.inventory_number(class="form-control") }}
+            </div>
+            <div class="col-12">
+                {{ form.condition_description.label(class="form-label") }}
+                {{ form.condition_description(class="form-control", rows=2) }}
+            </div>
+            <div class="col-12">
+                {{ form.notes.label(class="form-label") }}
+                {{ form.notes(class="form-control", rows=2) }}
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Anuluj</button>
+        <button type="submit" class="btn btn-primary">Zapisz urządzenie</button>
+    </div>
+</form>

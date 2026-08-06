@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+
+{% block title %}Kosztorys naprawy{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-start gap-3 mb-3">
+    <div>
+        <h1 class="h3 mb-1">Kosztorys naprawy</h1>
+        <small class="text-muted">{{ order.order_number if order else estimate.service_order_id }} / v{{ estimate.version_number }}</small>
+    </div>
+    <div class="d-flex gap-2 flex-wrap justify-content-end">
+        <a class="btn btn-outline-primary" href="{{ url_for('services.download_pdf', estimate_id=estimate.id) }}">PDF</a>
+        <form method="post" action="{{ url_for('services.send', estimate_id=estimate.id) }}" class="d-inline">
+            {{ send_form.hidden_tag() }}
+            <button type="submit" class="btn btn-primary">Wyślij do klienta</button>
+        </form>
+        <form method="post" action="{{ url_for('services.clone', estimate_id=estimate.id) }}" class="d-inline">
+            {{ send_form.hidden_tag() }}
+            <button type="submit" class="btn btn-outline-secondary">Nowa wersja</button>
+        </form>
+        <a class="btn btn-outline-secondary" href="{{ url_for('orders.details', order_id=estimate.service_order_id, tab='estimates') }}">Powrót do zlecenia</a>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h5 class="card-title">Akceptacja kosztorysu przez klienta</h5>
+        {% if approval_link %}
+        <p class="mb-2"><strong>Aktywny link:</strong></p>
+        <div class="input-group mb-3">
+            <input id="approval-link-input" type="text" class="form-control" value="{{ approval_link }}" readonly>
+            <button type="button" class="btn btn-outline-secondary" onclick="navigator.clipboard.writeText(document.getElementById('approval-link-input').value)">Kopiuj</button>
+        </div>
+        {% else %}
+        <p class="text-muted">Brak aktywnego linku akceptacji.</p>
+        {% endif %}
+
+        <div class="d-flex flex-wrap gap-2">
+            <form method="post" action="{{ url_for('services.copy_link', estimate_id=estimate.id) }}" class="d-inline">
+                {{ send_form.hidden_tag() }}
+                <button type="submit" class="btn btn-outline-secondary" {% if not has_active_approval_token %}disabled{% endif %}>Skopiuj link</button>
+            </form>
+            <form method="post" action="{{ url_for('services.regenerate_link', estimate_id=estimate.id) }}" class="d-inline">
+                {{ send_form.hidden_tag() }}
+                <button type="submit" class="btn btn-outline-warning">Wygeneruj nowy link</button>
+            </form>
+            {% if is_admin %}
+            <form method="post" action="{{ url_for('services.revoke_approval', estimate_id=estimate.id) }}" class="d-inline">
+                {{ send_form.hidden_tag() }}
+                <button type="submit" class="btn btn-outline-danger" onclick="return confirm('Cofnąć akceptację kosztorysu?');">Cofnij akceptację</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-3 col-6">
+        <div class="border rounded p-3 bg-light">
+            <div class="text-muted small">Status</div>
+            <div class="fw-semibold">{{ status_labels.get(estimate.status, estimate.status) }}</div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="border rounded p-3 bg-light">
+            <div class="text-muted small">Ważny do</div>
+            <div class="fw-semibold">{{ estimate.valid_until or '-' }}</div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="border rounded p-3 bg-light">
+            <div class="text-muted small">Netto</div>
+            <div class="fw-semibold">{{ '%.2f'|format(estimate.net_total) }} PLN</div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="border rounded p-3 bg-light">
+            <div class="text-muted small">Brutto</div>
+            <div class="fw-semibold">{{ '%.2f'|format(estimate.gross_total) }} PLN</div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h5 class="card-title">Wersje kosztorysu</h5>
+        <div class="table-responsive">
+            <table class="table table-sm table-striped align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Wersja</th>
+                        <th>Status</th>
+                        <th>Data</th>
+                        <th>Brutto</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for version in latest_versions %}
+                    <tr>
+                        <td>v{{ version.version_number }}</td>
+                        <td>{{ status_labels.get(version.status, version.status) }}</td>
+                        <td>{{ version.created_at }}</td>
+                        <td>{{ '%.2f'|format(version.gross_total) }} PLN</td>
+                        <td class="text-end">
+                            <a class="btn btn-sm btn-outline-primary" href="{{ url_for('services.details', estimate_id=version.id) }}">Otwórz</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h5 class="card-title">Dodaj własną pozycję</h5>
+        <form method="post" action="{{ url_for('services.add_item', estimate_id=estimate.id) }}">
+            {{ item_form.hidden_tag() }}
+            <div class="row g-3">
+                <div class="col-md-5">
+                    {{ item_form.name.label(class="form-label") }}
+                    {{ item_form.name(class="form-control") }}
+                </div>
+                <div class="col-md-2">
+                    {{ item_form.quantity.label(class="form-label") }}
+                    {{ item_form.quantity(class="form-control", value=1) }}
+                </div>
+                <div class="col-md-2">
+                    {{ item_form.unit.label(class="form-label") }}
+                    {{ item_form.unit(class="form-control", value="szt.") }}
+                </div>
+                <div class="col-md-3">
+                    {{ item_form.unit_net_price.label(class="form-label") }}
+                    {{ item_form.unit_net_price(class="form-control") }}
+                </div>
+                <div class="col-md-3">
+                    {{ item_form.discount_percent.label(class="form-label") }}
+                    {{ item_form.discount_percent(class="form-control", value="0") }}
+                </div>
+                <div class="col-md-3">
+                    {{ item_form.vat_rate.label(class="form-label") }}
+                    {{ item_form.vat_rate(class="form-control", value="23") }}
+                </div>
+                <div class="col-md-6">
+                    {{ item_form.description.label(class="form-label") }}
+                    {{ item_form.description(class="form-control", rows=2) }}
+                </div>
+            </div>
+            <div class="mt-3">
+                {{ item_form.submit(class="btn btn-primary") }}
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center gap-2 mb-3">
+            <h5 class="card-title mb-0">Pozycje kosztorysu</h5>
+            <form method="post" action="{{ url_for('services.recalculate', estimate_id=estimate.id) }}" class="d-inline">
+                {{ send_form.hidden_tag() }}
+                <button type="submit" class="btn btn-sm btn-outline-secondary">Przelicz ponownie</button>
+            </form>
+        </div>
+        {% if estimate.items %}
+        <form method="post" action="{{ url_for('services.reorder_items', estimate_id=estimate.id) }}" class="mb-3">
+            {{ reorder_form.hidden_tag() }}
+            <input type="hidden" name="item_order" value="{{ estimate.items | map(attribute='id') | join(',') }}">
+            <button type="submit" class="btn btn-sm btn-outline-secondary">Zapisz kolejność widoczną na liście</button>
+        </form>
+        <div class="table-responsive">
+            <table class="table table-sm table-striped align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>LP</th>
+                        <th>Rodzaj</th>
+                        <th>Pozycja</th>
+                        <th>Ilość</th>
+                        <th>Cena netto</th>
+                        <th>Rabat</th>
+                        <th>VAT</th>
+                        <th>Brutto</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in estimate.items %}
+                    <tr>
+                        <td>{{ item.sort_order }}</td>
+                        <td>{{ item_source_labels.get(item.source_type, item.source_type) }}</td>
+                        <td>
+                            <div class="fw-semibold">{{ item.code or '-' }} | {{ item.name }}</div>
+                            <div class="text-muted small">{{ item.description or '' }}</div>
+                        </td>
+                        <td>{{ '%.3f'|format(item.quantity) }} {{ item.unit }}</td>
+                        <td>{{ '%.2f'|format(item.unit_net_price) }} PLN</td>
+                        <td>{{ '%.2f'|format(item.discount_percent) }}%</td>
+                        <td>{{ '%.2f'|format(item.vat_rate) }}%</td>
+                        <td>{{ '%.2f'|format(item.gross_value) }} PLN</td>
+                        <td class="text-end">
+                            <form method="post" action="{{ url_for('services.delete_item', estimate_id=estimate.id, item_id=item.id) }}" class="d-inline">
+                                {{ send_form.hidden_tag() }}
+                                <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Usunąć pozycję?');">Usuń</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted mb-0">Brak pozycji w kosztorysie.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

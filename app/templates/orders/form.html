@@ -1,0 +1,600 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+
+<div class="page-header d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h1 class="h3">{{ title }}</h1>
+        {% if order %}
+        <small class="text-muted">ID: {{ order.id }}</small>
+        {% endif %}
+    </div>
+    <a class="btn btn-outline-secondary" href="{{ url_for('orders.index') }}">Powrót</a>
+</div>
+
+{% if order %}
+<ul class="nav nav-tabs mb-3" id="order-edit-tabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="order-data-tab" data-bs-toggle="tab" data-bs-target="#order-data-pane" type="button" role="tab" aria-controls="order-data-pane" aria-selected="true">
+            Dane zlecenia
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="order-timeline-tab" data-bs-toggle="tab" data-bs-target="#order-timeline-pane" type="button" role="tab" aria-controls="order-timeline-pane" aria-selected="false">
+            Historia naprawy / Czynności serwisowe
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="order-parts-tab" data-bs-toggle="tab" data-bs-target="#order-parts-pane" type="button" role="tab" aria-controls="order-parts-pane" aria-selected="false">
+            Zużyte części
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content" id="order-edit-tabs-content">
+    <div class="tab-pane fade show active" id="order-data-pane" role="tabpanel" aria-labelledby="order-data-tab" tabindex="0">
+{% endif %}
+
+<div class="card">
+    <div class="card-body">
+        <form method="post">
+            {{ form.hidden_tag() }}
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="d-flex justify-content-between align-items-center gap-2">
+                        {{ form.customer_id.label(class="form-label mb-0") }}
+                        <div class="btn-group btn-group-sm" role="group" aria-label="Akcje klienta">
+                            <button type="button" id="btn-customer-new" class="btn btn-outline-primary">Nowy klient</button>
+                            <button type="button" id="btn-customer-edit" class="btn btn-outline-secondary">Edytuj klienta</button>
+                        </div>
+                    </div>
+                    {{ form.customer_id(class="form-select", id="customer_id") }}
+                </div>
+                <div class="col-md-6">
+                    <div class="d-flex justify-content-between align-items-center gap-2">
+                        {{ form.device_id.label(class="form-label mb-0") }}
+                        <div class="btn-group btn-group-sm" role="group" aria-label="Akcje urządzenia">
+                            <button type="button" id="btn-device-new" class="btn btn-outline-primary">Nowe urządzenie</button>
+                            <button type="button" id="btn-device-edit" class="btn btn-outline-secondary">Edytuj urządzenie</button>
+                        </div>
+                    </div>
+                    {{ form.device_id(class="form-select", id="device_id") }}
+                    <div id="no-customer-devices" class="form-text text-warning {% if has_devices or not selected_customer_id %}d-none{% endif %}">
+                        Klient nie ma jeszcze żadnego urządzenia.
+                        <button type="button" id="btn-add-device-inline" class="btn btn-link btn-sm p-0 align-baseline">Dodaj urządzenie</button>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    {{ form.order_number.label(class="form-label") }}
+                    {{ form.order_number(class="form-control") }}
+                </div>
+                <div class="col-md-4">
+                    {{ form.order_type.label(class="form-label") }}
+                    {{ form.order_type(class="form-select") }}
+                </div>
+                <div class="col-md-4">
+                    {{ form.intake_date.label(class="form-label") }}
+                    {{ form.intake_date(class="form-control") }}
+                </div>
+                <div class="col-md-4">
+                    {{ form.status.label(class="form-label") }}
+                    {{ form.status(class="form-select") }}
+                </div>
+                <div class="col-md-4">
+                    {{ form.priority.label(class="form-label") }}
+                    {{ form.priority(class="form-select") }}
+                </div>
+                <div class="col-md-4">
+                    {{ form.planned_finish_date.label(class="form-label") }}
+                    {{ form.planned_finish_date(class="form-control") }}
+                </div>
+                <div class="col-md-6">
+                    {{ form.external_reference.label(class="form-label") }}
+                    {{ form.external_reference(class="form-control") }}
+                </div>
+                <div class="col-12">
+                    {{ form.issue_description.label(class="form-label") }}
+                    {{ form.issue_description(class="form-control", rows=4) }}
+                </div>
+                <div class="col-12">
+                    {{ form.diagnosis.label(class="form-label") }}
+                    {{ form.diagnosis(class="form-control", rows=4) }}
+                </div>
+                <div class="col-12">
+                    {{ form.repair_description.label(class="form-label") }}
+                    {{ form.repair_description(class="form-control", rows=4) }}
+                </div>
+                <div class="col-12">
+                    {{ form.customer_notes.label(class="form-label") }}
+                    {{ form.customer_notes(class="form-control", rows=4) }}
+                </div>
+                <div class="col-12">
+                    {{ form.technician_notes.label(class="form-label") }}
+                    {{ form.technician_notes(class="form-control", rows=4) }}
+                </div>
+            </div>
+
+            <div class="mt-4">
+                {{ form.submit(class="btn btn-primary") }}
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if order %}
+    </div>
+
+    <div class="tab-pane fade" id="order-timeline-pane" role="tabpanel" aria-labelledby="order-timeline-tab" tabindex="0">
+        <div class="card">
+            <div class="card-body">
+                <h2 class="h5 mb-3">Dodaj wpis</h2>
+                <div id="timeline-form-container">
+                    {% include "orders/partials/timeline_entry_form.html" %}
+                </div>
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-body">
+                <h2 class="h5 mb-3">Oś czasu naprawy</h2>
+                <p id="timeline-empty" class="text-muted {% if timeline_entries %}d-none{% endif %}">
+                    Brak wpisów w historii naprawy dla tego zlecenia.
+                </p>
+                <div id="timeline-list" class="repair-timeline {% if not timeline_entries %}d-none{% endif %}">
+                    {% for entry in timeline_entries %}
+                    {% include "orders/partials/timeline_entry_item.html" %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="tab-pane fade" id="order-parts-pane" role="tabpanel" aria-labelledby="order-parts-tab" tabindex="0">
+        <div class="card">
+            <div class="card-body">
+                <h2 class="h5 mb-3">Dodaj zużycie części</h2>
+                <div id="order-parts-form-container">
+                    {% include "orders/partials/order_part_usage_form.html" %}
+                </div>
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-body">
+                <h2 class="h5 mb-3">Historia zużycia części</h2>
+                <div id="order-parts-list-container">
+                    {% include "orders/partials/order_part_usage_table.html" %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="modal fade" id="entityModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content" id="entityModalContent"></div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    (function () {
+        const customerSelect = document.getElementById("customer_id");
+        const deviceSelect = document.getElementById("device_id");
+        const noDevicesMessage = document.getElementById("no-customer-devices");
+        const customerNewButton = document.getElementById("btn-customer-new");
+        const customerEditButton = document.getElementById("btn-customer-edit");
+        const deviceNewButton = document.getElementById("btn-device-new");
+        const deviceEditButton = document.getElementById("btn-device-edit");
+        const addDeviceInlineButton = document.getElementById("btn-add-device-inline");
+        const modalElement = document.getElementById("entityModal");
+        const modalContent = document.getElementById("entityModalContent");
+        const timelineFormContainer = document.getElementById("timeline-form-container");
+        const timelineList = document.getElementById("timeline-list");
+        const timelineEmpty = document.getElementById("timeline-empty");
+        const orderPartsFormContainer = document.getElementById("order-parts-form-container");
+        const orderPartsListContainer = document.getElementById("order-parts-list-container");
+
+        if (!customerSelect || !deviceSelect || !noDevicesMessage || !modalElement || !modalContent) {
+            return;
+        }
+
+        if (!window.bootstrap || !window.bootstrap.Modal) {
+            console.error("Bootstrap Modal is unavailable.");
+            return;
+        }
+
+        const modal = new bootstrap.Modal(modalElement);
+        const customerEditUrlBase = "{{ url_for('orders.modal_edit_customer', customer_id=0) }}".replace("0/edit", "");
+        const deviceEditUrlBase = "{{ url_for('orders.modal_edit_device', device_id=0) }}".replace("0/edit", "");
+
+        function showError(message) {
+            const fallback = message || "Wystąpił błąd podczas komunikacji z serwerem.";
+            const errorHtml = `
+                <div class="modal-header">
+                    <h5 class="modal-title">Błąd</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zamknij"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-danger mb-0">${fallback}</div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Zamknij</button>
+                </div>
+            `;
+            modalContent.innerHTML = errorHtml;
+            modal.show();
+        }
+
+        function selectedCustomerId() {
+            const value = Number(customerSelect.value);
+            return Number.isFinite(value) && value > 0 ? value : null;
+        }
+
+        function selectedDeviceId() {
+            const value = Number(deviceSelect.value);
+            return Number.isFinite(value) && value > 0 ? value : null;
+        }
+
+        function syncActionButtonsState() {
+            if (customerEditButton) {
+                customerEditButton.disabled = selectedCustomerId() === null;
+            }
+            if (deviceEditButton) {
+                deviceEditButton.disabled = selectedDeviceId() === null;
+            }
+        }
+
+        function setNoDevicesVisible(isVisible) {
+            if (isVisible) {
+                noDevicesMessage.classList.remove("d-none");
+            } else {
+                noDevicesMessage.classList.add("d-none");
+            }
+        }
+
+        function resetDeviceOptions() {
+            deviceSelect.innerHTML = "";
+            const option = document.createElement("option");
+            option.value = "-1";
+            option.textContent = "Wybierz urządzenie";
+            deviceSelect.appendChild(option);
+        }
+
+        async function loadDevicesForCustomer(customerId, selectedId = null) {
+            resetDeviceOptions();
+
+            if (!customerId || Number(customerId) <= 0) {
+                setNoDevicesVisible(false);
+                syncActionButtonsState();
+                return;
+            }
+
+            const response = await fetch(`{{ url_for('orders.devices_by_customer') }}?customer_id=${customerId}`);
+            if (!response.ok) {
+                setNoDevicesVisible(false);
+                syncActionButtonsState();
+                return;
+            }
+
+            const payload = await response.json();
+            const devices = payload.devices || [];
+
+            for (const device of devices) {
+                const option = document.createElement("option");
+                option.value = String(device.id);
+                option.textContent = device.label;
+                deviceSelect.appendChild(option);
+            }
+
+            if (selectedId && Number(selectedId) > 0) {
+                deviceSelect.value = String(selectedId);
+            }
+
+            setNoDevicesVisible(!payload.has_devices);
+            syncActionButtonsState();
+        }
+
+        async function refreshCustomerOptions(selectedId = null) {
+            const response = await fetch("{{ url_for('orders.customer_options') }}");
+            if (!response.ok) {
+                return;
+            }
+
+            const payload = await response.json();
+            const customers = payload.customers || [];
+
+            customerSelect.innerHTML = "";
+            const placeholder = document.createElement("option");
+            placeholder.value = "-1";
+            placeholder.textContent = "Wybierz klienta";
+            customerSelect.appendChild(placeholder);
+
+            for (const customer of customers) {
+                const option = document.createElement("option");
+                option.value = String(customer.id);
+                option.textContent = customer.label;
+                customerSelect.appendChild(option);
+            }
+
+            if (selectedId && Number(selectedId) > 0) {
+                customerSelect.value = String(selectedId);
+            }
+
+            syncActionButtonsState();
+        }
+
+        async function openEntityModal(url) {
+            try {
+                const response = await fetch(url, {
+                    headers: {
+                        "X-Requested-With": "XMLHttpRequest",
+                    },
+                });
+                if (!response.ok) {
+                    showError("Nie udało się pobrać formularza.");
+                    return;
+                }
+
+                modalContent.innerHTML = await response.text();
+                modal.show();
+            } catch (error) {
+                console.error(error);
+                showError("Nie udało się połączyć z serwerem.");
+            }
+        }
+
+        async function handleModalSuccess(payload) {
+            if (payload.customer) {
+                const customerId = Number(payload.customer.id);
+                await refreshCustomerOptions(customerId);
+                await loadDevicesForCustomer(customerId, null);
+                modal.hide();
+                return;
+            }
+
+            if (payload.device) {
+                const customerId = Number(payload.device.customer_id);
+                await refreshCustomerOptions(customerId);
+                await loadDevicesForCustomer(customerId, Number(payload.device.id));
+                modal.hide();
+            }
+        }
+
+        customerSelect.addEventListener("change", function () {
+            loadDevicesForCustomer(customerSelect.value, null);
+        });
+
+        deviceSelect.addEventListener("change", function () {
+            syncActionButtonsState();
+        });
+
+        modalContent.addEventListener("submit", async function (event) {
+            const form = event.target;
+            if (!(form instanceof HTMLFormElement) || !form.classList.contains("js-modal-form")) {
+                return;
+            }
+
+            event.preventDefault();
+            try {
+                const response = await fetch(form.action, {
+                    method: "POST",
+                    body: new FormData(form),
+                    headers: {
+                        "X-Requested-With": "XMLHttpRequest",
+                    },
+                });
+
+                let payload = null;
+                try {
+                    payload = await response.json();
+                } catch (jsonError) {
+                    console.error(jsonError);
+                    showError("Serwer zwrócił nieprawidłową odpowiedź.");
+                    return;
+                }
+
+                if (response.ok && payload.ok) {
+                    await handleModalSuccess(payload);
+                    return;
+                }
+
+                if (payload && payload.html) {
+                    modalContent.innerHTML = payload.html;
+                    return;
+                }
+
+                showError((payload && payload.message) || "Nie udało się zapisać formularza.");
+            } catch (error) {
+                console.error(error);
+                showError("Nie udało się połączyć z serwerem podczas zapisu.");
+            }
+        });
+
+        if (customerNewButton) {
+            customerNewButton.addEventListener("click", function () {
+                openEntityModal("{{ url_for('orders.modal_create_customer') }}");
+            });
+        }
+
+        if (customerEditButton) {
+            customerEditButton.addEventListener("click", function () {
+                const customerId = selectedCustomerId();
+                if (!customerId) {
+                    return;
+                }
+                openEntityModal(`${customerEditUrlBase}${customerId}/edit`);
+            });
+        }
+
+        function openNewDeviceModal() {
+            const customerId = selectedCustomerId();
+            if (!customerId) {
+                return;
+            }
+            openEntityModal(`{{ url_for('orders.modal_create_device') }}?customer_id=${customerId}`);
+        }
+
+        if (deviceNewButton) {
+            deviceNewButton.addEventListener("click", openNewDeviceModal);
+        }
+
+        if (addDeviceInlineButton) {
+            addDeviceInlineButton.addEventListener("click", openNewDeviceModal);
+        }
+
+        if (deviceEditButton) {
+            deviceEditButton.addEventListener("click", function () {
+                const deviceId = selectedDeviceId();
+                if (!deviceId) {
+                    return;
+                }
+                openEntityModal(`${deviceEditUrlBase}${deviceId}/edit`);
+            });
+        }
+
+        syncActionButtonsState();
+        if (selectedCustomerId()) {
+            loadDevicesForCustomer(selectedCustomerId(), selectedDeviceId());
+        }
+
+        if (timelineFormContainer && timelineList && timelineEmpty) {
+            timelineFormContainer.addEventListener("submit", async function (event) {
+                const form = event.target;
+                if (!(form instanceof HTMLFormElement) || !form.classList.contains("js-timeline-form")) {
+                    return;
+                }
+
+                event.preventDefault();
+
+                try {
+                    const response = await fetch(form.action, {
+                        method: "POST",
+                        body: new FormData(form),
+                        headers: {
+                            "X-Requested-With": "XMLHttpRequest",
+                        },
+                    });
+
+                    let payload = null;
+                    try {
+                        payload = await response.json();
+                    } catch (jsonError) {
+                        console.error(jsonError);
+                        showError("Serwer zwrócił nieprawidłową odpowiedź podczas zapisu wpisu.");
+                        return;
+                    }
+
+                    if (response.ok && payload && payload.ok) {
+                        if (payload.form_html) {
+                            timelineFormContainer.innerHTML = payload.form_html;
+                        }
+
+                        if (payload.entry_html) {
+                            timelineList.insertAdjacentHTML("beforeend", payload.entry_html);
+                        }
+
+                        timelineEmpty.classList.add("d-none");
+                        timelineList.classList.remove("d-none");
+                        return;
+                    }
+
+                    if (payload && payload.form_html) {
+                        timelineFormContainer.innerHTML = payload.form_html;
+                        return;
+                    }
+
+                    showError((payload && payload.message) || "Nie udało się zapisać wpisu historii.");
+                } catch (error) {
+                    console.error(error);
+                    showError("Błąd połączenia podczas zapisu wpisu historii.");
+                }
+            });
+        }
+
+        function applyPartPriceAutofill() {
+            const priceMapNode = document.getElementById("order-part-price-map");
+            const partSelect = document.getElementById("order_part_id");
+            const priceInput = document.querySelector("#order-parts-form-container input[name='unit_net_price']");
+            if (!priceMapNode || !partSelect || !priceInput) {
+                return;
+            }
+
+            let priceMap = {};
+            try {
+                priceMap = JSON.parse(priceMapNode.textContent || "{}");
+            } catch (error) {
+                console.error(error);
+                priceMap = {};
+            }
+
+            partSelect.addEventListener("change", function () {
+                const selected = String(partSelect.value || "");
+                const suggestedPrice = priceMap[selected];
+                if (suggestedPrice !== undefined) {
+                    priceInput.value = suggestedPrice;
+                }
+            });
+        }
+
+        if (orderPartsFormContainer && orderPartsListContainer) {
+            applyPartPriceAutofill();
+            orderPartsFormContainer.addEventListener("submit", async function (event) {
+                const form = event.target;
+                if (!(form instanceof HTMLFormElement) || !form.classList.contains("js-order-part-form")) {
+                    return;
+                }
+
+                event.preventDefault();
+                try {
+                    const response = await fetch(form.action, {
+                        method: "POST",
+                        body: new FormData(form),
+                        headers: {
+                            "X-Requested-With": "XMLHttpRequest",
+                        },
+                    });
+
+                    let payload = null;
+                    try {
+                        payload = await response.json();
+                    } catch (jsonError) {
+                        console.error(jsonError);
+                        showError("Serwer zwrócił nieprawidłową odpowiedź podczas dodawania części.");
+                        return;
+                    }
+
+                    if (response.ok && payload && payload.ok) {
+                        if (payload.form_html) {
+                            orderPartsFormContainer.innerHTML = payload.form_html;
+                        }
+                        if (payload.list_html) {
+                            orderPartsListContainer.innerHTML = payload.list_html;
+                        }
+                        applyPartPriceAutofill();
+                        return;
+                    }
+
+                    if (payload && payload.form_html) {
+                        orderPartsFormContainer.innerHTML = payload.form_html;
+                        applyPartPriceAutofill();
+                        return;
+                    }
+
+                    showError((payload && payload.message) || "Nie udało się dodać zużytej części.");
+                } catch (error) {
+                    console.error(error);
+                    showError("Błąd połączenia podczas dodawania części.");
+                }
+            });
+        }
+    })();
+</script>
+
+{% endblock %}

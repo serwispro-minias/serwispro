@@ -1,0 +1,642 @@
+{
+  "unused_imports": [
+    {
+      "file": "app/__init__.py",
+      "line": 3,
+      "name": "cast",
+      "import": "typing.cast"
+    },
+    {
+      "file": "app/__init__.py",
+      "line": 18,
+      "name": "Company",
+      "import": "app.models.Company"
+    },
+    {
+      "file": "app/api/__init__.py",
+      "line": 5,
+      "name": "routes",
+      "import": "routes"
+    },
+    {
+      "file": "app/auth/__init__.py",
+      "line": 1,
+      "name": "bp",
+      "import": "routes.bp"
+    },
+    {
+      "file": "app/common/__init__.py",
+      "line": 5,
+      "name": "routes",
+      "import": "routes"
+    },
+    {
+      "file": "app/core/__init__.py",
+      "line": 3,
+      "name": "CoreError",
+      "import": "exceptions.CoreError"
+    },
+    {
+      "file": "app/core/__init__.py",
+      "line": 3,
+      "name": "SecurityError",
+      "import": "exceptions.SecurityError"
+    },
+    {
+      "file": "app/core/__init__.py",
+      "line": 4,
+      "name": "SecurityPolicy",
+      "import": "security.SecurityPolicy"
+    },
+    {
+      "file": "app/core/__init__.py",
+      "line": 5,
+      "name": "normalize_text",
+      "import": "utils.normalize_text"
+    },
+    {
+      "file": "app/customers/services.py",
+      "line": 3,
+      "name": "List",
+      "import": "typing.List"
+    },
+    {
+      "file": "app/customers/__init__.py",
+      "line": 14,
+      "name": "routes",
+      "import": "routes"
+    },
+    {
+      "file": "app/customers/__init__.py",
+      "line": 15,
+      "name": "CustomerAlreadyExistsError",
+      "import": "exceptions.CustomerAlreadyExistsError"
+    },
+    {
+      "file": "app/customers/__init__.py",
+      "line": 15,
+      "name": "CustomerError",
+      "import": "exceptions.CustomerError"
+    },
+    {
+      "file": "app/customers/__init__.py",
+      "line": 15,
+      "name": "CustomerInactiveError",
+      "import": "exceptions.CustomerInactiveError"
+    },
+    {
+      "file": "app/customers/__init__.py",
+      "line": 15,
+      "name": "CustomerNotFoundError",
+      "import": "exceptions.CustomerNotFoundError"
+    },
+    {
+      "file": "app/customers/__init__.py",
+      "line": 15,
+      "name": "CustomerValidationError",
+      "import": "exceptions.CustomerValidationError"
+    },
+    {
+      "file": "app/customers/__init__.py",
+      "line": 22,
+      "name": "CustomerValidator",
+      "import": "validators.CustomerValidator"
+    },
+    {
+      "file": "app/dashboard/__init__.py",
+      "line": 5,
+      "name": "routes",
+      "import": "routes"
+    },
+    {
+      "file": "app/devices/models.py",
+      "line": 7,
+      "name": "Device",
+      "import": "app.models.device.Device"
+    },
+    {
+      "file": "app/devices/__init__.py",
+      "line": 5,
+      "name": "routes",
+      "import": "routes"
+    },
+    {
+      "file": "app/inventory/models.py",
+      "line": 1,
+      "name": "InventoryPart",
+      "import": "app.models.inventory_part.InventoryPart"
+    },
+    {
+      "file": "app/inventory/models.py",
+      "line": 2,
+      "name": "INVENTORY_OPERATION_TYPE_CHOICES",
+      "import": "app.models.inventory_stock_operation.INVENTORY_OPERATION_TYPE_CHOICES"
+    },
+    {
+      "file": "app/inventory/models.py",
+      "line": 2,
+      "name": "INVENTORY_OPERATION_TYPE_LABELS",
+      "import": "app.models.inventory_stock_operation.INVENTORY_OPERATION_TYPE_LABELS"
+    },
+    {
+      "file": "app/inventory/models.py",
+      "line": 2,
+      "name": "InventoryStockOperation",
+      "import": "app.models.inventory_stock_operation.InventoryStockOperation"
+    },
+    {
+      "file": "app/inventory/__init__.py",
+      "line": 5,
+      "name": "routes",
+      "import": "routes"
+    },
+    {
+      "file": "app/models/service_order.py",
+      "line": 6,
+      "name": "List",
+      "import": "typing.List"
+    },
+    {
+      "file": "app/models/service_order_status_history.py",
+      "line": 6,
+      "name": "Integer",
+      "import": "sqlalchemy.Integer"
+    },
+    {
+      "file": "app/notifications/repository.py",
+      "line": 8,
+      "name": "Device",
+      "import": "app.models.device.Device"
+    },
+    {
+      "file": "app/notifications/__init__.py",
+      "line": 1,
+      "name": "CHANNEL_CHOICES",
+      "import": "constants.CHANNEL_CHOICES"
+    },
+    {
+      "file": "app/notifications/__init__.py",
+      "line": 1,
+      "name": "CHANNEL_EMAIL",
+      "import": "constants.CHANNEL_EMAIL"
+    },
+    {
+      "file": "app/notifications/__init__.py",
+      "line": 1,
+      "name": "CHANNEL_SMS",
+      "import": "constants.CHANNEL_SMS"
+    },
+    {
+      "file": "app/notifications/__init__.py",
+      "line": 1,
+      "name": "NOTIFICATION_EVENT_CHOICES",
+      "import": "constants.NOTIFICATION_EVENT_CHOICES"
+    },
+    {
+      "file": "app/notifications/__init__.py",
+      "line": 1,
+      "name": "NOTIFICATION_EVENT_LABELS",
+      "import": "constants.NOTIFICATION_EVENT_LABELS"
+    },
+    {
+      "file": "app/notifications/__init__.py",
+      "line": 1,
+      "name": "NOTIFICATION_STATUS_CHOICES",
+      "import": "constants.NOTIFICATION_STATUS_CHOICES"
+    },
+    {
+      "file": "app/notifications/__init__.py",
+      "line": 1,
+      "name": "NOTIFICATION_STATUS_LABELS",
+      "import": "constants.NOTIFICATION_STATUS_LABELS"
+    },
+    {
+      "file": "app/notifications/__init__.py",
+      "line": 1,
+      "name": "STATUS_TO_EVENT_KEY",
+      "import": "constants.STATUS_TO_EVENT_KEY"
+    },
+    {
+      "file": "app/notifications/__init__.py",
+      "line": 11,
+      "name": "NotificationDraft",
+      "import": "service.NotificationDraft"
+    },
+    {
+      "file": "app/notifications/__init__.py",
+      "line": 11,
+      "name": "NotificationError",
+      "import": "service.NotificationError"
+    },
+    {
+      "file": "app/notifications/__init__.py",
+      "line": 11,
+      "name": "NotificationService",
+      "import": "service.NotificationService"
+    },
+    {
+      "file": "app/orders/exceptions.py",
+      "line": 1,
+      "name": "ServiceOrderError",
+      "import": "app.service_orders.exceptions.ServiceOrderError"
+    },
+    {
+      "file": "app/orders/exceptions.py",
+      "line": 1,
+      "name": "ServiceOrderNotFoundError",
+      "import": "app.service_orders.exceptions.ServiceOrderNotFoundError"
+    },
+    {
+      "file": "app/orders/exceptions.py",
+      "line": 1,
+      "name": "ServiceOrderValidationError",
+      "import": "app.service_orders.exceptions.ServiceOrderValidationError"
+    },
+    {
+      "file": "app/orders/models.py",
+      "line": 1,
+      "name": "SERVICE_ORDER_PRIORITY_CHOICES",
+      "import": "app.models.service_order.SERVICE_ORDER_PRIORITY_CHOICES"
+    },
+    {
+      "file": "app/orders/models.py",
+      "line": 1,
+      "name": "SERVICE_ORDER_PRIORITY_LABELS",
+      "import": "app.models.service_order.SERVICE_ORDER_PRIORITY_LABELS"
+    },
+    {
+      "file": "app/orders/models.py",
+      "line": 1,
+      "name": "SERVICE_ORDER_STATUS_CHOICES",
+      "import": "app.models.service_order.SERVICE_ORDER_STATUS_CHOICES"
+    },
+    {
+      "file": "app/orders/models.py",
+      "line": 1,
+      "name": "SERVICE_ORDER_STATUS_LABELS",
+      "import": "app.models.service_order.SERVICE_ORDER_STATUS_LABELS"
+    },
+    {
+      "file": "app/orders/models.py",
+      "line": 1,
+      "name": "ServiceOrder",
+      "import": "app.models.service_order.ServiceOrder"
+    },
+    {
+      "file": "app/orders/models.py",
+      "line": 1,
+      "name": "ServiceOrderPriorityEnum",
+      "import": "app.models.service_order.ServiceOrderPriorityEnum"
+    },
+    {
+      "file": "app/orders/models.py",
+      "line": 1,
+      "name": "ServiceOrderStatusEnum",
+      "import": "app.models.service_order.ServiceOrderStatusEnum"
+    },
+    {
+      "file": "app/orders/models.py",
+      "line": 10,
+      "name": "SERVICE_ORDER_TIMELINE_TYPE_CHOICES",
+      "import": "app.models.service_order_timeline.SERVICE_ORDER_TIMELINE_TYPE_CHOICES"
+    },
+    {
+      "file": "app/orders/models.py",
+      "line": 10,
+      "name": "SERVICE_ORDER_TIMELINE_TYPE_LABELS",
+      "import": "app.models.service_order_timeline.SERVICE_ORDER_TIMELINE_TYPE_LABELS"
+    },
+    {
+      "file": "app/orders/models.py",
+      "line": 10,
+      "name": "ServiceOrderTimelineAttachment",
+      "import": "app.models.service_order_timeline.ServiceOrderTimelineAttachment"
+    },
+    {
+      "file": "app/orders/models.py",
+      "line": 10,
+      "name": "ServiceOrderTimelineEntry",
+      "import": "app.models.service_order_timeline.ServiceOrderTimelineEntry"
+    },
+    {
+      "file": "app/orders/repository.py",
+      "line": 1,
+      "name": "ServiceOrderRepository",
+      "import": "app.service_orders.repository.ServiceOrderRepository"
+    },
+    {
+      "file": "app/orders/service.py",
+      "line": 1,
+      "name": "ServiceOrderService",
+      "import": "app.service_orders.service.ServiceOrderService"
+    },
+    {
+      "file": "app/orders/validators.py",
+      "line": 1,
+      "name": "ServiceOrderValidator",
+      "import": "app.service_orders.validators.ServiceOrderValidator"
+    },
+    {
+      "file": "app/orders/__init__.py",
+      "line": 5,
+      "name": "routes",
+      "import": "routes"
+    },
+    {
+      "file": "app/reports/__init__.py",
+      "line": 5,
+      "name": "routes",
+      "import": "routes"
+    },
+    {
+      "file": "app/services/__init__.py",
+      "line": 5,
+      "name": "routes",
+      "import": "routes"
+    },
+    {
+      "file": "app/service_orders/forms.py",
+      "line": 6,
+      "name": "HiddenField",
+      "import": "wtforms.HiddenField"
+    },
+    {
+      "file": "app/service_orders/models.py",
+      "line": 6,
+      "name": "SERVICE_ORDER_PRIORITY_CHOICES",
+      "import": "app.models.service_order.SERVICE_ORDER_PRIORITY_CHOICES"
+    },
+    {
+      "file": "app/service_orders/models.py",
+      "line": 6,
+      "name": "SERVICE_ORDER_PRIORITY_LABELS",
+      "import": "app.models.service_order.SERVICE_ORDER_PRIORITY_LABELS"
+    },
+    {
+      "file": "app/service_orders/models.py",
+      "line": 6,
+      "name": "SERVICE_ORDER_STATUS_BADGE_CLASSES",
+      "import": "app.models.service_order.SERVICE_ORDER_STATUS_BADGE_CLASSES"
+    },
+    {
+      "file": "app/service_orders/models.py",
+      "line": 6,
+      "name": "SERVICE_ORDER_STATUS_CHOICES",
+      "import": "app.models.service_order.SERVICE_ORDER_STATUS_CHOICES"
+    },
+    {
+      "file": "app/service_orders/models.py",
+      "line": 6,
+      "name": "SERVICE_ORDER_STATUS_LABELS",
+      "import": "app.models.service_order.SERVICE_ORDER_STATUS_LABELS"
+    },
+    {
+      "file": "app/service_orders/models.py",
+      "line": 6,
+      "name": "ServiceOrder",
+      "import": "app.models.service_order.ServiceOrder"
+    },
+    {
+      "file": "app/service_orders/models.py",
+      "line": 6,
+      "name": "ServiceOrderPriorityEnum",
+      "import": "app.models.service_order.ServiceOrderPriorityEnum"
+    },
+    {
+      "file": "app/service_orders/models.py",
+      "line": 6,
+      "name": "ServiceOrderStatusEnum",
+      "import": "app.models.service_order.ServiceOrderStatusEnum"
+    },
+    {
+      "file": "app/service_orders/models.py",
+      "line": 16,
+      "name": "ServiceOrderStatusHistory",
+      "import": "app.models.service_order_status_history.ServiceOrderStatusHistory"
+    },
+    {
+      "file": "app/settings/__init__.py",
+      "line": 5,
+      "name": "routes",
+      "import": "routes"
+    },
+    {
+      "file": "app/utils/__init__.py",
+      "line": 5,
+      "name": "routes",
+      "import": "routes"
+    }
+  ],
+  "rare_top_defs": [
+    {
+      "file": "app/__init__.py",
+      "name": "create_app",
+      "kind": "FunctionDef",
+      "line": 28,
+      "mentions": 1
+    },
+    {
+      "file": "app/api/forms.py",
+      "name": "ApiForm",
+      "kind": "ClassDef",
+      "line": 4,
+      "mentions": 1
+    },
+    {
+      "file": "app/api/service.py",
+      "name": "get_api_context",
+      "kind": "FunctionDef",
+      "line": 4,
+      "mentions": 1
+    },
+    {
+      "file": "app/common/forms.py",
+      "name": "CommonForm",
+      "kind": "ClassDef",
+      "line": 4,
+      "mentions": 1
+    },
+    {
+      "file": "app/common/service.py",
+      "name": "get_common_context",
+      "kind": "FunctionDef",
+      "line": 4,
+      "mentions": 1
+    },
+    {
+      "file": "app/dashboard/forms.py",
+      "name": "DashboardForm",
+      "kind": "ClassDef",
+      "line": 4,
+      "mentions": 1
+    },
+    {
+      "file": "app/inventory/importers.py",
+      "name": "InventoryImportRegistry",
+      "kind": "ClassDef",
+      "line": 25,
+      "mentions": 1
+    },
+    {
+      "file": "app/inventory/routes.py",
+      "name": "edit_part",
+      "kind": "FunctionDef",
+      "line": 99,
+      "mentions": 1
+    },
+    {
+      "file": "app/inventory/routes.py",
+      "name": "add_operation",
+      "kind": "FunctionDef",
+      "line": 129,
+      "mentions": 1
+    },
+    {
+      "file": "app/inventory/routes.py",
+      "name": "print_part_card",
+      "kind": "FunctionDef",
+      "line": 156,
+      "mentions": 1
+    },
+    {
+      "file": "app/inventory/routes.py",
+      "name": "print_part_history",
+      "kind": "FunctionDef",
+      "line": 170,
+      "mentions": 1
+    },
+    {
+      "file": "app/inventory/routes.py",
+      "name": "print_stock_state",
+      "kind": "FunctionDef",
+      "line": 184,
+      "mentions": 1
+    },
+    {
+      "file": "app/orders/routes.py",
+      "name": "print_protocol_preview",
+      "kind": "FunctionDef",
+      "line": 332,
+      "mentions": 1
+    },
+    {
+      "file": "app/orders/routes.py",
+      "name": "compose_communication",
+      "kind": "FunctionDef",
+      "line": 533,
+      "mentions": 1
+    },
+    {
+      "file": "app/orders/routes.py",
+      "name": "resend_communication",
+      "kind": "FunctionDef",
+      "line": 611,
+      "mentions": 1
+    },
+    {
+      "file": "app/orders/routes.py",
+      "name": "add_timeline_entry",
+      "kind": "FunctionDef",
+      "line": 637,
+      "mentions": 1
+    },
+    {
+      "file": "app/orders/routes.py",
+      "name": "edit_action",
+      "kind": "FunctionDef",
+      "line": 739,
+      "mentions": 1
+    },
+    {
+      "file": "app/orders/routes.py",
+      "name": "add_order_part_usage",
+      "kind": "FunctionDef",
+      "line": 826,
+      "mentions": 1
+    },
+    {
+      "file": "app/orders/routes.py",
+      "name": "download_timeline_attachment",
+      "kind": "FunctionDef",
+      "line": 884,
+      "mentions": 1
+    },
+    {
+      "file": "app/orders/routes.py",
+      "name": "devices_by_customer",
+      "kind": "FunctionDef",
+      "line": 914,
+      "mentions": 1
+    },
+    {
+      "file": "app/orders/routes.py",
+      "name": "customer_options",
+      "kind": "FunctionDef",
+      "line": 930,
+      "mentions": 1
+    },
+    {
+      "file": "app/reports/forms.py",
+      "name": "ReportsForm",
+      "kind": "ClassDef",
+      "line": 4,
+      "mentions": 1
+    },
+    {
+      "file": "app/reports/service.py",
+      "name": "get_reports_context",
+      "kind": "FunctionDef",
+      "line": 4,
+      "mentions": 1
+    },
+    {
+      "file": "app/service_orders/forms.py",
+      "name": "ServiceOrderForm",
+      "kind": "ClassDef",
+      "line": 10,
+      "mentions": 1
+    },
+    {
+      "file": "app/service_orders/forms.py",
+      "name": "ServiceOrderSearchForm",
+      "kind": "ClassDef",
+      "line": 31,
+      "mentions": 1
+    },
+    {
+      "file": "app/services/forms.py",
+      "name": "ServicesForm",
+      "kind": "ClassDef",
+      "line": 4,
+      "mentions": 1
+    },
+    {
+      "file": "app/services/service.py",
+      "name": "get_services_context",
+      "kind": "FunctionDef",
+      "line": 4,
+      "mentions": 1
+    },
+    {
+      "file": "app/settings/service.py",
+      "name": "get_settings_context",
+      "kind": "FunctionDef",
+      "line": 4,
+      "mentions": 1
+    },
+    {
+      "file": "app/utils/forms.py",
+      "name": "UtilsForm",
+      "kind": "ClassDef",
+      "line": 4,
+      "mentions": 1
+    },
+    {
+      "file": "app/utils/service.py",
+      "name": "get_utils_context",
+      "kind": "FunctionDef",
+      "line": 4,
+      "mentions": 1
+    }
+  ]
+}

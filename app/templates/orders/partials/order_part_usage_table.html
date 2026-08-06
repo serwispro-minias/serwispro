@@ -1,0 +1,40 @@
+{% if part_usages %}
+<div class="table-responsive">
+    <table class="table table-sm table-striped align-middle mb-0">
+        <thead>
+            <tr>
+                <th>Część</th>
+                <th>Ilość</th>
+                <th>Cena netto</th>
+                <th>VAT</th>
+                <th>Wartość netto</th>
+                <th>Wartość VAT</th>
+                <th>Wartość brutto</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for usage in part_usages %}
+            <tr>
+                <td>{{ usage.part.part_code if usage.part else '-' }} | {{ usage.part.name if usage.part else '-' }}</td>
+                <td>{{ '%.3f'|format(usage.quantity) }}</td>
+                <td>{{ '%.2f'|format(usage.unit_net_price) }} PLN</td>
+                <td>{{ '%.2f'|format(usage.vat_rate) }}%</td>
+                <td>{{ '%.2f'|format(usage.net_value) }} PLN</td>
+                <td>{{ '%.2f'|format(usage.vat_value) }} PLN</td>
+                <td>{{ '%.2f'|format(usage.gross_value) }} PLN</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr>
+                <th colspan="4" class="text-end">Suma</th>
+                <th>{{ '%.2f'|format(part_usage_totals.net) }} PLN</th>
+                <th>{{ '%.2f'|format(part_usage_totals.vat) }} PLN</th>
+                <th>{{ '%.2f'|format(part_usage_totals.gross) }} PLN</th>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+{% else %}
+<p class="text-muted mb-0">Brak zużytych części.</p>
+{% endif %}

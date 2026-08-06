@@ -10,6 +10,7 @@ from app.models.base import BaseTenantModel
 
 if TYPE_CHECKING:
     from app.models.customer import Customer
+    from app.models.service_order import ServiceOrder
 
 
 class Device(BaseTenantModel):
@@ -32,6 +33,7 @@ class Device(BaseTenantModel):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     customer: Mapped["Customer"] = relationship("Customer", back_populates="devices")
+    service_orders: Mapped[list["ServiceOrder"]] = relationship("ServiceOrder", back_populates="device", lazy="select")
 
     def __repr__(self) -> str:
         return f"<Device id={self.id} customer_id={self.customer_id}>"

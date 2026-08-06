@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.extensions import db
 from app.models.customer import Customer
 from app.models.device import Device
+from app.models.service_order import ServiceOrderStatusEnum
+from app.models.user import User
 
 from .exceptions import DeviceNotFoundError, DeviceValidationError
 from .repository import DeviceRepository
@@ -130,7 +132,7 @@ class DeviceService:
             select(Customer)
             .where(Customer.company_id == company_id)
             .where(Customer.is_active.is_(True))
-            .order_by(Customer.full_name.asc().nulls_last(), Customer.id.asc())
+            .order_by(func.coalesce(Customer.full_name, "").asc(), Customer.id.asc())
         ).all()
 
         choices: list[tuple[int, str]] = []
@@ -144,6 +146,56 @@ class DeviceService:
             choices.append((customer.id, label))
 
         return choices
+
+    def get_repair_history_context(
+        self,
+        *,
+        device_id: int,
+        company_id: int,
+        branch_id: int | None,
+        query_text: str | None,
+    ) -> dict[str, Any]:
+        """Return scoped repair history rows and summary for one device."""
+
+        all_orders = self.repository.list_device_service_orders(
+            device_id=device_id,
+            company_id=company_id,
+            branch_id=branch_id,
+            query_text=None,
+        )
+        visible_orders = self.repository.list_device_service_orders(
+            device_id=device_id,
+            company_id=company_id,
+            branch_id=branch_id,
+            query_text=(query_text or "").strip() or None,
+        )
+
+        technician_ids = {
+            order.updated_by or order.created_by
+            for order in all_orders
+            if (order.updated_by or order.created_by) is not None
+        }
+        technician_map: dict[int, str] = {}
+        if technician_ids:
+            users = db.session.scalars(select(User).where(User.id.in_(technician_ids))).all()
+            for user in users:
+                full_name = f"{(user.first_name or '').strip()} {(user.last_name or '').strip()}".strip()
+                technician_map[user.id] = full_name or user.login
+
+        intake_dates = [item.intake_date for item in all_orders if item.intake_date is not None]
+        summary = {
+            "total_repairs": len(all_orders),
+            "first_repair": min(intake_dates) if intake_dates else None,
+            "last_repair": max(intake_dates) if intake_dates else None,
+            "completed_count": sum(1 for item in all_orders if item.status == ServiceOrderStatusEnum.ISSUED.value),
+            "cancelled_count": sum(1 for item in all_orders if item.status == ServiceOrderStatusEnum.CANCELLED.value),
+        }
+
+        return {
+            "rows": visible_orders,
+            "summary": summary,
+            "technician_map": technician_map,
+        }
 
     def _validate_customer_scope(self, customer_id: int, company_id: int) -> None:
         customer = db.session.scalar(

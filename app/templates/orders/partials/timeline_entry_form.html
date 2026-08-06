@@ -1,0 +1,46 @@
+<form method="post" action="{{ url_for('orders.add_timeline_entry', order_id=order.id) }}" class="js-timeline-form" enctype="multipart/form-data">
+    {{ timeline_form.hidden_tag() }}
+
+    <div class="row g-3">
+        <div class="col-md-4">
+            {{ timeline_form.entry_type.label(class="form-label") }}
+            {{ timeline_form.entry_type(class="form-select") }}
+            {% if timeline_form.entry_type.errors %}
+            <div class="form-text text-danger">{{ timeline_form.entry_type.errors[0] }}</div>
+            {% endif %}
+        </div>
+        <div class="col-md-4">
+            {{ timeline_form.parts_cost.label(class="form-label") }}
+            {{ timeline_form.parts_cost(class="form-control", placeholder="np. 129.99") }}
+            {% if timeline_form.parts_cost.errors %}
+            <div class="form-text text-danger">{{ timeline_form.parts_cost.errors[0] }}</div>
+            {% endif %}
+        </div>
+        <div class="col-md-4">
+            {{ timeline_form.labor_minutes.label(class="form-label") }}
+            {{ timeline_form.labor_minutes(class="form-control", placeholder="np. 45") }}
+            {% if timeline_form.labor_minutes.errors %}
+            <div class="form-text text-danger">{{ timeline_form.labor_minutes.errors[0] }}</div>
+            {% endif %}
+        </div>
+        <div class="col-12">
+            {{ timeline_form.description.label(class="form-label") }}
+            {{ timeline_form.description(class="form-control", rows=4) }}
+            {% if timeline_form.description.errors %}
+            <div class="form-text text-danger">{{ timeline_form.description.errors[0] }}</div>
+            {% endif %}
+        </div>
+        <div class="col-12">
+            {{ timeline_form.attachments.label(class="form-label") }}
+            {{ timeline_form.attachments(class="form-control", multiple=true, accept=".jpg,.jpeg,.png,.pdf") }}
+            {% if timeline_form.attachments.errors %}
+            <div class="form-text text-danger">{{ timeline_form.attachments.errors[0] }}</div>
+            {% endif %}
+            <div class="form-text">Możesz dodać wiele plików jednocześnie.</div>
+        </div>
+    </div>
+
+    <div class="mt-3">
+        {{ timeline_form.submit(class="btn btn-primary") }}
+    </div>
+</form>

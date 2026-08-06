@@ -1,0 +1,32 @@
+<div class="row g-3">
+    <div class="col-md-2 col-6">
+        <div class="border rounded p-3 bg-light">
+            <div class="text-muted small">Części netto</div>
+            <div class="fw-semibold">{{ '%.2f'|format(order_item_totals.parts_net) }} PLN</div>
+        </div>
+    </div>
+    <div class="col-md-2 col-6">
+        <div class="border rounded p-3 bg-light">
+            <div class="text-muted small">Materiały netto</div>
+            <div class="fw-semibold">{{ '%.2f'|format(order_item_totals.materials_net) }} PLN</div>
+        </div>
+    </div>
+    <div class="col-md-2 col-6">
+        <div class="border rounded p-3 bg-light">
+            <div class="text-muted small">Usługi netto</div>
+            <div class="fw-semibold">{{ '%.2f'|format(order_item_totals.services_net) }} PLN</div>
+        </div>
+    </div>
+    <div class="col-md-2 col-6">
+        <div class="border rounded p-3 bg-light">
+            <div class="text-muted small">VAT</div>
+            <div class="fw-semibold">{{ '%.2f'|format(order_item_totals.vat) }} PLN</div>
+        </div>
+    </div>
+    <div class="col-md-2 col-6">
+        <div class="border rounded p-3 bg-light">
+            <div class="text-muted small">Brutto</div>
+            <div class="fw-semibold">{{ '%.2f'|format(order_item_totals.gross) }} PLN</div>
+        </div>
+    </div>
+</div>

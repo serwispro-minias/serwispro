@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}Szczegóły zapotrzebowania{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h1 class="h3 mb-0">Zapotrzebowanie #{{ demand.id }}</h1>
+        <small class="text-muted">{{ demand.inventory_item.code }} | {{ demand.inventory_item.name }}</small>
+    </div>
+    <div class="d-flex gap-2">
+        <a class="btn btn-outline-primary" href="{{ url_for('part_demands.edit', demand_id=demand.id) }}">Edytuj</a>
+        <a class="btn btn-outline-secondary" href="{{ url_for('part_demands.index') }}">Powrót</a>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Status</dt>
+                    <dd class="col-sm-8">{{ status_labels.get(demand.status, demand.status) }}</dd>
+                    <dt class="col-sm-4">Priorytet</dt>
+                    <dd class="col-sm-8">{{ priority_labels.get(demand.priority, demand.priority) }}</dd>
+                    <dt class="col-sm-4">Zlecenie</dt>
+                    <dd class="col-sm-8"><a href="{{ url_for('orders.details', order_id=demand.service_order_id) }}">{{ demand.service_order.order_number }}</a></dd>
+                    <dt class="col-sm-4">Urządzenie</dt>
+                    <dd class="col-sm-8">{{ demand.service_order.device.manufacturer or '-' }} {{ demand.service_order.device.model or '' }}</dd>
+                    <dt class="col-sm-4">Klient</dt>
+                    <dd class="col-sm-8">{{ demand.service_order.customer.full_name or demand.service_order.customer.short_name or '-' }}</dd>
+                    <dt class="col-sm-4">Technik</dt>
+                    <dd class="col-sm-8">{{ technician.login if technician else '-' }}</dd>
+                    <dt class="col-sm-4">Planowany termin</dt>
+                    <dd class="col-sm-8">{{ demand.expected_date or '-' }}</dd>
+                    <dt class="col-sm-4">Wymagane</dt>
+                    <dd class="col-sm-8">{{ demand.requested_quantity }}</dd>
+                    <dt class="col-sm-4">Zarezerwowane</dt>
+                    <dd class="col-sm-8">{{ demand.reserved_quantity }}</dd>
+                    <dt class="col-sm-4">Brakujące</dt>
+                    <dd class="col-sm-8">{{ demand.missing_quantity }}</dd>
+                    <dt class="col-sm-4">Notatki</dt>
+                    <dd class="col-sm-8">{{ demand.notes or '-' }}</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card mb-3">
+            <div class="card-body">
+                <h2 class="h6">Aktualizacja statusu</h2>
+                <form method="post" action="{{ url_for('part_demands.change_status', demand_id=demand.id) }}">
+                    {{ status_form.hidden_tag() }}
+                    <div class="mb-2">{{ status_form.status.label(class="form-label") }}{{ status_form.status(class="form-select") }}</div>
+                    <div class="mb-2">{{ status_form.expected_date.label(class="form-label") }}{{ status_form.expected_date(class="form-control") }}</div>
+                    <div class="mb-3">{{ status_form.notes.label(class="form-label") }}{{ status_form.notes(class="form-control", rows=3) }}</div>
+                    {{ status_form.submit(class="btn btn-outline-primary btn-sm") }}
+                </form>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-body">
+                <h2 class="h6">Realizacja po dostawie</h2>
+                <form method="post" action="{{ url_for('part_demands.fulfill', demand_id=demand.id) }}">
+                    {{ fulfill_form.hidden_tag() }}
+                    <div class="mb-3">{{ fulfill_form.reserve_quantity.label(class="form-label") }}{{ fulfill_form.reserve_quantity(class="form-control") }}</div>
+                    {{ fulfill_form.submit(class="btn btn-success btn-sm") }}
+                </form>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <form method="post" action="{{ url_for('part_demands.delete', demand_id=demand.id) }}" onsubmit="return confirm('Usunąć zapotrzebowanie?');">
+                    <button type="submit" class="btn btn-outline-danger btn-sm">Usuń zapotrzebowanie</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

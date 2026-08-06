@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="pl">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kosztorys naprawy</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f6f8;font-family:Verdana,Arial,sans-serif;color:#1e2a37;">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f6f8;padding:24px 0;">
+    <tr>
+        <td align="center">
+            <table role="presentation" width="680" cellspacing="0" cellpadding="0" style="max-width:680px;width:100%;background:#ffffff;border-radius:10px;overflow:hidden;border:1px solid #dde3ea;">
+                <tr>
+                    <td style="background:linear-gradient(120deg,#113c58,#2f6f92);padding:24px 28px;color:#ffffff;">
+                        <h1 style="margin:0;font-size:24px;line-height:1.2;">Kosztorys naprawy do akceptacji</h1>
+                        <p style="margin:10px 0 0 0;font-size:14px;opacity:0.95;">Zlecenie {{ order.order_number }}</p>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding:24px 28px;">
+                        <p style="margin:0 0 14px 0;font-size:15px;line-height:1.6;">
+                            Dzień dobry, przygotowaliśmy kosztorys naprawy urządzenia.
+                            Prosimy o akceptację lub odrzucenie decyzji przez bezpieczny link.
+                        </p>
+                        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 18px 0;background:#f9fbfd;border:1px solid #e2e8ef;border-radius:8px;">
+                            <tr>
+                                <td style="padding:14px 16px;font-size:14px;line-height:1.6;">
+                                    <strong>Wersja:</strong> v{{ estimate.version_number }}<br>
+                                    <strong>Ważny do:</strong> {{ valid_until }}<br>
+                                    <strong>Łączna kwota brutto:</strong> {{ '%.2f'|format(estimate.gross_total) }} PLN
+                                </td>
+                            </tr>
+                        </table>
+                        <p style="margin:0 0 18px 0;text-align:center;">
+                            <a href="{{ approval_link }}" style="display:inline-block;background:#1d7a45;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:8px;font-weight:700;font-size:15px;">
+                                Zobacz kosztorys i podejmij decyzję
+                            </a>
+                        </p>
+                        <p style="margin:0;font-size:12px;color:#5c6d7b;line-height:1.5;word-break:break-word;">
+                            Jeśli przycisk nie działa, skopiuj link do przeglądarki:<br>
+                            <a href="{{ approval_link }}" style="color:#0e5d87;text-decoration:underline;">{{ approval_link }}</a>
+                        </p>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="border-top:1px solid #e2e8ef;padding:16px 28px;background:#fbfcfd;">
+                        <p style="margin:0;font-size:12px;color:#5c6d7b;line-height:1.5;">
+                            {% for line in company_lines %}
+                                {% if not loop.first %}<br>{% endif %}{{ line }}
+                            {% endfor %}
+                        </p>
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
+</body>
+</html>

@@ -9,19 +9,25 @@ from sqlalchemy import text
 
 from app.api import bp as api_bp
 from app.auth import bp as auth_bp
+from app.catalog import bp as catalog_bp
 from app.common import bp as common_bp
 from app.customers import bp as customers_bp
 from app.dashboard import bp as dashboard_bp
 from app.devices import bp as devices_bp
+from app.estimate_approval import bp as estimate_approval_bp
 from app.extensions import db, login_manager, migrate
 from app.inventory import bp as inventory_bp
 from app.models import Company, User
+from app.order_photos import bp as order_photos_bp
 from app.orders import bp as orders_bp
+from app.part_demands import bp as part_demands_bp
 from app.reports import bp as reports_bp
 from app.bootstrap import bootstrap_database, is_database_empty, register_bootstrap_command
 from app.services import bp as services_bp
 from app.settings import bp as settings_bp
+from app.technician_tasks import bp as technician_tasks_bp
 from app.utils import bp as utils_bp
+from app.workflow import bp as workflow_bp
 from config import get_config
 
 
@@ -70,12 +76,18 @@ def register_blueprints(app: Flask) -> None:
         dashboard_bp,
         customers_bp,
         devices_bp,
+        estimate_approval_bp,
         orders_bp,
+        order_photos_bp,
+        part_demands_bp,
+        catalog_bp,
         inventory_bp,
         reports_bp,
         settings_bp,
+        technician_tasks_bp,
         common_bp,
         services_bp,
+        workflow_bp,
         api_bp,
         utils_bp,
     ]:

@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}Zadania zlecenia{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h1 class="h3">Zadania zlecenia #{{ order_id }}</h1>
+        <small class="text-muted">Lista prac technicznych</small>
+    </div>
+    <div class="d-flex gap-2">
+        <a class="btn btn-primary" href="{{ url_for('technician_tasks.create', order_id=order_id) }}">Nowe zadanie</a>
+        <a class="btn btn-outline-secondary" href="{{ url_for('orders.details', order_id=order_id) }}">Powrót do zlecenia</a>
+    </div>
+</div>
+
+{% if tasks %}
+<div class="table-responsive">
+    <table class="table table-striped align-middle">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Tytuł</th>
+                <th>Typ</th>
+                <th>Status</th>
+                <th>Priorytet</th>
+                <th>Technik</th>
+                <th>Planowany koniec</th>
+                <th>Postęp</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for task in tasks %}
+            <tr>
+                <td>{{ task.id }}</td>
+                <td>{{ task.title }}</td>
+                <td>{{ type_labels.get(task.task_type, task.task_type) }}</td>
+                <td>{{ status_labels.get(task.status, task.status) }}</td>
+                <td>{{ priority_labels.get(task.priority, task.priority) }}</td>
+                <td>{{ task.assignee.login if task.assignee else '-' }}</td>
+                <td>{{ task.planned_finish or '-' }}</td>
+                <td>{{ task.completion_percent }}%</td>
+                <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="{{ url_for('technician_tasks.details', task_id=task.id) }}">Szczegóły</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="card"><div class="card-body">Brak zadań dla tego zlecenia.</div></div>
+{% endif %}
+{% endblock %}

@@ -1,23 +1,10 @@
-<!DOCTYPE html>
-<html lang="pl">
+{% extends "base.html" %}
 
-<head>
+{% block title %}SerwisPRO - Logowanie{% endblock %}
 
-    <meta charset="UTF-8">
+{% block body_class %}login-body{% endblock %}
 
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <title>
-        SerwisPRO - Logowanie
-    </title>
-
-
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
-
-</head>
-
-
-<body class="login-body">
+{% block body_content %}
 
 
     <div class="login-box">
@@ -90,6 +77,4 @@
 
     </div>
 
-</body>
-
-</html>
+{% endblock %}

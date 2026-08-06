@@ -3,6 +3,8 @@ from __future__ import annotations
 from flask import flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
+from app.models.service_order import SERVICE_ORDER_STATUS_BADGE_CLASSES, SERVICE_ORDER_STATUS_LABELS
+
 from . import bp
 from .exceptions import DeviceNotFoundError, DeviceValidationError
 from .forms import DeviceForm
@@ -102,7 +104,29 @@ def details(device_id: int):
         flash("Nie znaleziono urzadzenia.", "danger")
         return redirect(url_for("devices.index"))
 
-    return render_template("devices/details.html", device=device)
+    active_tab = (request.args.get("tab") or "details").strip().lower()
+    if active_tab not in {"details", "history"}:
+        active_tab = "details"
+
+    history_q = (request.args.get("history_q") or "").strip()
+    history = service.get_repair_history_context(
+        device_id=device.id,
+        company_id=current_user.company_id,
+        branch_id=getattr(current_user, "branch_id", None),
+        query_text=history_q,
+    )
+
+    return render_template(
+        "devices/details.html",
+        device=device,
+        active_tab=active_tab,
+        history_q=history_q,
+        history_rows=history["rows"],
+        history_summary=history["summary"],
+        history_technician_map=history["technician_map"],
+        status_labels=SERVICE_ORDER_STATUS_LABELS,
+        status_badges=SERVICE_ORDER_STATUS_BADGE_CLASSES,
+    )
 
 
 @bp.route("/<int:device_id>/delete", methods=["POST"])

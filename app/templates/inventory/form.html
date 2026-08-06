@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h1 class="h3">{{ title }}</h1>
+        {% if part %}
+        <small class="text-muted">ID: {{ part.id }}</small>
+        {% endif %}
+    </div>
+    <a class="btn btn-outline-secondary" href="{{ url_for('inventory.index') }}">Powrót</a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form method="post">
+            {{ form.hidden_tag() }}
+
+            <div class="row g-3">
+                <div class="col-md-4">
+                    {{ form.part_code.label(class="form-label") }}
+                    {{ form.part_code(class="form-control") }}
+                </div>
+                <div class="col-md-8">
+                    {{ form.name.label(class="form-label") }}
+                    {{ form.name(class="form-control") }}
+                </div>
+                <div class="col-md-4">
+                    {{ form.category.label(class="form-label") }}
+                    {{ form.category(class="form-control") }}
+                </div>
+                <div class="col-md-4">
+                    {{ form.manufacturer.label(class="form-label") }}
+                    {{ form.manufacturer(class="form-control") }}
+                </div>
+                <div class="col-md-4">
+                    {{ form.catalog_number.label(class="form-label") }}
+                    {{ form.catalog_number(class="form-control") }}
+                </div>
+                <div class="col-md-4">
+                    {{ form.barcode.label(class="form-label") }}
+                    {{ form.barcode(class="form-control") }}
+                </div>
+                <div class="col-md-4">
+                    {{ form.unit.label(class="form-label") }}
+                    {{ form.unit(class="form-select") }}
+                </div>
+                <div class="col-md-4">
+                    {{ form.minimum_stock.label(class="form-label") }}
+                    {{ form.minimum_stock(class="form-control") }}
+                </div>
+                <div class="col-md-4">
+                    {{ form.current_stock.label(class="form-label") }}
+                    {{ form.current_stock(class="form-control") }}
+                </div>
+                <div class="col-md-4">
+                    {{ form.purchase_price_net.label(class="form-label") }}
+                    {{ form.purchase_price_net(class="form-control") }}
+                </div>
+                <div class="col-md-4">
+                    {{ form.sale_price_net.label(class="form-label") }}
+                    {{ form.sale_price_net(class="form-control") }}
+                </div>
+                <div class="col-md-4">
+                    {{ form.vat_rate.label(class="form-label") }}
+                    {{ form.vat_rate(class="form-select") }}
+                </div>
+                <div class="col-md-4">
+                    {{ form.location.label(class="form-label") }}
+                    {{ form.location(class="form-control") }}
+                </div>
+                <div class="col-md-4">
+                    {{ form.supplier.label(class="form-label") }}
+                    {{ form.supplier(class="form-control") }}
+                </div>
+                <div class="col-md-4">
+                    {{ form.image_path.label(class="form-label") }}
+                    {{ form.image_path(class="form-control") }}
+                </div>
+                <div class="col-md-4">
+                    {{ form.is_record_active.label(class="form-label") }}
+                    {{ form.is_record_active(class="form-select") }}
+                </div>
+                <div class="col-12">
+                    {{ form.description.label(class="form-label") }}
+                    {{ form.description(class="form-control", rows=4) }}
+                </div>
+            </div>
+
+            <div class="mt-4">
+                {{ form.submit(class="btn btn-primary") }}
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

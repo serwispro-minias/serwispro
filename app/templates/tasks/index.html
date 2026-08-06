@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}Zadania techników{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h1 class="h3">Zadania techników</h1>
+        <small class="text-muted">Widok osobisty i zespołowy</small>
+    </div>
+</div>
+
+<form method="get" class="card card-body mb-3">
+    <div class="row g-3 align-items-end">
+        <div class="col-md-3">
+            {{ filter_form.q.label(class="form-label") }}
+            {{ filter_form.q(class="form-control") }}
+        </div>
+        <div class="col-md-3">
+            {{ filter_form.status.label(class="form-label") }}
+            {{ filter_form.status(class="form-select") }}
+        </div>
+        <div class="col-md-2">
+            {{ filter_form.priority.label(class="form-label") }}
+            {{ filter_form.priority(class="form-select") }}
+        </div>
+        <div class="col-md-2">
+            {{ filter_form.assigned_to.label(class="form-label") }}
+            {{ filter_form.assigned_to(class="form-select") }}
+        </div>
+        <div class="col-md-2">
+            {{ filter_form.submit(class="btn btn-secondary w-100") }}
+        </div>
+    </div>
+</form>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-2 col-6"><div class="border rounded p-3 bg-light"><div class="text-muted small">Moje</div><div class="fw-semibold">{{ dashboard.my_tasks|length }}</div></div></div>
+    <div class="col-md-2 col-6"><div class="border rounded p-3 bg-light"><div class="text-muted small">Zespołu</div><div class="fw-semibold">{{ dashboard.team_tasks|length }}</div></div></div>
+    <div class="col-md-2 col-6"><div class="border rounded p-3 bg-light"><div class="text-muted small">Zaległe</div><div class="fw-semibold text-danger">{{ dashboard.overdue_tasks|length }}</div></div></div>
+    <div class="col-md-2 col-6"><div class="border rounded p-3 bg-light"><div class="text-muted small">Na dziś</div><div class="fw-semibold">{{ dashboard.today_tasks|length }}</div></div></div>
+    <div class="col-md-2 col-6"><div class="border rounded p-3 bg-light"><div class="text-muted small">Na jutro</div><div class="fw-semibold">{{ dashboard.tomorrow_tasks|length }}</div></div></div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h5 class="card-title">Wyniki</h5>
+        {% if tasks %}
+        <div class="table-responsive">
+            <table class="table table-sm table-striped align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Zadanie</th>
+                        <th>Typ</th>
+                        <th>Status</th>
+                        <th>Priorytet</th>
+                        <th>Technik</th>
+                        <th>Planowany koniec</th>
+                        <th>Postęp</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for task in tasks %}
+                    <tr>
+                        <td>{{ task.id }}</td>
+                        <td>{{ task.title }}</td>
+                        <td>{{ type_labels.get(task.task_type, task.task_type) }}</td>
+                        <td>{{ status_labels.get(task.status, task.status) }}</td>
+                        <td>{{ priority_labels.get(task.priority, task.priority) }}</td>
+                        <td>
+                            {% if task.assignee %}
+                            {{ task.assignee.first_name or '' }} {{ task.assignee.last_name or '' }}
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td>{{ task.planned_finish or '-' }}</td>
+                        <td>{{ task.completion_percent }}%</td>
+                        <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="{{ url_for('technician_tasks.details', task_id=task.id) }}">Szczegóły</a></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted mb-0">Brak zadań spełniających kryteria.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <h5 class="card-title">Po priorytecie</h5>
+        <div class="row g-2">
+            {% for key, label in priority_labels.items() %}
+            <div class="col-md-3 col-6">
+                <div class="border rounded p-2">
+                    <div class="small text-muted">{{ label }}</div>
+                    <div class="fw-semibold">{{ dashboard.priority_groups.get(key, [])|length }}</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

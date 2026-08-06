@@ -1,0 +1,94 @@
+{
+  "customers/forms.py": {
+    "CustomerForm": {
+      "fields": 22,
+      "required_like": 0,
+      "optional_like": 0
+    }
+  },
+  "devices/forms.py": {
+    "DeviceForm": {
+      "fields": 13,
+      "required_like": 1,
+      "optional_like": 11
+    }
+  },
+  "inventory/forms.py": {
+    "InventoryPartForm": {
+      "fields": 18,
+      "required_like": 9,
+      "optional_like": 8
+    },
+    "InventoryOperationForm": {
+      "fields": 5,
+      "required_like": 2,
+      "optional_like": 2
+    },
+    "InventorySearchForm": {
+      "fields": 2,
+      "required_like": 0,
+      "optional_like": 1
+    }
+  },
+  "orders/forms.py": {
+    "OrderForm": {
+      "fields": 15,
+      "required_like": 8,
+      "optional_like": 6
+    },
+    "OrderSearchForm": {
+      "fields": 7,
+      "required_like": 0,
+      "optional_like": 6
+    },
+    "OrderStatusChangeForm": {
+      "fields": 3,
+      "required_like": 1,
+      "optional_like": 1
+    },
+    "TimelineEntryForm": {
+      "fields": 6,
+      "required_like": 2,
+      "optional_like": 3
+    },
+    "OrderPartUsageForm": {
+      "fields": 4,
+      "required_like": 2,
+      "optional_like": 1
+    },
+    "OrderNotificationForm": {
+      "fields": 7,
+      "required_like": 3,
+      "optional_like": 3
+    },
+    "OrderActionForm": {
+      "fields": 8,
+      "required_like": 3,
+      "optional_like": 3
+    }
+  },
+  "service_orders/forms.py": {
+    "ServiceOrderForm": {
+      "fields": 18,
+      "required_like": 7,
+      "optional_like": 9
+    },
+    "ServiceOrderSearchForm": {
+      "fields": 3,
+      "required_like": 0,
+      "optional_like": 2
+    }
+  },
+  "settings/forms.py": {
+    "NotificationConfigForm": {
+      "fields": 14,
+      "required_like": 0,
+      "optional_like": 9
+    },
+    "NotificationTemplateForm": {
+      "fields": 8,
+      "required_like": 4,
+      "optional_like": 1
+    }
+  }
+}

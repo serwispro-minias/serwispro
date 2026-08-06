@@ -1,0 +1,542 @@
+{% extends "base.html" %}
+
+{% block title %}Szczegóły zlecenia{% endblock %}
+
+{% block content %}
+
+{% set active_tab = request.args.get('tab', 'details') %}
+
+<div class="page-header d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h1 class="h3">Szczegóły zlecenia</h1>
+        <small class="text-muted">{{ order.order_number }}</small>
+    </div>
+    <div class="d-flex gap-2 flex-wrap justify-content-end">
+        <a class="btn btn-outline-primary" href="{{ url_for('orders.print_intake_protocol', order_id=order.id, mode='download') }}" target="_blank" rel="noopener">Drukuj przyjęcie</a>
+        <a class="btn btn-outline-primary" href="{{ url_for('orders.print_release_protocol', order_id=order.id, mode='download') }}" target="_blank" rel="noopener">Drukuj wydanie</a>
+        <a class="btn btn-outline-primary" href="{{ url_for('technician_tasks.order_tasks', order_id=order.id) }}">Zadania techników</a>
+        <a class="btn btn-outline-primary" href="{{ url_for('part_demands.index', order_id=order.id) }}">Zapotrzebowanie części</a>
+        <a class="btn btn-outline-primary" href="{{ url_for('catalog.order_catalog', order_id=order.id) }}">Katalog i Magazyn</a>
+        <a class="btn btn-outline-secondary" href="{{ url_for('orders.print_protocol_preview', order_id=order.id, protocol='intake') }}" target="_blank" rel="noopener">Podgląd PDF</a>
+        <div class="btn-group">
+        <a class="btn btn-secondary" href="{{ url_for('orders.edit', order_id=order.id) }}">Edytuj</a>
+        <a class="btn btn-outline-secondary" href="{{ url_for('orders.index') }}">Powrót</a>
+        </div>
+    </div>
+</div>
+
+<ul class="nav nav-tabs mb-3" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link {% if active_tab == 'details' %}active{% endif %}" id="order-details-tab" data-bs-toggle="tab" data-bs-target="#order-details-pane" type="button" role="tab" aria-controls="order-details-pane" aria-selected="{{ 'true' if active_tab == 'details' else 'false' }}">
+            Szczegóły
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link {% if active_tab == 'items' %}active{% endif %}" id="order-items-tab" data-bs-toggle="tab" data-bs-target="#order-items-pane" type="button" role="tab" aria-controls="order-items-pane" aria-selected="{{ 'true' if active_tab == 'items' else 'false' }}">
+            Części i usługi
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link {% if active_tab == 'estimates' %}active{% endif %}" id="order-estimates-tab" data-bs-toggle="tab" data-bs-target="#order-estimates-pane" type="button" role="tab" aria-controls="order-estimates-pane" aria-selected="{{ 'true' if active_tab == 'estimates' else 'false' }}">
+            Kosztorys
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link {% if active_tab == 'photos' %}active{% endif %}" id="order-photos-tab" data-bs-toggle="tab" data-bs-target="#order-photos-pane" type="button" role="tab" aria-controls="order-photos-pane" aria-selected="{{ 'true' if active_tab == 'photos' else 'false' }}">
+            Dokumentacja fotograficzna
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link {% if active_tab == 'communication' %}active{% endif %}" id="order-communication-tab" data-bs-toggle="tab" data-bs-target="#order-communication-pane" type="button" role="tab" aria-controls="order-communication-pane" aria-selected="{{ 'true' if active_tab == 'communication' else 'false' }}">
+            Komunikacja
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content">
+<div class="tab-pane fade {% if active_tab == 'details' %}show active{% endif %}" id="order-details-pane" role="tabpanel" aria-labelledby="order-details-tab">
+
+<div class="card">
+    <div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-3">Klient</dt>
+            <dd class="col-sm-9">{{ order.customer.full_name or order.customer.short_name or '-' }}</dd>
+
+            <dt class="col-sm-3">Urządzenie</dt>
+            <dd class="col-sm-9">
+                {{ order.device.manufacturer or '-' }} {{ order.device.model or '' }}
+                <a class="btn btn-sm btn-outline-secondary ms-2" href="{{ url_for('devices.details', device_id=order.device_id, tab='history') }}">Historia tego urządzenia</a>
+            </dd>
+
+            <dt class="col-sm-3">Status</dt>
+            <dd class="col-sm-9">
+                <span class="badge {{ status_badges.get(order.status, 'bg-secondary') }}">
+                    {{ status_labels.get(order.status, order.status) }}
+                </span>
+            </dd>
+
+            <dt class="col-sm-3">Typ zlecenia</dt>
+            <dd class="col-sm-9">{{ 'Naprawa gwarancyjna' if order.warranty_repair else 'Naprawa standardowa' }}</dd>
+
+            <dt class="col-sm-3">Priorytet</dt>
+            <dd class="col-sm-9">{{ order.priority }}</dd>
+
+            <dt class="col-sm-3">Data przyjęcia</dt>
+            <dd class="col-sm-9">{{ order.intake_date }}</dd>
+
+            <dt class="col-sm-3">Termin realizacji</dt>
+            <dd class="col-sm-9">{{ order.planned_finish_date or '-' }}</dd>
+
+            <dt class="col-sm-3">Data zakończenia</dt>
+            <dd class="col-sm-9">{{ order.finished_at or '-' }}</dd>
+
+            <dt class="col-sm-3">Naprawa gwarancyjna</dt>
+            <dd class="col-sm-9">{{ 'Tak' if order.warranty_repair else 'Nie' }}</dd>
+
+            <dt class="col-sm-3">Opis zgłoszenia</dt>
+            <dd class="col-sm-9">{{ order.issue_description }}</dd>
+
+            <dt class="col-sm-3">Opis usterki</dt>
+            <dd class="col-sm-9">{{ order.diagnosis or '-' }}</dd>
+
+            <dt class="col-sm-3">Stan urządzenia przy przyjęciu</dt>
+            <dd class="col-sm-9">{{ order.repair_description or '-' }}</dd>
+
+            <dt class="col-sm-3">Akcesoria pozostawione z urządzeniem</dt>
+            <dd class="col-sm-9">{{ order.customer_notes or '-' }}</dd>
+
+            <dt class="col-sm-3">Hasło do urządzenia</dt>
+            <dd class="col-sm-9">{{ order.external_reference or '-' }}</dd>
+
+            <dt class="col-sm-3">Uwagi wewnętrzne</dt>
+            <dd class="col-sm-9">{{ order.technician_notes or '-' }}</dd>
+        </dl>
+    </div>
+</div>
+
+<div class="card mt-3">
+    <div class="card-body">
+        <h5 class="card-title">Zmień status</h5>
+        {% if workflow_transitions %}
+        <div class="d-flex flex-wrap gap-2 mb-3">
+            {% for transition in workflow_transitions %}
+                {% if transition.allowed %}
+                <form method="post" action="{{ url_for('orders.change_status', order_id=order.id) }}" class="d-inline">
+                    {{ status_form.csrf_token }}
+                    <input type="hidden" name="new_status" value="{{ transition.to_status }}">
+                    <button type="submit" class="btn btn-sm btn-outline-primary">{{ transition.name }}</button>
+                </form>
+                {% else %}
+                <button type="button" class="btn btn-sm btn-outline-secondary" disabled title="{{ transition.reason }}">{{ transition.name }}</button>
+                {% endif %}
+            {% endfor %}
+        </div>
+        {% endif %}
+        <form method="post" action="{{ url_for('orders.change_status', order_id=order.id) }}">
+            {{ status_form.hidden_tag() }}
+            <div class="row g-3">
+                <div class="col-md-4">
+                    {{ status_form.new_status.label(class="form-label") }}
+                    {{ status_form.new_status(class="form-select") }}
+                </div>
+                <div class="col-md-8">
+                    {{ status_form.note.label(class="form-label") }}
+                    {{ status_form.note(class="form-control", rows=2) }}
+                </div>
+                {% if is_admin %}
+                <div class="col-12 form-check">
+                    {{ status_form.force_transition(class="form-check-input") }}
+                    {{ status_form.force_transition.label(class="form-check-label") }}
+                </div>
+                {% endif %}
+            </div>
+            <div class="mt-3">
+                {{ status_form.submit(class="btn btn-primary") }}
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card mt-3">
+    <div class="card-body">
+        <h5 class="card-title">Historia zmian statusu</h5>
+        {% if status_history %}
+        <div class="table-responsive">
+            <table class="table table-sm table-striped align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Data</th>
+                        <th>Użytkownik</th>
+                        <th>Poprzedni status</th>
+                        <th>Nowy status</th>
+                        <th>IP</th>
+                        <th>Notatka</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in status_history %}
+                    <tr>
+                        <td>{{ item.changed_at }}</td>
+                        <td>{{ item.changed_by_user.login if item.changed_by_user else (item.changed_by or '-') }}</td>
+                        <td>{{ status_labels.get(item.old_status, item.old_status) if item.old_status else '-' }}</td>
+                        <td>{{ status_labels.get(item.new_status, item.new_status) }}</td>
+                        <td>{{ item.ip_address or '-' }}</td>
+                        <td>{{ item.note or '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted mb-0">Brak historii zmian statusu.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card mt-3" data-testid="order-actions-history">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center gap-2 mb-3">
+            <h5 class="card-title mb-0">Historia napraw</h5>
+            <a class="btn btn-sm btn-primary" href="{{ url_for('orders.create_action', order_id=order.id) }}">+ Dodaj wpis</a>
+        </div>
+
+        {% if actions %}
+        <div class="table-responsive">
+            <table class="table table-sm table-striped align-middle mb-0" data-testid="order-actions-table">
+                <thead>
+                    <tr>
+                        <th>Data</th>
+                        <th>Serwisant</th>
+                        <th>Rodzaj</th>
+                        <th>Opis</th>
+                        <th>Czas</th>
+                        <th>Koszt</th>
+                        <th class="text-end">Akcje</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for action in actions %}
+                    <tr data-testid="order-action-row-{{ action.id }}">
+                        <td>{{ action.action_date.strftime('%d.%m.%Y') if action.action_date else '-' }}</td>
+                        <td>
+                            {% if action.technician %}
+                                {{ (action.technician.first_name ~ ' ' ~ action.technician.last_name)|trim or action.technician.login }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>{{ action_type_labels.get(action.action_type, action.action_type) }}</td>
+                        <td class="text-break">{{ action.description }}</td>
+                        <td>
+                            {% if action.work_time_minutes is not none %}
+                                {{ action.work_time_minutes }} min
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if action.cost is not none %}
+                                {{ '%.2f'|format(action.cost) }} PLN
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('orders.edit_action', order_id=order.id, action_id=action.id) }}">Edytuj</a>
+                            <form method="post" action="{{ url_for('orders.delete_action', order_id=order.id, action_id=action.id) }}" class="d-inline">
+                                <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Usunąć wpis historii?');">Usuń</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted mb-0" data-testid="order-actions-empty">Brak wpisów historii napraw dla tego zlecenia.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="mt-3">
+    <form method="post" action="{{ url_for('orders.delete', order_id=order.id) }}" onsubmit="return confirm('Na pewno chcesz usunąć to zlecenie?');">
+        <button type="submit" class="btn btn-danger">Usuń zlecenie</button>
+    </form>
+</div>
+
+</div>
+
+<div class="tab-pane fade {% if active_tab == 'items' %}show active{% endif %}" id="order-items-pane" role="tabpanel" aria-labelledby="order-items-tab">
+    <div class="card mb-3">
+        <div class="card-body">
+            <h5 class="card-title">Dodaj pozycję</h5>
+            <div id="order-item-form-container">
+                {% include "orders/partials/order_item_form.html" %}
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-body">
+            <h5 class="card-title">Kosztorys zlecenia</h5>
+            <div id="order-item-summary-container">
+                {% include "orders/partials/order_item_summary.html" %}
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <h5 class="card-title">Pozycje zlecenia</h5>
+            <div id="order-item-table-container">
+                {% include "orders/partials/order_item_table.html" %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="tab-pane fade {% if active_tab == 'estimates' %}show active{% endif %}" id="order-estimates-pane" role="tabpanel" aria-labelledby="order-estimates-tab">
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-3">
+                <div>
+                    <h5 class="card-title mb-1">Kosztorysy naprawy</h5>
+                    <p class="text-muted mb-0">Każda wersja jest zapisywana osobno po wysłaniu do klienta.</p>
+                </div>
+                <a class="btn btn-outline-primary" href="{{ url_for('services.index') }}">Przejdź do modułu kosztorysów</a>
+            </div>
+
+            <form method="post" action="{{ url_for('services.create_from_order', order_id=order.id) }}" class="mb-3">
+                {{ estimate_create_form.hidden_tag() }}
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-3">
+                        {{ estimate_create_form.valid_until.label(class="form-label") }}
+                        {{ estimate_create_form.valid_until(class="form-control") }}
+                    </div>
+                    <div class="col-md-6">
+                        {{ estimate_create_form.notes.label(class="form-label") }}
+                        {{ estimate_create_form.notes(class="form-control", rows=2) }}
+                    </div>
+                    <div class="col-md-3">
+                        {{ estimate_create_form.submit(class="btn btn-primary") }}
+                    </div>
+                </div>
+            </form>
+
+            {% if estimates %}
+            <div class="table-responsive">
+                <table class="table table-sm table-striped align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Wersja</th>
+                            <th>Status</th>
+                            <th>Ważny do</th>
+                            <th>Netto</th>
+                            <th>Brutto</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for estimate in estimates %}
+                        <tr>
+                            <td>v{{ estimate.version_number }}</td>
+                            <td>{{ estimate_status_labels.get(estimate.status, estimate.status) }}</td>
+                            <td>{{ estimate.valid_until or '-' }}</td>
+                            <td>{{ '%.2f'|format(estimate.net_total) }} PLN</td>
+                            <td>{{ '%.2f'|format(estimate.gross_total) }} PLN</td>
+                            <td class="text-end">
+                                <a class="btn btn-sm btn-outline-primary" href="{{ url_for('services.details', estimate_id=estimate.id) }}">Otwórz</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted mb-0">Brak zapisanych wersji kosztorysu.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="tab-pane fade {% if active_tab == 'photos' %}show active{% endif %}" id="order-photos-pane" role="tabpanel" aria-labelledby="order-photos-tab">
+    {% include "order_photos/gallery.html" with context %}
+</div>
+
+<div class="tab-pane fade {% if active_tab == 'communication' %}show active{% endif %}" id="order-communication-pane" role="tabpanel" aria-labelledby="order-communication-tab">
+    <div class="card mb-3">
+        <div class="card-body d-flex gap-2 flex-wrap">
+            <a class="btn btn-primary" href="{{ url_for('orders.compose_communication', order_id=order.id, channel=channel_sms) }}">Wyślij SMS</a>
+            <a class="btn btn-primary" href="{{ url_for('orders.compose_communication', order_id=order.id, channel=channel_email) }}">Wyślij e-mail</a>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <h5 class="card-title">Historia komunikacji</h5>
+            {% if communication_history %}
+            <div class="table-responsive">
+                <table class="table table-sm table-striped align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Użytkownik</th>
+                            <th>Kanał</th>
+                            <th>Odbiorca</th>
+                            <th>Treść</th>
+                            <th>Status</th>
+                            <th>Odpowiedź serwera</th>
+                            <th>Akcje</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for message in communication_history %}
+                        <tr>
+                            <td>{{ message.created_at }}</td>
+                            <td>{{ message.user.login if message.user else '-' }}</td>
+                            <td>{{ message.channel }}</td>
+                            <td>{{ message.recipient or '-' }}</td>
+                            <td>
+                                {% if message.subject %}<strong>{{ message.subject }}</strong><br>{% endif %}
+                                {{ message.content }}
+                            </td>
+                            <td>{{ communication_status_labels.get(message.status, message.status) }}</td>
+                            <td>{{ message.server_response or '-' }}</td>
+                            <td>
+                                <form method="post" action="{{ url_for('orders.resend_communication', order_id=order.id, message_id=message.id) }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary">Wyślij ponownie</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted mb-0">Brak historii komunikacji.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    const orderId = {{ order.id }};
+    const formContainer = document.getElementById("order-item-form-container");
+    const tableContainer = document.getElementById("order-item-table-container");
+    const summaryContainer = document.getElementById("order-item-summary-container");
+
+    if (!formContainer || !tableContainer || !summaryContainer) {
+        return;
+    }
+
+    async function searchItems(form) {
+        const searchInput = form.querySelector("#order_item_search");
+        const resultsBox = form.querySelector("#order-item-search-results");
+        const selectedBox = form.querySelector("#order-item-selected");
+        const typeSelect = form.querySelector("#order_item_type");
+        const itemIdInput = form.querySelector("#id_item_id, input[name='item_id']");
+        const unitPriceInput = form.querySelector("#order_item_unit_price");
+
+        if (!searchInput || !resultsBox || !typeSelect || !itemIdInput || !selectedBox || !unitPriceInput) {
+            return;
+        }
+
+        const queryText = searchInput.value.trim();
+        if (!queryText) {
+            resultsBox.innerHTML = '<span class="text-muted">Wpisz frazę, aby wyszukać element.</span>';
+            return;
+        }
+
+        const response = await fetch(`{{ url_for('orders.search_order_items', order_id=order.id) }}?q=${encodeURIComponent(queryText)}`);
+        const payload = await response.json();
+        const items = payload.items || [];
+
+        if (!items.length) {
+            resultsBox.innerHTML = '<span class="text-muted">Brak wyników.</span>';
+            return;
+        }
+
+        resultsBox.innerHTML = items.map((item) => `
+            <button type="button" class="btn btn-sm btn-outline-secondary w-100 mb-1 text-start js-order-item-pick"
+                data-item-id="${item.item_id}"
+                data-item-type="${item.item_type}"
+                data-unit-price="${item.unit_price_net}"
+                data-name="${item.code} | ${item.name}"
+                data-stock="${item.current_stock || '-'}">
+                <div class="fw-semibold">${item.code} | ${item.name}</div>
+                <div class="small text-muted">Typ: ${item.item_type} | Stan: ${item.current_stock || '-'}</div>
+            </button>
+        `).join('');
+
+        resultsBox.querySelectorAll('.js-order-item-pick').forEach((button) => {
+            button.addEventListener('click', () => {
+                typeSelect.value = button.dataset.itemType;
+                itemIdInput.value = button.dataset.itemId;
+                unitPriceInput.value = button.dataset.unitPrice;
+                selectedBox.textContent = `${button.dataset.name} | Stan: ${button.dataset.stock}`;
+            });
+        });
+    }
+
+    async function submitJsonForm(form) {
+        const response = await fetch(form.action, {
+            method: 'POST',
+            body: new FormData(form),
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        });
+        const payload = await response.json();
+        if (!payload.ok) {
+            if (payload.form_html && formContainer) {
+                formContainer.innerHTML = payload.form_html;
+            }
+            if (payload.message) {
+                alert(payload.message);
+            }
+            return;
+        }
+        if (payload.form_html) {
+            formContainer.innerHTML = payload.form_html;
+        }
+        if (payload.list_html) {
+            tableContainer.innerHTML = payload.list_html;
+        }
+        if (payload.summary_html) {
+            summaryContainer.innerHTML = payload.summary_html;
+        }
+        bindHandlers();
+    }
+
+    function bindHandlers() {
+        const form = formContainer.querySelector('.js-order-item-form');
+        if (form) {
+            const searchInput = form.querySelector('#order_item_search');
+            if (searchInput) {
+                searchInput.addEventListener('change', () => searchItems(form));
+                searchInput.addEventListener('keyup', () => searchItems(form));
+            }
+            form.addEventListener('submit', (event) => {
+                event.preventDefault();
+                submitJsonForm(form);
+            });
+        }
+
+        tableContainer.querySelectorAll('form').forEach((moveForm) => {
+            moveForm.addEventListener('submit', (event) => {
+                event.preventDefault();
+                submitJsonForm(moveForm);
+            });
+        });
+    }
+
+    bindHandlers();
+})();
+</script>
+{% endblock %}

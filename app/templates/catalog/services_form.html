@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3">{{ title }}</h1>
+    <a class="btn btn-outline-secondary" href="{{ url_for('catalog.services_index') }}">Powrót</a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form method="post">
+            {{ form.hidden_tag() }}
+            <div class="row g-3">
+                <div class="col-md-3">{{ form.code.label(class="form-label") }}{{ form.code(class="form-control") }}</div>
+                <div class="col-md-9">{{ form.name.label(class="form-label") }}{{ form.name(class="form-control") }}</div>
+                <div class="col-md-4">{{ form.category_id.label(class="form-label") }}{{ form.category_id(class="form-select") }}</div>
+                <div class="col-md-3">{{ form.default_price_net.label(class="form-label") }}{{ form.default_price_net(class="form-control") }}</div>
+                <div class="col-md-2">{{ form.vat_rate.label(class="form-label") }}{{ form.vat_rate(class="form-control") }}</div>
+                <div class="col-md-3">{{ form.standard_duration_minutes.label(class="form-label") }}{{ form.standard_duration_minutes(class="form-control") }}</div>
+                <div class="col-md-4 d-flex align-items-center mt-4">
+                    <div class="form-check">{{ form.is_sellable(class="form-check-input") }} {{ form.is_sellable.label(class="form-check-label") }}</div>
+                </div>
+                <div class="col-12">{{ form.description.label(class="form-label") }}{{ form.description(class="form-control", rows=4) }}</div>
+            </div>
+            <div class="mt-4">{{ form.submit(class="btn btn-primary") }}</div>
+        </form>
+    </div>
+</div>
+{% endblock %}

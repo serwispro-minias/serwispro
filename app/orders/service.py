@@ -1,6 +1,3 @@
-from typing import Any
+from app.service_orders.service import ServiceOrderService
 
-
-def get_orders_context() -> dict[str, Any]:
-    """TODO: implement business logic for the orders module."""
-    return {'message': 'TODO: implement orders service layer'}
+__all__ = ["ServiceOrderService"]

@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">{{ title }}</h1>
+    <a class="btn btn-outline-secondary" href="{{ url_for('technician_tasks.order_tasks', order_id=order_id) }}">Powrót</a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form method="post">
+            {{ form.hidden_tag() }}
+            <div class="row g-3">
+                <div class="col-md-8">{{ form.title.label(class='form-label') }}{{ form.title(class='form-control') }}</div>
+                <div class="col-md-4">{{ form.parent_task_id.label(class='form-label') }}{{ form.parent_task_id(class='form-select') }}</div>
+                <div class="col-12">{{ form.description.label(class='form-label') }}{{ form.description(class='form-control', rows=4) }}</div>
+                <div class="col-md-3">{{ form.task_type.label(class='form-label') }}{{ form.task_type(class='form-select') }}</div>
+                <div class="col-md-3">{{ form.status.label(class='form-label') }}{{ form.status(class='form-select') }}</div>
+                <div class="col-md-3">{{ form.priority.label(class='form-label') }}{{ form.priority(class='form-select') }}</div>
+                <div class="col-md-3">{{ form.assigned_to.label(class='form-label') }}{{ form.assigned_to(class='form-select') }}</div>
+                <div class="col-md-3">{{ form.planned_start.label(class='form-label') }}{{ form.planned_start(class='form-control') }}</div>
+                <div class="col-md-3">{{ form.planned_finish.label(class='form-label') }}{{ form.planned_finish(class='form-control') }}</div>
+                <div class="col-md-3">{{ form.estimated_minutes.label(class='form-label') }}{{ form.estimated_minutes(class='form-control') }}</div>
+                <div class="col-md-3">{{ form.completion_percent.label(class='form-label') }}{{ form.completion_percent(class='form-control') }}</div>
+                <div class="col-12 form-check">{{ form.requires_confirmation(class='form-check-input') }} {{ form.requires_confirmation.label(class='form-check-label') }}</div>
+            </div>
+            <div class="mt-4">{{ form.submit(class='btn btn-primary') }}</div>
+        </form>
+    </div>
+</div>
+{% endblock %}

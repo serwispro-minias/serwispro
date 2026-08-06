@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}Decyzja klienta - kosztorys{% endblock %}
+
+{% block content %}
+<div class="container py-4" style="max-width: 980px;">
+    <div class="card shadow-sm mb-3">
+        <div class="card-body">
+            <h1 class="h3 mb-2">Decyzja klienta dotycząca kosztorysu</h1>
+            <p class="text-muted mb-0">{{ approval_status_message }}</p>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Dane zlecenia</h5>
+                    <dl class="row mb-0">
+                        <dt class="col-5">Numer zlecenia</dt>
+                        <dd class="col-7">{{ order.order_number }}</dd>
+                        <dt class="col-5">Wersja kosztorysu</dt>
+                        <dd class="col-7">v{{ estimate.version_number }}</dd>
+                        <dt class="col-5">Ważny do</dt>
+                        <dd class="col-7">{{ estimate.valid_until or '-' }}</dd>
+                        <dt class="col-5">Kwota brutto</dt>
+                        <dd class="col-7"><strong>{{ '%.2f'|format(estimate.gross_total) }} PLN</strong></dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Dane serwisu</h5>
+                    <ul class="mb-0">
+                        {% for line in company_lines %}
+                        <li>{{ line }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-body">
+            <h5 class="card-title">Pozycje kosztorysu</h5>
+            {% if estimate.items %}
+            <div class="table-responsive">
+                <table class="table table-sm table-striped align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Nazwa</th>
+                            <th>Ilość</th>
+                            <th>Netto</th>
+                            <th>VAT</th>
+                            <th>Brutto</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in estimate.items %}
+                        <tr>
+                            <td>{{ loop.index }}</td>
+                            <td>
+                                <div class="fw-semibold">{{ item.name }}</div>
+                                <div class="text-muted small">{{ item.description or '' }}</div>
+                            </td>
+                            <td>{{ '%.3f'|format(item.quantity) }} {{ item.unit }}</td>
+                            <td>{{ '%.2f'|format(item.net_value) }} PLN</td>
+                            <td>{{ '%.2f'|format(item.vat_value) }} PLN</td>
+                            <td>{{ '%.2f'|format(item.gross_value) }} PLN</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted mb-0">Brak pozycji kosztorysu.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if is_actionable %}
+    <div class="card border-success-subtle">
+        <div class="card-body">
+            <h5 class="card-title">Podejmij decyzję</h5>
+            <form method="post">
+                {{ form.hidden_tag() }}
+                <div class="mb-3">
+                    {{ form.customer_note.label(class="form-label") }}
+                    {{ form.customer_note(class="form-control", rows=4, placeholder="Opcjonalnie wpisz dodatkowe uwagi") }}
+                </div>
+                <div class="d-flex flex-wrap gap-2">
+                    <button type="submit" name="decision" value="ACCEPT" class="btn btn-success">Akceptuję kosztorys</button>
+                    <button type="submit" name="decision" value="REJECT" class="btn btn-outline-danger">Odrzucam kosztorys</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

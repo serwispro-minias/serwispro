@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block title %}Workflow zleceń{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h1 class="h3">Workflow zleceń</h1>
+        <small class="text-muted">Konfiguracja statusów i przejść workflow</small>
+    </div>
+    <form method="post" action="{{ url_for('workflow.seed_defaults') }}">
+        <button type="submit" class="btn btn-outline-primary">Odśwież domyślny workflow</button>
+    </form>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">Dodaj status</h5>
+                <form method="post" action="{{ url_for('workflow.create_status') }}" class="row g-2">
+                    {{ status_form.hidden_tag() }}
+                    <div class="col-md-6">{{ status_form.name.label(class='form-label') }}{{ status_form.name(class='form-control') }}</div>
+                    <div class="col-md-6">{{ status_form.code.label(class='form-label') }}{{ status_form.code(class='form-control') }}</div>
+                    <div class="col-12">{{ status_form.description.label(class='form-label') }}{{ status_form.description(class='form-control', rows=2) }}</div>
+                    <div class="col-md-4">{{ status_form.color.label(class='form-label') }}{{ status_form.color(class='form-control') }}</div>
+                    <div class="col-md-4">{{ status_form.icon.label(class='form-label') }}{{ status_form.icon(class='form-control') }}</div>
+                    <div class="col-md-4">{{ status_form.sort_order.label(class='form-label') }}{{ status_form.sort_order(class='form-control') }}</div>
+                    <div class="col-md-6 form-check mt-2 ms-2">{{ status_form.is_initial(class='form-check-input') }} {{ status_form.is_initial.label(class='form-check-label') }}</div>
+                    <div class="col-md-6 form-check mt-2">{{ status_form.is_closed(class='form-check-input') }} {{ status_form.is_closed.label(class='form-check-label') }}</div>
+                    <div class="col-12 mt-2">{{ status_form.submit(class='btn btn-primary') }}</div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">Dodaj przejście</h5>
+                <form method="post" action="{{ url_for('workflow.create_transition') }}" class="row g-2">
+                    {{ transition_form.hidden_tag() }}
+                    <div class="col-md-6">{{ transition_form.from_status_code.label(class='form-label') }}{{ transition_form.from_status_code(class='form-select') }}</div>
+                    <div class="col-md-6">{{ transition_form.to_status_code.label(class='form-label') }}{{ transition_form.to_status_code(class='form-select') }}</div>
+                    <div class="col-12">{{ transition_form.name.label(class='form-label') }}{{ transition_form.name(class='form-control') }}</div>
+                    <div class="col-12">{{ transition_form.requires_permission.label(class='form-label') }}{{ transition_form.requires_permission(class='form-control') }}</div>
+                    <div class="col-md-6 form-check mt-2 ms-2">{{ transition_form.requires_estimate(class='form-check-input') }} {{ transition_form.requires_estimate.label(class='form-check-label') }}</div>
+                    <div class="col-md-6 form-check mt-2">{{ transition_form.requires_parts(class='form-check-input') }} {{ transition_form.requires_parts.label(class='form-check-label') }}</div>
+                    <div class="col-md-6 form-check mt-2 ms-2">{{ transition_form.requires_payment(class='form-check-input') }} {{ transition_form.requires_payment.label(class='form-check-label') }}</div>
+                    <div class="col-md-6 form-check mt-2">{{ transition_form.auto_email(class='form-check-input') }} {{ transition_form.auto_email.label(class='form-check-label') }}</div>
+                    <div class="col-md-6 form-check mt-2 ms-2">{{ transition_form.auto_sms(class='form-check-input') }} {{ transition_form.auto_sms.label(class='form-check-label') }}</div>
+                    <div class="col-md-6 form-check mt-2">{{ transition_form.auto_notification(class='form-check-input') }} {{ transition_form.auto_notification.label(class='form-check-label') }}</div>
+                    <div class="col-12 mt-2">{{ transition_form.submit(class='btn btn-primary') }}</div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mt-1">
+    <div class="col-lg-5">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Statusy</h5>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                            <tr><th>Kod</th><th>Nazwa</th><th>Widok</th></tr>
+                        </thead>
+                        <tbody>
+                        {% for status in statuses %}
+                            <tr>
+                                <td>{{ status.code }}</td>
+                                <td>{{ status.name }}</td>
+                                <td><span class="badge {{ status.color }}">{{ status.name }}</span></td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-7">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Przejścia</h5>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                            <tr><th>Z</th><th>Do</th><th>Nazwa</th><th>Warunki</th></tr>
+                        </thead>
+                        <tbody>
+                        {% for transition in transitions %}
+                            <tr>
+                                <td>{{ transition.from_status.code }}</td>
+                                <td>{{ transition.to_status.code }}</td>
+                                <td>{{ transition.name }}</td>
+                                <td>
+                                    {% if transition.requires_permission %}<span class="badge text-bg-light">{{ transition.requires_permission }}</span>{% endif %}
+                                    {% if transition.requires_estimate %}<span class="badge text-bg-light">kosztorys</span>{% endif %}
+                                    {% if transition.requires_parts %}<span class="badge text-bg-light">części</span>{% endif %}
+                                    {% if transition.requires_payment %}<span class="badge text-bg-light">kwota</span>{% endif %}
+                                    {% if transition.auto_email %}<span class="badge text-bg-info">email</span>{% endif %}
+                                    {% if transition.auto_sms %}<span class="badge text-bg-info">sms</span>{% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

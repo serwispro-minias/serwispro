@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+
+{% block title %}Katalog dla zlecenia #{{ summary.order.id }}{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h1 class="h3">Katalog i Magazyn dla zlecenia #{{ summary.order.id }}</h1>
+        <small class="text-muted">Numer zlecenia: {{ summary.order.order_number }}</small>
+    </div>
+    <a class="btn btn-outline-secondary" href="{{ url_for('orders.details', order_id=summary.order.id) }}">Powrót do zlecenia</a>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h2 class="h6">Rezerwacja części</h2>
+                <form method="post" action="{{ url_for('catalog.order_reserve_part', order_id=summary.order.id) }}">
+                    {{ reservation_form.hidden_tag() }}
+                    <div class="mb-2">{{ reservation_form.part_id.label(class="form-label") }}{{ reservation_form.part_id(class="form-select") }}</div>
+                    <div class="mb-3">{{ reservation_form.quantity.label(class="form-label") }}{{ reservation_form.quantity(class="form-control") }}</div>
+                    {{ reservation_form.submit(class="btn btn-primary btn-sm") }}
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h2 class="h6">Zużycie materiału</h2>
+                <form method="post" action="{{ url_for('catalog.order_issue_material', order_id=summary.order.id) }}">
+                    {{ usage_form.hidden_tag() }}
+                    <div class="mb-2">{{ usage_form.material_id.label(class="form-label") }}{{ usage_form.material_id(class="form-select") }}</div>
+                    <div class="mb-3">{{ usage_form.quantity.label(class="form-label") }}{{ usage_form.quantity(class="form-control") }}</div>
+                    {{ usage_form.submit(class="btn btn-primary btn-sm") }}
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h2 class="h6">Pozycja usługi</h2>
+                <form method="post" action="{{ url_for('catalog.order_add_service_line', order_id=summary.order.id) }}">
+                    {{ service_line_form.hidden_tag() }}
+                    <div class="mb-2">{{ service_line_form.service_item_id.label(class="form-label") }}{{ service_line_form.service_item_id(class="form-select") }}</div>
+                    <div class="mb-3">{{ service_line_form.quantity.label(class="form-label") }}{{ service_line_form.quantity(class="form-control") }}</div>
+                    {{ service_line_form.submit(class="btn btn-primary btn-sm") }}
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body d-flex justify-content-between align-items-center">
+        <div>
+            <h2 class="h6 mb-1">Automatyczne odpisanie materiałów</h2>
+            <small class="text-muted">Wykorzystuje materiały z flagą auto-issue i domyślnym zużyciem.</small>
+        </div>
+        <form method="post" action="{{ url_for('catalog.order_auto_issue_materials', order_id=summary.order.id) }}">
+            {{ auto_issue_form.hidden_tag() }}
+            {{ auto_issue_form.submit(class="btn btn-outline-primary btn-sm") }}
+        </form>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h2 class="h5">Rezerwacje części</h2>
+        {% if summary.reservations %}
+        <div class="table-responsive">
+            <table class="table table-sm table-striped align-middle mb-0">
+                <thead><tr><th>Część</th><th>Ilość</th><th>Status</th></tr></thead>
+                <tbody>
+                    {% for row in summary.reservations %}
+                    <tr>
+                        <td>{{ row.part.code }} | {{ row.part.name }}</td>
+                        <td>{{ '%.3f'|format(row.quantity) }}</td>
+                        <td>{{ row.status }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}<p class="text-muted mb-0">Brak rezerwacji.</p>{% endif %}
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h2 class="h5">Zużyte materiały</h2>
+        {% if summary.usages %}
+        <div class="table-responsive">
+            <table class="table table-sm table-striped align-middle mb-0">
+                <thead><tr><th>Materiał</th><th>Ilość</th><th>Netto</th><th>VAT</th><th>Brutto</th></tr></thead>
+                <tbody>
+                    {% for row in summary.usages %}
+                    <tr>
+                        <td>{{ row.material.code }} | {{ row.material.name }}</td>
+                        <td>{{ '%.3f'|format(row.quantity) }}</td>
+                        <td>{{ '%.2f'|format(row.net_value) }}</td>
+                        <td>{{ '%.2f'|format(row.vat_value) }}</td>
+                        <td>{{ '%.2f'|format(row.gross_value) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}<p class="text-muted mb-0">Brak zużyć materiałów.</p>{% endif %}
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <h2 class="h5">Pozycje usług</h2>
+        {% if summary.service_lines %}
+        <div class="table-responsive">
+            <table class="table table-sm table-striped align-middle mb-0">
+                <thead><tr><th>Usługa</th><th>Ilość</th><th>Netto</th><th>VAT</th><th>Brutto</th><th>Czas</th></tr></thead>
+                <tbody>
+                    {% for row in summary.service_lines %}
+                    <tr>
+                        <td>{{ row.service_item.code }} | {{ row.service_item.name }}</td>
+                        <td>{{ '%.2f'|format(row.quantity) }}</td>
+                        <td>{{ '%.2f'|format(row.net_value) }}</td>
+                        <td>{{ '%.2f'|format(row.vat_value) }}</td>
+                        <td>{{ '%.2f'|format(row.gross_value) }}</td>
+                        <td>{{ row.duration_minutes }} min</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}<p class="text-muted mb-0">Brak usług przypisanych do zlecenia.</p>{% endif %}
+    </div>
+</div>
+{% endblock %}

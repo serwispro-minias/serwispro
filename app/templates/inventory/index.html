@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}Magazyn części{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h1 class="h3">Magazyn części i materiałów</h1>
+        <small class="text-muted">Pozycji: {{ parts["total"] }} | Ostrzeżeń: {{ low_stock_count }}</small>
+    </div>
+    <div class="d-flex gap-2">
+        <a class="btn btn-outline-secondary" href="{{ url_for('inventory.print_stock_state') }}" target="_blank" rel="noopener">Drukuj stany</a>
+        <a class="btn btn-primary" href="{{ url_for('inventory.create_part') }}">Nowa część</a>
+    </div>
+</div>
+
+<form method="get" class="mb-3">
+    <div class="input-group" style="max-width: 520px;">
+        {{ search_form.q(class="form-control", placeholder="Kod, nazwa, producent, numer katalogowy...") }}
+        <button class="btn btn-secondary" type="submit">Szukaj</button>
+    </div>
+</form>
+
+{% if low_stock_parts %}
+<div class="alert alert-warning">
+    <strong>Stan poniżej minimum:</strong>
+    {% for part in low_stock_parts %}
+    <a href="{{ url_for('inventory.details', part_id=part.id) }}" class="alert-link">{{ part.part_code }}</a>{% if not loop.last %}, {% endif %}
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if parts["items"] %}
+<div class="table-responsive">
+    <table class="table table-striped table-hover align-middle">
+        <thead>
+            <tr>
+                <th>Kod</th>
+                <th>Nazwa</th>
+                <th>Producent</th>
+                <th>Lokalizacja</th>
+                <th>Stan</th>
+                <th>Minimum</th>
+                <th>Cena netto</th>
+                <th>Akcje</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for part in parts["items"] %}
+            {% set low = part.current_stock < part.minimum_stock %}
+            <tr class="{% if low %}table-warning{% endif %}">
+                <td>{{ part.part_code }}</td>
+                <td>{{ part.name }}</td>
+                <td>{{ part.manufacturer or '-' }}</td>
+                <td>{{ part.location or '-' }}</td>
+                <td>
+                    {{ '%.3f'|format(part.current_stock) }} {{ part.unit }}
+                    {% if low %}
+                    <div><span class="badge bg-warning text-dark">Stan poniżej minimum</span></div>
+                    {% endif %}
+                </td>
+                <td>{{ '%.3f'|format(part.minimum_stock) }} {{ part.unit }}</td>
+                <td>{{ '%.2f'|format(part.sale_price_net) }} PLN</td>
+                <td>
+                    <div class="btn-group btn-group-sm">
+                        <a class="btn btn-outline-primary" href="{{ url_for('inventory.details', part_id=part.id) }}">Karta</a>
+                        <a class="btn btn-outline-secondary" href="{{ url_for('inventory.edit_part', part_id=part.id) }}">Edytuj</a>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="card">
+    <div class="card-body">
+        Brak pozycji magazynowych.
+    </div>
+</div>
+{% endif %}
+
+{% if parts["pages"] > 1 %}
+<nav aria-label="Strony magazynu" class="mt-3">
+    <ul class="pagination">
+        {% for page_num in range(1, parts["pages"] + 1) %}
+        <li class="page-item{% if page_num == parts["page"] %} active{% endif %}">
+            <a class="page-link" href="{{ url_for('inventory.index', page=page_num, q=q) }}">{{ page_num }}</a>
+        </li>
+        {% endfor %}
+    </ul>
+</nav>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,138 @@
+{
+  "models": [
+    {
+      "model": "app.models.audit_log.AuditLog",
+      "table": "audit_logs",
+      "has_table_in_db": true,
+      "covered_by_migration": true
+    },
+    {
+      "model": "app.models.branch.Branch",
+      "table": "branches",
+      "has_table_in_db": true,
+      "covered_by_migration": true
+    },
+    {
+      "model": "app.models.company.Company",
+      "table": "companies",
+      "has_table_in_db": true,
+      "covered_by_migration": true
+    },
+    {
+      "model": "app.models.customer.Customer",
+      "table": "customers",
+      "has_table_in_db": true,
+      "covered_by_migration": true
+    },
+    {
+      "model": "app.models.device.Device",
+      "table": "devices",
+      "has_table_in_db": true,
+      "covered_by_migration": true
+    },
+    {
+      "model": "app.models.inventory_part.InventoryPart",
+      "table": "inventory_parts",
+      "has_table_in_db": true,
+      "covered_by_migration": true
+    },
+    {
+      "model": "app.models.inventory_stock_operation.InventoryStockOperation",
+      "table": "inventory_stock_operations",
+      "has_table_in_db": true,
+      "covered_by_migration": true
+    },
+    {
+      "model": "app.models.notification_message.NotificationMessage",
+      "table": "notification_logs",
+      "has_table_in_db": true,
+      "covered_by_migration": true
+    },
+    {
+      "model": "app.models.notification_queue.NotificationQueue",
+      "table": "notification_queue",
+      "has_table_in_db": true,
+      "covered_by_migration": true
+    },
+    {
+      "model": "app.models.notification_template.NotificationTemplate",
+      "table": "notification_templates",
+      "has_table_in_db": true,
+      "covered_by_migration": true
+    },
+    {
+      "model": "app.models.permission.Permission",
+      "table": "permissions",
+      "has_table_in_db": true,
+      "covered_by_migration": true
+    },
+    {
+      "model": "app.models.role.Role",
+      "table": "roles",
+      "has_table_in_db": true,
+      "covered_by_migration": true
+    },
+    {
+      "model": "app.models.role_permission.RolePermission",
+      "table": "role_permissions",
+      "has_table_in_db": true,
+      "covered_by_migration": true
+    },
+    {
+      "model": "app.models.service_order.ServiceOrder",
+      "table": "service_orders",
+      "has_table_in_db": true,
+      "covered_by_migration": true
+    },
+    {
+      "model": "app.models.service_order_action.ServiceOrderAction",
+      "table": "service_order_actions",
+      "has_table_in_db": true,
+      "covered_by_migration": true
+    },
+    {
+      "model": "app.models.service_order_part_usage.ServiceOrderPartUsage",
+      "table": "service_order_part_usages",
+      "has_table_in_db": true,
+      "covered_by_migration": true
+    },
+    {
+      "model": "app.models.service_order_status_history.ServiceOrderStatusHistory",
+      "table": "service_order_status_history",
+      "has_table_in_db": true,
+      "covered_by_migration": true
+    },
+    {
+      "model": "app.models.service_order_timeline.ServiceOrderTimelineAttachment",
+      "table": "service_order_timeline_attachments",
+      "has_table_in_db": true,
+      "covered_by_migration": true
+    },
+    {
+      "model": "app.models.service_order_timeline.ServiceOrderTimelineEntry",
+      "table": "service_order_timeline_entries",
+      "has_table_in_db": true,
+      "covered_by_migration": true
+    },
+    {
+      "model": "app.models.setting.Setting",
+      "table": "settings",
+      "has_table_in_db": true,
+      "covered_by_migration": true
+    },
+    {
+      "model": "app.models.user.User",
+      "table": "users",
+      "has_table_in_db": true,
+      "covered_by_migration": true
+    },
+    {
+      "model": "app.models.user_role.UserRole",
+      "table": "user_roles",
+      "has_table_in_db": true,
+      "covered_by_migration": true
+    }
+  ],
+  "missing_table": [],
+  "missing_migration": []
+}

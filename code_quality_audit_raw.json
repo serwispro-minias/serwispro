@@ -1,0 +1,1005 @@
+{
+  "files_gt_500": [
+    {
+      "file": "app/orders/routes.py",
+      "lines": 1116
+    },
+    {
+      "file": "app/templates/orders/form.html",
+      "lines": 600
+    }
+  ],
+  "functions_gt_80": [
+    {
+      "file": "migrations/versions/7769584704da_initial_database.py",
+      "name": "upgrade",
+      "line": 19,
+      "lines": 253
+    },
+    {
+      "file": "migrations/versions/b2f4a61c9d3e_inventory_module_tables.py",
+      "name": "upgrade",
+      "line": 20,
+      "lines": 157
+    },
+    {
+      "file": "app/orders/print_service.py",
+      "name": "_build_context",
+      "line": 74,
+      "lines": 141
+    },
+    {
+      "file": "app/bootstrap.py",
+      "name": "bootstrap_database",
+      "line": 64,
+      "lines": 117
+    },
+    {
+      "file": "app/seed.py",
+      "name": "seed_database",
+      "line": 52,
+      "lines": 117
+    },
+    {
+      "file": "app/settings/routes.py",
+      "name": "notifications",
+      "line": 35,
+      "lines": 100
+    },
+    {
+      "file": "migrations/versions/c3f6eab94210_add_notifications_module_tables.py",
+      "name": "upgrade",
+      "line": 20,
+      "lines": 96
+    },
+    {
+      "file": "tests/test_order_protocol_pdf.py",
+      "name": "_create_protocol_order",
+      "line": 51,
+      "lines": 94
+    },
+    {
+      "file": "migrations/versions/4d7b1ce2f901_add_service_order_timeline_tables.py",
+      "name": "upgrade",
+      "line": 20,
+      "lines": 89
+    },
+    {
+      "file": "app/service_orders/repository.py",
+      "name": "paginate",
+      "line": 120,
+      "lines": 84
+    }
+  ],
+  "blueprints": {
+    "defined_modules": [
+      "api",
+      "common",
+      "customers",
+      "dashboard",
+      "devices",
+      "inventory",
+      "orders",
+      "reports",
+      "services",
+      "settings",
+      "utils"
+    ],
+    "registered_modules": [
+      "api",
+      "auth",
+      "common",
+      "customers",
+      "dashboard",
+      "devices",
+      "inventory",
+      "orders",
+      "reports",
+      "services",
+      "settings",
+      "utils"
+    ],
+    "unused_modules": []
+  },
+  "templates": {
+    "entry_render_templates": [
+      "customers/details.html",
+      "customers/form.html",
+      "customers/index.html",
+      "dashboard/index.html",
+      "devices/details.html",
+      "devices/form.html",
+      "devices/index.html",
+      "inventory/details.html",
+      "inventory/form.html",
+      "inventory/index.html",
+      "login.html",
+      "orders/action_form.html",
+      "orders/communication_proposal.html",
+      "orders/details.html",
+      "orders/form.html",
+      "orders/index.html",
+      "orders/partials/customer_modal_form.html",
+      "orders/partials/device_modal_form.html",
+      "orders/partials/order_part_usage_form.html",
+      "orders/partials/order_part_usage_table.html",
+      "orders/partials/timeline_entry_form.html",
+      "orders/partials/timeline_entry_item.html",
+      "settings/notifications.html"
+    ],
+    "unused_templates": [
+      "components/badge.html",
+      "components/breadcrumb.html",
+      "components/card.html",
+      "components/empty_state.html",
+      "components/modal.html",
+      "components/page_header.html",
+      "components/stat_card.html",
+      "components/table.html"
+    ]
+  },
+  "assets": {
+    "all_css": [
+      "css/app.css"
+    ],
+    "used_css": [
+      "css/app.css"
+    ],
+    "unused_css": [],
+    "all_js": [
+      "js/app.js"
+    ],
+    "used_js": [],
+    "unused_js": [
+      "js/app.js"
+    ]
+  },
+  "model_usage": [
+    {
+      "class": "NotificationQueue",
+      "file": "app/models/notification_queue.py",
+      "mentions": 7
+    },
+    {
+      "class": "CustomerTypeEnum",
+      "file": "app/models/customer.py",
+      "mentions": 9
+    },
+    {
+      "class": "BaseModel",
+      "file": "app/models/base.py",
+      "mentions": 11
+    },
+    {
+      "class": "ServiceOrderPriorityEnum",
+      "file": "app/models/service_order.py",
+      "mentions": 12
+    },
+    {
+      "class": "RolePermission",
+      "file": "app/models/role_permission.py",
+      "mentions": 20
+    },
+    {
+      "class": "UserRole",
+      "file": "app/models/user_role.py",
+      "mentions": 20
+    },
+    {
+      "class": "ServiceOrderStatusHistory",
+      "file": "app/models/service_order_status_history.py",
+      "mentions": 23
+    },
+    {
+      "class": "Permission",
+      "file": "app/models/permission.py",
+      "mentions": 25
+    },
+    {
+      "class": "ServiceOrderTimelineAttachment",
+      "file": "app/models/service_order_timeline.py",
+      "mentions": 28
+    },
+    {
+      "class": "Branch",
+      "file": "app/models/branch.py",
+      "mentions": 30
+    },
+    {
+      "class": "ServiceOrderStatusEnum",
+      "file": "app/models/service_order.py",
+      "mentions": 30
+    },
+    {
+      "class": "Role",
+      "file": "app/models/role.py",
+      "mentions": 31
+    },
+    {
+      "class": "ServiceOrderPartUsage",
+      "file": "app/models/service_order_part_usage.py",
+      "mentions": 33
+    },
+    {
+      "class": "InventoryStockOperation",
+      "file": "app/models/inventory_stock_operation.py",
+      "mentions": 37
+    },
+    {
+      "class": "BaseTenantModel",
+      "file": "app/models/base.py",
+      "mentions": 41
+    },
+    {
+      "class": "NotificationMessage",
+      "file": "app/models/notification_message.py",
+      "mentions": 43
+    },
+    {
+      "class": "NotificationTemplate",
+      "file": "app/models/notification_template.py",
+      "mentions": 46
+    },
+    {
+      "class": "Setting",
+      "file": "app/models/setting.py",
+      "mentions": 47
+    },
+    {
+      "class": "Company",
+      "file": "app/models/company.py",
+      "mentions": 51
+    },
+    {
+      "class": "ServiceOrderTimelineEntry",
+      "file": "app/models/service_order_timeline.py",
+      "mentions": 52
+    },
+    {
+      "class": "ServiceOrderAction",
+      "file": "app/models/service_order_action.py",
+      "mentions": 61
+    },
+    {
+      "class": "User",
+      "file": "app/models/user.py",
+      "mentions": 64
+    },
+    {
+      "class": "InventoryPart",
+      "file": "app/models/inventory_part.py",
+      "mentions": 85
+    },
+    {
+      "class": "Device",
+      "file": "app/models/device.py",
+      "mentions": 97
+    },
+    {
+      "class": "Customer",
+      "file": "app/models/customer.py",
+      "mentions": 145
+    },
+    {
+      "class": "ServiceOrder",
+      "file": "app/models/service_order.py",
+      "mentions": 153
+    }
+  ],
+  "proxy_files": [
+    "app/orders/exceptions.py",
+    "app/orders/repository.py",
+    "app/orders/service.py",
+    "app/orders/validators.py"
+  ],
+  "classes": [
+    {
+      "file": "app/seed.py",
+      "name": "SeedSummary",
+      "line": 42,
+      "method_count": 0
+    },
+    {
+      "file": "config/__init__.py",
+      "name": "Config",
+      "line": 7,
+      "method_count": 0
+    },
+    {
+      "file": "config/__init__.py",
+      "name": "DevelopmentConfig",
+      "line": 24,
+      "method_count": 0
+    },
+    {
+      "file": "config/__init__.py",
+      "name": "ProductionConfig",
+      "line": 29,
+      "method_count": 0
+    },
+    {
+      "file": "config/__init__.py",
+      "name": "TestingConfig",
+      "line": 35,
+      "method_count": 0
+    },
+    {
+      "file": "tests/test_notifications_service.py",
+      "name": "FakeEmailProvider",
+      "line": 25,
+      "method_count": 2
+    },
+    {
+      "file": "tests/test_notifications_service.py",
+      "name": "FakeSmsProvider",
+      "line": 37,
+      "method_count": 2
+    },
+    {
+      "file": "app/api/forms.py",
+      "name": "ApiForm",
+      "line": 4,
+      "method_count": 0
+    },
+    {
+      "file": "app/common/forms.py",
+      "name": "CommonForm",
+      "line": 4,
+      "method_count": 0
+    },
+    {
+      "file": "app/core/exceptions.py",
+      "name": "CoreError",
+      "line": 4,
+      "method_count": 0
+    },
+    {
+      "file": "app/core/exceptions.py",
+      "name": "SecurityError",
+      "line": 9,
+      "method_count": 0
+    },
+    {
+      "file": "app/core/security.py",
+      "name": "SecurityPolicy",
+      "line": 4,
+      "method_count": 1
+    },
+    {
+      "file": "app/customers/exceptions.py",
+      "name": "CustomerError",
+      "line": 11,
+      "method_count": 0
+    },
+    {
+      "file": "app/customers/exceptions.py",
+      "name": "CustomerNotFoundError",
+      "line": 15,
+      "method_count": 0
+    },
+    {
+      "file": "app/customers/exceptions.py",
+      "name": "CustomerAlreadyExistsError",
+      "line": 19,
+      "method_count": 0
+    },
+    {
+      "file": "app/customers/exceptions.py",
+      "name": "CustomerValidationError",
+      "line": 23,
+      "method_count": 0
+    },
+    {
+      "file": "app/customers/exceptions.py",
+      "name": "CustomerInactiveError",
+      "line": 27,
+      "method_count": 0
+    },
+    {
+      "file": "app/customers/forms.py",
+      "name": "CustomerForm",
+      "line": 10,
+      "method_count": 0
+    },
+    {
+      "file": "app/customers/repository.py",
+      "name": "CustomerRepository",
+      "line": 20,
+      "method_count": 16
+    },
+    {
+      "file": "app/customers/services.py",
+      "name": "CustomerService",
+      "line": 17,
+      "method_count": 9
+    },
+    {
+      "file": "app/customers/validators.py",
+      "name": "CustomerValidator",
+      "line": 44,
+      "method_count": 9
+    },
+    {
+      "file": "app/dashboard/forms.py",
+      "name": "DashboardForm",
+      "line": 4,
+      "method_count": 0
+    },
+    {
+      "file": "app/dashboard/service.py",
+      "name": "DashboardStats",
+      "line": 15,
+      "method_count": 0
+    },
+    {
+      "file": "app/dashboard/service.py",
+      "name": "DashboardData",
+      "line": 26,
+      "method_count": 0
+    },
+    {
+      "file": "app/dashboard/service.py",
+      "name": "DashboardService",
+      "line": 35,
+      "method_count": 10
+    },
+    {
+      "file": "app/devices/exceptions.py",
+      "name": "DeviceError",
+      "line": 6,
+      "method_count": 0
+    },
+    {
+      "file": "app/devices/exceptions.py",
+      "name": "DeviceNotFoundError",
+      "line": 10,
+      "method_count": 0
+    },
+    {
+      "file": "app/devices/exceptions.py",
+      "name": "DeviceValidationError",
+      "line": 14,
+      "method_count": 0
+    },
+    {
+      "file": "app/devices/forms.py",
+      "name": "DeviceForm",
+      "line": 8,
+      "method_count": 0
+    },
+    {
+      "file": "app/devices/repository.py",
+      "name": "DeviceRepository",
+      "line": 19,
+      "method_count": 10
+    },
+    {
+      "file": "app/devices/service.py",
+      "name": "DeviceService",
+      "line": 19,
+      "method_count": 12
+    },
+    {
+      "file": "app/inventory/exceptions.py",
+      "name": "InventoryError",
+      "line": 4,
+      "method_count": 0
+    },
+    {
+      "file": "app/inventory/exceptions.py",
+      "name": "InventoryNotFoundError",
+      "line": 8,
+      "method_count": 0
+    },
+    {
+      "file": "app/inventory/exceptions.py",
+      "name": "InventoryValidationError",
+      "line": 12,
+      "method_count": 0
+    },
+    {
+      "file": "app/inventory/forms.py",
+      "name": "InventoryPartForm",
+      "line": 27,
+      "method_count": 0
+    },
+    {
+      "file": "app/inventory/forms.py",
+      "name": "InventoryOperationForm",
+      "line": 48,
+      "method_count": 0
+    },
+    {
+      "file": "app/inventory/forms.py",
+      "name": "InventorySearchForm",
+      "line": 56,
+      "method_count": 0
+    },
+    {
+      "file": "app/inventory/importers.py",
+      "name": "ImportPayload",
+      "line": 8,
+      "method_count": 0
+    },
+    {
+      "file": "app/inventory/importers.py",
+      "name": "InventoryImportAdapter",
+      "line": 13,
+      "method_count": 2
+    },
+    {
+      "file": "app/inventory/importers.py",
+      "name": "InventoryImportRegistry",
+      "line": 25,
+      "method_count": 3
+    },
+    {
+      "file": "app/inventory/pdf_generator.py",
+      "name": "InventoryPdfContext",
+      "line": 19,
+      "method_count": 0
+    },
+    {
+      "file": "app/inventory/pdf_generator.py",
+      "name": "InventoryPdfGenerator",
+      "line": 28,
+      "method_count": 4
+    },
+    {
+      "file": "app/inventory/print_service.py",
+      "name": "InventoryPdfDocument",
+      "line": 17,
+      "method_count": 0
+    },
+    {
+      "file": "app/inventory/print_service.py",
+      "name": "InventoryPrintService",
+      "line": 22,
+      "method_count": 5
+    },
+    {
+      "file": "app/inventory/repository.py",
+      "name": "InventoryRepository",
+      "line": 16,
+      "method_count": 14
+    },
+    {
+      "file": "app/inventory/service.py",
+      "name": "OrderUsageTotals",
+      "line": 21,
+      "method_count": 0
+    },
+    {
+      "file": "app/inventory/service.py",
+      "name": "InventoryService",
+      "line": 27,
+      "method_count": 20
+    },
+    {
+      "file": "app/models/base.py",
+      "name": "BaseModel",
+      "line": 12,
+      "method_count": 0
+    },
+    {
+      "file": "app/models/base.py",
+      "name": "BaseTenantModel",
+      "line": 41,
+      "method_count": 0
+    },
+    {
+      "file": "app/models/branch.py",
+      "name": "Branch",
+      "line": 14,
+      "method_count": 0
+    },
+    {
+      "file": "app/models/company.py",
+      "name": "Company",
+      "line": 20,
+      "method_count": 1
+    },
+    {
+      "file": "app/models/customer.py",
+      "name": "CustomerTypeEnum",
+      "line": 17,
+      "method_count": 0
+    },
+    {
+      "file": "app/models/customer.py",
+      "name": "Customer",
+      "line": 22,
+      "method_count": 1
+    },
+    {
+      "file": "app/models/device.py",
+      "name": "Device",
+      "line": 16,
+      "method_count": 1
+    },
+    {
+      "file": "app/models/inventory_part.py",
+      "name": "InventoryPart",
+      "line": 16,
+      "method_count": 1
+    },
+    {
+      "file": "app/models/inventory_stock_operation.py",
+      "name": "InventoryStockOperation",
+      "line": 28,
+      "method_count": 1
+    },
+    {
+      "file": "app/models/notification_message.py",
+      "name": "NotificationMessage",
+      "line": 17,
+      "method_count": 2
+    },
+    {
+      "file": "app/models/notification_queue.py",
+      "name": "NotificationQueue",
+      "line": 11,
+      "method_count": 1
+    },
+    {
+      "file": "app/models/notification_template.py",
+      "name": "NotificationTemplate",
+      "line": 14,
+      "method_count": 1
+    },
+    {
+      "file": "app/models/permission.py",
+      "name": "Permission",
+      "line": 16,
+      "method_count": 1
+    },
+    {
+      "file": "app/models/role.py",
+      "name": "Role",
+      "line": 18,
+      "method_count": 1
+    },
+    {
+      "file": "app/models/role_permission.py",
+      "name": "RolePermission",
+      "line": 15,
+      "method_count": 1
+    },
+    {
+      "file": "app/models/service_order.py",
+      "name": "ServiceOrderStatusEnum",
+      "line": 23,
+      "method_count": 0
+    },
+    {
+      "file": "app/models/service_order.py",
+      "name": "ServiceOrderPriorityEnum",
+      "line": 36,
+      "method_count": 0
+    },
+    {
+      "file": "app/models/service_order.py",
+      "name": "ServiceOrder",
+      "line": 77,
+      "method_count": 1
+    },
+    {
+      "file": "app/models/service_order_action.py",
+      "name": "ServiceOrderAction",
+      "line": 32,
+      "method_count": 1
+    },
+    {
+      "file": "app/models/service_order_part_usage.py",
+      "name": "ServiceOrderPartUsage",
+      "line": 17,
+      "method_count": 1
+    },
+    {
+      "file": "app/models/service_order_status_history.py",
+      "name": "ServiceOrderStatusHistory",
+      "line": 16,
+      "method_count": 1
+    },
+    {
+      "file": "app/models/service_order_timeline.py",
+      "name": "ServiceOrderTimelineEntry",
+      "line": 28,
+      "method_count": 0
+    },
+    {
+      "file": "app/models/service_order_timeline.py",
+      "name": "ServiceOrderTimelineAttachment",
+      "line": 59,
+      "method_count": 0
+    },
+    {
+      "file": "app/models/setting.py",
+      "name": "Setting",
+      "line": 14,
+      "method_count": 1
+    },
+    {
+      "file": "app/models/user.py",
+      "name": "User",
+      "line": 19,
+      "method_count": 1
+    },
+    {
+      "file": "app/models/user_role.py",
+      "name": "UserRole",
+      "line": 15,
+      "method_count": 1
+    },
+    {
+      "file": "app/notifications/providers.py",
+      "name": "ProviderResult",
+      "line": 10,
+      "method_count": 0
+    },
+    {
+      "file": "app/notifications/providers.py",
+      "name": "EmailProvider",
+      "line": 17,
+      "method_count": 1
+    },
+    {
+      "file": "app/notifications/providers.py",
+      "name": "SmsProvider",
+      "line": 23,
+      "method_count": 1
+    },
+    {
+      "file": "app/notifications/providers.py",
+      "name": "SmtpEmailProvider",
+      "line": 29,
+      "method_count": 1
+    },
+    {
+      "file": "app/notifications/providers.py",
+      "name": "GenericApiSmsProvider",
+      "line": 70,
+      "method_count": 1
+    },
+    {
+      "file": "app/notifications/providers.py",
+      "name": "ProviderFactory",
+      "line": 97,
+      "method_count": 3
+    },
+    {
+      "file": "app/notifications/repository.py",
+      "name": "NotificationRepository",
+      "line": 15,
+      "method_count": 12
+    },
+    {
+      "file": "app/notifications/service.py",
+      "name": "NotificationDraft",
+      "line": 32,
+      "method_count": 0
+    },
+    {
+      "file": "app/notifications/service.py",
+      "name": "NotificationError",
+      "line": 41,
+      "method_count": 0
+    },
+    {
+      "file": "app/notifications/service.py",
+      "name": "NotificationService",
+      "line": 45,
+      "method_count": 19
+    },
+    {
+      "file": "app/orders/action_exceptions.py",
+      "name": "ServiceOrderActionError",
+      "line": 4,
+      "method_count": 0
+    },
+    {
+      "file": "app/orders/action_exceptions.py",
+      "name": "ServiceOrderActionNotFoundError",
+      "line": 8,
+      "method_count": 0
+    },
+    {
+      "file": "app/orders/action_exceptions.py",
+      "name": "ServiceOrderActionValidationError",
+      "line": 12,
+      "method_count": 0
+    },
+    {
+      "file": "app/orders/action_repository.py",
+      "name": "ServiceOrderActionRepository",
+      "line": 11,
+      "method_count": 6
+    },
+    {
+      "file": "app/orders/action_service.py",
+      "name": "ServiceOrderActionService",
+      "line": 16,
+      "method_count": 11
+    },
+    {
+      "file": "app/orders/forms.py",
+      "name": "OrderForm",
+      "line": 18,
+      "method_count": 0
+    },
+    {
+      "file": "app/orders/forms.py",
+      "name": "OrderSearchForm",
+      "line": 36,
+      "method_count": 0
+    },
+    {
+      "file": "app/orders/forms.py",
+      "name": "OrderStatusChangeForm",
+      "line": 46,
+      "method_count": 0
+    },
+    {
+      "file": "app/orders/forms.py",
+      "name": "TimelineEntryForm",
+      "line": 52,
+      "method_count": 0
+    },
+    {
+      "file": "app/orders/forms.py",
+      "name": "OrderPartUsageForm",
+      "line": 61,
+      "method_count": 0
+    },
+    {
+      "file": "app/orders/forms.py",
+      "name": "OrderNotificationForm",
+      "line": 68,
+      "method_count": 0
+    },
+    {
+      "file": "app/orders/forms.py",
+      "name": "OrderActionForm",
+      "line": 78,
+      "method_count": 0
+    },
+    {
+      "file": "app/orders/pdf_generator.py",
+      "name": "ProtocolRenderContext",
+      "line": 19,
+      "method_count": 0
+    },
+    {
+      "file": "app/orders/pdf_generator.py",
+      "name": "ServiceOrderPdfGenerator",
+      "line": 44,
+      "method_count": 14
+    },
+    {
+      "file": "app/orders/print_repository.py",
+      "name": "ServiceOrderPrintRepository",
+      "line": 17,
+      "method_count": 6
+    },
+    {
+      "file": "app/orders/print_service.py",
+      "name": "ProtocolDocument",
+      "line": 16,
+      "method_count": 0
+    },
+    {
+      "file": "app/orders/print_service.py",
+      "name": "ServiceOrderPrintService",
+      "line": 21,
+      "method_count": 9
+    },
+    {
+      "file": "app/orders/timeline_exceptions.py",
+      "name": "OrderTimelineError",
+      "line": 4,
+      "method_count": 0
+    },
+    {
+      "file": "app/orders/timeline_exceptions.py",
+      "name": "OrderTimelineNotFoundError",
+      "line": 8,
+      "method_count": 0
+    },
+    {
+      "file": "app/orders/timeline_exceptions.py",
+      "name": "OrderTimelineValidationError",
+      "line": 12,
+      "method_count": 0
+    },
+    {
+      "file": "app/orders/timeline_repository.py",
+      "name": "ServiceOrderTimelineRepository",
+      "line": 12,
+      "method_count": 4
+    },
+    {
+      "file": "app/orders/timeline_service.py",
+      "name": "ServiceOrderTimelineService",
+      "line": 28,
+      "method_count": 12
+    },
+    {
+      "file": "app/reports/forms.py",
+      "name": "ReportsForm",
+      "line": 4,
+      "method_count": 0
+    },
+    {
+      "file": "app/services/forms.py",
+      "name": "ServicesForm",
+      "line": 4,
+      "method_count": 0
+    },
+    {
+      "file": "app/service_orders/exceptions.py",
+      "name": "ServiceOrderError",
+      "line": 6,
+      "method_count": 0
+    },
+    {
+      "file": "app/service_orders/exceptions.py",
+      "name": "ServiceOrderNotFoundError",
+      "line": 10,
+      "method_count": 0
+    },
+    {
+      "file": "app/service_orders/exceptions.py",
+      "name": "ServiceOrderValidationError",
+      "line": 14,
+      "method_count": 0
+    },
+    {
+      "file": "app/service_orders/forms.py",
+      "name": "ServiceOrderForm",
+      "line": 10,
+      "method_count": 0
+    },
+    {
+      "file": "app/service_orders/forms.py",
+      "name": "ServiceOrderSearchForm",
+      "line": 31,
+      "method_count": 0
+    },
+    {
+      "file": "app/service_orders/repository.py",
+      "name": "ServiceOrderRepository",
+      "line": 23,
+      "method_count": 11
+    },
+    {
+      "file": "app/service_orders/service.py",
+      "name": "ServiceOrderService",
+      "line": 31,
+      "method_count": 18
+    },
+    {
+      "file": "app/service_orders/validators.py",
+      "name": "ServiceOrderValidator",
+      "line": 33,
+      "method_count": 4
+    },
+    {
+      "file": "app/settings/forms.py",
+      "name": "NotificationConfigForm",
+      "line": 10,
+      "method_count": 0
+    },
+    {
+      "file": "app/settings/forms.py",
+      "name": "NotificationTemplateForm",
+      "line": 30,
+      "method_count": 0
+    },
+    {
+      "file": "app/utils/forms.py",
+      "name": "UtilsForm",
+      "line": 4,
+      "method_count": 0
+    }
+  ]
+}

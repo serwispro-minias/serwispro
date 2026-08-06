@@ -11,6 +11,7 @@ from app.models.base import BaseTenantModel
 if TYPE_CHECKING:
     from app.models.company import Company
     from app.models.device import Device
+    from app.models.service_order import ServiceOrder
 
 
 class CustomerTypeEnum(str, PyEnum):
@@ -55,6 +56,7 @@ class Customer(BaseTenantModel):
 
     company: Mapped["Company"] = relationship("Company", back_populates="customers")
     devices: Mapped[List["Device"]] = relationship("Device", back_populates="customer", lazy="select")
+    service_orders: Mapped[List["ServiceOrder"]] = relationship("ServiceOrder", back_populates="customer", lazy="select")
 
     def __repr__(self) -> str:  # pragma: no cover - simple repr
         return f"<Customer {self.id} {self.full_name}>"
