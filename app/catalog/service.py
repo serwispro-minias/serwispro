@@ -12,6 +12,7 @@ from app.models.catalog_part import CatalogPart
 from app.models.catalog_service_item import CatalogServiceItem
 from app.models.catalog_stock_movement import CatalogStockMovement
 from app.models.catalog_supplier import CatalogSupplier
+from app.models.inventory_reservation import InventoryReservation, InventoryReservationStatusEnum
 from app.models.service_order_material_usage import ServiceOrderMaterialUsage
 from app.models.service_order_part_reservation import ServiceOrderPartReservation
 from app.models.service_order_service_line import ServiceOrderServiceLine
@@ -71,6 +72,17 @@ class CatalogService:
         if branch_id is not None:
             payload["branch_id"] = branch_id
         return payload
+
+    def _last_demand_id_for_order(self, *, order_id: int, company_id: int | None, branch_id: int | None) -> int | None:
+        from app.models.part_demand import PartDemand
+
+        query = db.session.query(PartDemand).filter(PartDemand.service_order_id == order_id, PartDemand.is_active.is_(True))
+        if company_id is not None:
+            query = query.filter(PartDemand.company_id == company_id)
+        if branch_id is not None:
+            query = query.filter(PartDemand.branch_id == branch_id)
+        demand = query.order_by(PartDemand.created_at.desc(), PartDemand.id.desc()).first()
+        return demand.id if demand is not None else None
 
     def list_entities(self, repository: Any, *, page: int, per_page: int, company_id: int | None, query_text: str | None) -> dict[str, Any]:
         return repository.list_paginated(page=page, per_page=per_page, company_id=company_id, query_text=query_text)
@@ -227,8 +239,12 @@ class CatalogService:
         part = self.parts.get(part_id, company_id=company_id)
         if part is None:
             raise CatalogNotFoundError("Nie znaleziono części.")
+
         current_stock = Decimal(part.current_stock)
-        if current_stock < quantity:
+        reserved_quantity = min(quantity, current_stock)
+        missing_quantity = max(Decimal("0"), quantity - reserved_quantity)
+
+        if current_stock <= Decimal("0"):
             if company_id is None:
                 raise CatalogValidationError("Brak kontekstu firmy dla zapotrzebowania na część.")
             from app.part_demands.service import PartDemandService
@@ -252,7 +268,7 @@ class CatalogService:
             entity_type="part",
             entity_id=part.id,
             movement_type="RESERVATION",
-            quantity=quantity,
+            quantity=reserved_quantity,
             reference_type="SERVICE_ORDER",
             reference_id=str(order.id),
             note="Rezerwacja części dla zlecenia",
@@ -266,13 +282,46 @@ class CatalogService:
                 **self._tenant_payload(company_id=company_id, branch_id=branch_id),
                 "service_order_id": order.id,
                 "part_id": part.id,
-                "quantity": quantity,
+                "quantity": reserved_quantity,
                 "status": "RESERVED",
             }
         )
+
+        inventory_reservation = InventoryReservation(
+            inventory_item_id=part.id,
+            service_order_id=order.id,
+            quantity=reserved_quantity,
+            reserved_by=user_id,
+            status=InventoryReservationStatusEnum.RESERVED.value,
+            company_id=company_id,
+            branch_id=branch_id,
+            created_by=user_id,
+            updated_by=user_id,
+        )
+        db.session.add(inventory_reservation)
+
+        if missing_quantity > Decimal("0") and company_id is not None:
+            from app.part_demands.service import PartDemandService
+
+            demand_result = PartDemandService().create_or_update_from_shortage(
+                order_id=order.id,
+                part_id=part.id,
+                requested_quantity=quantity,
+                available_quantity=current_stock,
+                company_id=company_id,
+                branch_id=branch_id,
+                actor_id=user_id,
+            )
+            db.session.flush()
+            _ = demand_result
+
         _ = movement
         db.session.commit()
-        return ReservePartForOrderResult(reservation=reservation, demand_id=None, demand_missing_quantity=None)
+        return ReservePartForOrderResult(
+            reservation=reservation,
+            demand_id=None if missing_quantity <= Decimal("0") else self._last_demand_id_for_order(order_id=order.id, company_id=company_id, branch_id=branch_id),
+            demand_missing_quantity=missing_quantity if missing_quantity > Decimal("0") else None,
+        )
 
     def issue_material_to_order(
         self,

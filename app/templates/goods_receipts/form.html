@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block title %}Nowe PZ{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3"><div><h1 class="h3 mb-0">Nowe przyjęcie dostawy</h1><small class="text-muted">{{ order.po_number }} | {{ order.supplier.name }}</small></div><a class="btn btn-outline-secondary" href="{{ url_for('goods_receipts.index') }}">Powrót</a></div>
+<form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><div class="table-responsive"><table class="table table-striped align-middle"><thead><tr><th>Część</th><th>Zamówiono</th><th>Pozostało</th><th>Przyjęto teraz</th><th>Partia</th><th>Numer seryjny</th><th>Uwagi</th></tr></thead><tbody>{% for item in order.items %}{% set remaining = item.quantity_ordered - item.quantity_received %}<tr><td>{{ item.code_snapshot }}</td><td>{{ item.quantity_ordered }}</td><td>{{ remaining }}</td><td><input class="form-control" type="number" min="0.001" max="{{ remaining }}" step="0.001" name="quantity_{{ item.id }}"></td><td><input class="form-control" name="batch_{{ item.id }}"></td><td><input class="form-control" name="serial_{{ item.id }}"></td><td><input class="form-control" name="notes_{{ item.id }}"></td></tr>{% endfor %}</tbody></table></div><button class="btn btn-primary" type="submit">Utwórz PZ</button></form>
+{% endblock %}

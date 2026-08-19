@@ -79,13 +79,17 @@
                     <a class="nav-link" href="{{ url_for('orders.index') }}">Zlecenia</a>
 
 
-                    <a class="nav-link" href="{{ url_for('catalog.index') }}">Katalog i Magazyn</a>
+                    <div class="sidebar-section-title px-3 pt-2 text-uppercase text-muted small">Magazyn</div>
 
-
-                    <a class="nav-link" href="{{ url_for('inventory.index') }}">Magazyn</a>
-
-
-                    <a class="nav-link" href="{{ url_for('part_demands.index') }}">Zapotrzebowanie na części</a>
+                    <a class="nav-link" href="{{ url_for('inventory.index') }}">Magazyn (start)</a>
+                    <a class="nav-link ps-4" href="{{ url_for('catalog.parts_index') }}">Kartoteka części</a>
+                    <a class="nav-link ps-4" href="{{ url_for('catalog.categories_index') }}">Kategorie części</a>
+                    <a class="nav-link ps-4" href="{{ url_for('catalog.suppliers_index') }}">Dostawcy</a>
+                    <a class="nav-link ps-4" href="{{ url_for('part_demands.index') }}">Zapotrzebowania</a>
+                    <a class="nav-link ps-4" href="{{ url_for('purchase_orders.index') }}">Zamówienia do dostawców</a>
+                    <a class="nav-link ps-4" href="{{ url_for('goods_receipts.index') }}">Przyjęcia (PZ)</a>
+                    <a class="nav-link ps-4" href="{{ url_for('stock_issues.index') }}">Wydania (RW)</a>
+                    <a class="nav-link ps-4" href="{{ url_for('catalog.index') }}">Katalog (materiały i usługi)</a>
 
 
                     <a class="nav-link" href="{{ url_for('services.index') }}">Wyceny</a>

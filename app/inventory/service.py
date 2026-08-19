@@ -50,6 +50,8 @@ class InventoryService:
 
         payload["company_id"] = company_id
         payload["branch_id"] = branch_id
+        payload["quantity_total"] = payload["current_stock"]
+        payload["quantity_reserved"] = Decimal("0")
         payload["created_by"] = user_id
         payload["updated_by"] = user_id
 
@@ -92,6 +94,8 @@ class InventoryService:
         stock_after = payload["current_stock"]
 
         payload["branch_id"] = branch_id
+        payload["quantity_total"] = stock_after
+        payload["quantity_reserved"] = Decimal(part.quantity_reserved)
         payload["updated_by"] = user_id
         self.repository.update_part(part, payload)
 

@@ -19,6 +19,12 @@ from app.models.notification_message import NotificationMessage
 from app.models.notification_queue import NotificationQueue
 from app.models.notification_template import NotificationTemplate
 from app.models.inventory_part import InventoryPart
+from app.models.inventory_reservation import (
+    INVENTORY_RESERVATION_STATUS_CHOICES,
+    INVENTORY_RESERVATION_STATUS_LABELS,
+    InventoryReservation,
+    InventoryReservationStatusEnum,
+)
 from app.models.inventory_stock_operation import (
     INVENTORY_OPERATION_TYPE_CHOICES,
     INVENTORY_OPERATION_TYPE_LABELS,
@@ -52,6 +58,23 @@ from app.models.part_demand import (
     PartDemandPriorityEnum,
     PartDemandStatusEnum,
 )
+from app.models.purchase_request import (
+    PURCHASE_REQUEST_PRIORITY_CHOICES,
+    PURCHASE_REQUEST_PRIORITY_LABELS,
+    PURCHASE_REQUEST_STATUS_CHOICES,
+    PURCHASE_REQUEST_STATUS_LABELS,
+    PurchaseRequest,
+    PurchaseRequestPriorityEnum,
+    PurchaseRequestStatusEnum,
+)
+from app.models.purchase_order import PURCHASE_ORDER_STATUS_CHOICES, PURCHASE_ORDER_STATUS_LABELS, PurchaseOrder, PurchaseOrderStatusEnum
+from app.models.purchase_order_item import PurchaseOrderItem
+from app.models.purchase_order_demand_link import PurchaseOrderDemandLink
+from app.models.purchase_order_history import PurchaseOrderHistory
+from app.models.goods_receipt import GOODS_RECEIPT_STATUS_CHOICES, GOODS_RECEIPT_STATUS_LABELS, GoodsReceipt, GoodsReceiptStatusEnum
+from app.models.goods_receipt_item import GoodsReceiptItem
+from app.models.stock_issue import STOCK_ISSUE_STATUS_CHOICES, STOCK_ISSUE_STATUS_LABELS, StockIssue, StockIssueStatusEnum
+from app.models.stock_issue_item import StockIssueItem
 from app.models.service_estimate import SERVICE_ESTIMATE_STATUS_CHOICES, SERVICE_ESTIMATE_STATUS_LABELS, ServiceEstimate
 from app.models.service_estimate_item import (
     SERVICE_ESTIMATE_ITEM_SOURCE_CHOICES,
@@ -126,9 +149,13 @@ __all__ = [
     "NotificationMessage",
     "NotificationQueue",
     "InventoryPart",
+    "InventoryReservation",
+    "InventoryReservationStatusEnum",
     "InventoryStockOperation",
     "INVENTORY_OPERATION_TYPE_CHOICES",
     "INVENTORY_OPERATION_TYPE_LABELS",
+    "INVENTORY_RESERVATION_STATUS_CHOICES",
+    "INVENTORY_RESERVATION_STATUS_LABELS",
     "ServiceOrder",
     "ServiceOrderStatusEnum",
     "ServiceOrderPriorityEnum",
@@ -158,6 +185,30 @@ __all__ = [
     "PART_DEMAND_PRIORITY_CHOICES",
     "PART_DEMAND_STATUS_LABELS",
     "PART_DEMAND_PRIORITY_LABELS",
+    "PurchaseRequest",
+    "PurchaseRequestStatusEnum",
+    "PurchaseOrder",
+    "PurchaseOrderStatusEnum",
+    "PURCHASE_ORDER_STATUS_CHOICES",
+    "PURCHASE_ORDER_STATUS_LABELS",
+    "PurchaseOrderItem",
+    "PurchaseOrderDemandLink",
+    "PurchaseOrderHistory",
+    "GoodsReceipt",
+    "GoodsReceiptItem",
+    "GoodsReceiptStatusEnum",
+    "GOODS_RECEIPT_STATUS_CHOICES",
+    "GOODS_RECEIPT_STATUS_LABELS",
+    "StockIssue",
+    "StockIssueItem",
+    "StockIssueStatusEnum",
+    "STOCK_ISSUE_STATUS_CHOICES",
+    "STOCK_ISSUE_STATUS_LABELS",
+    "PurchaseRequestPriorityEnum",
+    "PURCHASE_REQUEST_STATUS_CHOICES",
+    "PURCHASE_REQUEST_PRIORITY_CHOICES",
+    "PURCHASE_REQUEST_STATUS_LABELS",
+    "PURCHASE_REQUEST_PRIORITY_LABELS",
     "ServiceEstimate",
     "SERVICE_ESTIMATE_STATUS_CHOICES",
     "SERVICE_ESTIMATE_STATUS_LABELS",

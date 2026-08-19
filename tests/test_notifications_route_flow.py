@@ -14,6 +14,7 @@ from app.models.service_order_action import ServiceOrderAction
 from app.models.service_order import ServiceOrder
 from app.models.service_order_status_history import ServiceOrderStatusHistory
 from app.models.setting import Setting
+from app.models.purchase_request import PurchaseRequest
 
 
 @pytest.fixture()
@@ -30,6 +31,7 @@ def notifications_route_schema(app):
                 NotificationTemplate.__table__,
                 NotificationMessage.__table__,
                 NotificationQueue.__table__,
+                PurchaseRequest.__table__,
             ],
         )
 
@@ -46,6 +48,7 @@ def notifications_route_schema(app):
                 Setting.__table__,
                 ServiceOrderStatusHistory.__table__,
                 ServiceOrderAction.__table__,
+                PurchaseRequest.__table__,
                 ServiceOrder.__table__,
                 Device.__table__,
             ],

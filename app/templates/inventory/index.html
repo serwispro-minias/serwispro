@@ -1,16 +1,54 @@
 {% extends "base.html" %}
 
-{% block title %}Magazyn części{% endblock %}
+{% block title %}Magazyn{% endblock %}
 
 {% block content %}
 <div class="page-header d-flex justify-content-between align-items-center mb-3">
     <div>
-        <h1 class="h3">Magazyn części i materiałów</h1>
-        <small class="text-muted">Pozycji: {{ parts["total"] }} | Ostrzeżeń: {{ low_stock_count }}</small>
+        <h1 class="h3">Magazyn</h1>
+        <small class="text-muted">Centralny moduł gospodarki magazynowej</small>
     </div>
-    <div class="d-flex gap-2">
-        <a class="btn btn-outline-secondary" href="{{ url_for('inventory.print_stock_state') }}" target="_blank" rel="noopener">Drukuj stany</a>
-        <a class="btn btn-primary" href="{{ url_for('inventory.create_part') }}">Nowa część</a>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card h-100"><div class="card-body">
+            <h2 class="h6">Kartoteka i słowniki</h2>
+            <div class="d-grid gap-1">
+                <a class="btn btn-sm btn-outline-primary" href="{{ url_for('catalog.parts_index') }}">Kartoteka części</a>
+                <a class="btn btn-sm btn-outline-primary" href="{{ url_for('catalog.categories_index') }}">Kategorie części</a>
+                <a class="btn btn-sm btn-outline-primary" href="{{ url_for('catalog.suppliers_index') }}">Dostawcy</a>
+            </div>
+        </div></div>
+    </div>
+    <div class="col-md-3">
+        <div class="card h-100"><div class="card-body">
+            <h2 class="h6">Zapotrzebowania i zakupy</h2>
+            <div class="d-grid gap-1">
+                <a class="btn btn-sm btn-outline-success" href="{{ url_for('part_demands.index') }}">Zapotrzebowania</a>
+                <a class="btn btn-sm btn-outline-success" href="{{ url_for('purchase_orders.index') }}">Zamówienia do dostawców</a>
+            </div>
+        </div></div>
+    </div>
+    <div class="col-md-3">
+        <div class="card h-100"><div class="card-body">
+            <h2 class="h6">Dokumenty magazynowe</h2>
+            <div class="d-grid gap-1">
+                <a class="btn btn-sm btn-outline-warning" href="{{ url_for('goods_receipts.index') }}">Przyjęcia (PZ)</a>
+                <a class="btn btn-sm btn-outline-warning" href="{{ url_for('stock_issues.index') }}">Wydania (RW)</a>
+            </div>
+        </div></div>
+    </div>
+    <div class="col-md-3">
+        <div class="card h-100"><div class="card-body">
+            <h2 class="h6">Stany magazynowe</h2>
+            <p class="mb-1">Pozycji: <strong>{{ parts["total"] }}</strong></p>
+            <p class="mb-2">Ostrzeżeń: <strong>{{ low_stock_count }}</strong></p>
+            <div class="d-flex gap-2">
+                <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('inventory.print_stock_state') }}" target="_blank" rel="noopener">Drukuj stany</a>
+                <a class="btn btn-sm btn-primary" href="{{ url_for('inventory.create_part') }}">Nowa część</a>
+            </div>
+        </div></div>
     </div>
 </div>
 

@@ -22,6 +22,10 @@ INVENTORY_OPERATION_TYPE_CHOICES: list[tuple[str, str]] = [
     ("INVENTORY", "Inwentaryzacja"),
     ("SERVICE_USAGE", "Zużycie do zlecenia"),
     ("RETURN", "Zwrot ze zlecenia"),
+    ("RESERVATION", "Rezerwacja"),
+    ("RESERVATION_RELEASE", "Zwolnienie rezerwacji"),
+    ("CONSUMPTION", "Zużycie części"),
+    ("AUTO_PURCHASE_REQUEST", "Automatyczne zapotrzebowanie"),
 ]
 
 INVENTORY_OPERATION_TYPE_LABELS = dict(INVENTORY_OPERATION_TYPE_CHOICES)

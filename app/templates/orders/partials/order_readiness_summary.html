@@ -1,0 +1,55 @@
+<div class="card-body" id="order-readiness-panel" data-readiness-url="{{ url_for('orders.readiness', order_id=order.id) }}" data-reserve-url="{{ url_for('orders.reserve_available_for_readiness', order_id=order.id) }}">
+    <div class="d-flex justify-content-between align-items-center gap-2 mb-3">
+        <h5 class="card-title mb-0">Gotowość części</h5>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-sm btn-outline-primary" data-readiness-action="reserve">Zarezerwuj wszystkie dostępne części</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-readiness-action="refresh">Odśwież dostępność</button>
+        </div>
+    </div>
+    <div class="d-flex justify-content-between small mb-1">
+        <span data-readiness-status></span><strong data-readiness-percent>{{ readiness.percentage }}%</strong>
+    </div>
+    <div class="progress mb-3" role="progressbar" aria-label="Gotowość części">
+        <div class="progress-bar" data-readiness-progress style="width: {{ readiness.percentage }}%"></div>
+    </div>
+    <div class="row g-2 mb-3">
+        <div class="col-md-4"><div class="border rounded p-2"><div class="small text-muted">Oczekujące zakupy</div><strong data-readiness-purchases>{{ readiness.pending_purchases }} pozycji</strong><div class="small text-muted" data-readiness-purchase-status>{{ readiness.purchase_statuses|join(', ') if readiness.purchase_statuses else 'Brak' }}</div></div></div>
+        <div class="col-md-4"><div class="border rounded p-2"><div class="small text-muted">Przewidywana dostawa</div><strong data-readiness-delivery>{{ readiness.expected_delivery or '-' }}</strong></div></div>
+        <div class="col-md-4"><div class="border rounded p-2"><a href="{{ url_for('part_demands.index', order_id=order.id) }}">Przejdź do zapotrzebowania zakupowego</a><br><a href="{{ url_for('inventory.index') }}">Pokaż stan magazynu</a></div></div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm table-striped align-middle mb-0">
+            <thead><tr><th>Część</th><th>Wymagana</th><th>Dostępna</th><th>Zarezerwowana</th><th>Do zamówienia</th><th>Status</th></tr></thead>
+            <tbody data-readiness-lines>
+            {% for line in readiness.lines %}
+                <tr><td>{{ line.code }} | {{ line.name }}</td><td>{{ line.required }}</td><td>{{ line.available }}</td><td>{{ line.reserved }}</td><td>{{ line.to_order }}</td><td>{{ {'READY': '🟢 Gotowe', 'PARTIAL': '🟡 Częściowo', 'NONE': '🔴 Brak'}[line.status] }}</td></tr>
+            {% else %}<tr><td colspan="6" class="text-muted">Brak części przypisanych do zlecenia.</td></tr>{% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+(function () {
+    const panel = document.getElementById('order-readiness-panel');
+    if (!panel) return;
+    const labels = {READY: '🟢 Gotowe do realizacji', PARTIAL: '🟡 Częściowo gotowe', NONE: '🔴 Brak części'};
+    const lineLabels = {READY: '🟢 Gotowe', PARTIAL: '🟡 Częściowo', NONE: '🔴 Brak'};
+    async function refresh(url) {
+        const response = await fetch(url, {headers: {'X-Requested-With': 'XMLHttpRequest'}});
+        const payload = await response.json();
+        const summary = payload.summary || payload;
+        panel.querySelector('[data-readiness-status]').textContent = labels[summary.status] || summary.status;
+        panel.querySelector('[data-readiness-percent]').textContent = `${summary.percentage}%`;
+        panel.querySelector('[data-readiness-progress]').style.width = `${summary.percentage}%`;
+        panel.querySelector('[data-readiness-purchases]').textContent = `${summary.pending_purchases} pozycji`;
+        panel.querySelector('[data-readiness-purchase-status]').textContent = Object.keys(summary.purchase_statuses || {}).join(', ') || 'Brak';
+        panel.querySelector('[data-readiness-delivery]').textContent = summary.expected_delivery || '-';
+        panel.querySelector('[data-readiness-lines]').innerHTML = summary.lines.length ? summary.lines.map(line => `<tr><td>${line.code} | ${line.name}</td><td>${line.required}</td><td>${line.available}</td><td>${line.reserved}</td><td>${line.to_order}</td><td>${lineLabels[line.status] || line.status}</td></tr>`).join('') : '<tr><td colspan="6" class="text-muted">Brak części przypisanych do zlecenia.</td></tr>';
+    }
+    panel.querySelector('[data-readiness-action="refresh"]').addEventListener('click', () => refresh(panel.dataset.readinessUrl));
+    panel.querySelector('[data-readiness-action="reserve"]').addEventListener('click', async () => { await refresh(panel.dataset.reserveUrl); });
+    refresh(panel.dataset.readinessUrl);
+    window.setInterval(() => refresh(panel.dataset.readinessUrl), 30000);
+})();
+</script>

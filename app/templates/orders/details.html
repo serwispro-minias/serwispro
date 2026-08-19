@@ -16,6 +16,10 @@
         <a class="btn btn-outline-primary" href="{{ url_for('orders.print_release_protocol', order_id=order.id, mode='download') }}" target="_blank" rel="noopener">Drukuj wydanie</a>
         <a class="btn btn-outline-primary" href="{{ url_for('technician_tasks.order_tasks', order_id=order.id) }}">Zadania techników</a>
         <a class="btn btn-outline-primary" href="{{ url_for('part_demands.index', order_id=order.id) }}">Zapotrzebowanie części</a>
+        <form method="post" action="{{ url_for('stock_issues.issue_order', service_order_id=order.id) }}" class="d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-success" type="submit">Wydaj zarezerwowane części</button>
+        </form>
         <a class="btn btn-outline-primary" href="{{ url_for('catalog.order_catalog', order_id=order.id) }}">Katalog i Magazyn</a>
         <a class="btn btn-outline-secondary" href="{{ url_for('orders.print_protocol_preview', order_id=order.id, protocol='intake') }}" target="_blank" rel="noopener">Podgląd PDF</a>
         <div class="btn-group">
@@ -112,6 +116,10 @@
             <dd class="col-sm-9">{{ order.technician_notes or '-' }}</dd>
         </dl>
     </div>
+</div>
+
+<div class="card mt-3">
+    {% include "orders/partials/order_readiness_summary.html" %}
 </div>
 
 <div class="card mt-3">

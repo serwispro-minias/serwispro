@@ -17,10 +17,13 @@ from app.devices import bp as devices_bp
 from app.estimate_approval import bp as estimate_approval_bp
 from app.extensions import db, login_manager, migrate
 from app.inventory import bp as inventory_bp
+from app.stock_issues import bp as stock_issues_bp
+from app.goods_receipts import bp as goods_receipts_bp
 from app.models import Company, User
 from app.order_photos import bp as order_photos_bp
 from app.orders import bp as orders_bp
 from app.part_demands import bp as part_demands_bp
+from app.purchase_orders import bp as purchase_orders_bp
 from app.reports import bp as reports_bp
 from app.bootstrap import bootstrap_database, is_database_empty, register_bootstrap_command
 from app.services import bp as services_bp
@@ -80,8 +83,11 @@ def register_blueprints(app: Flask) -> None:
         orders_bp,
         order_photos_bp,
         part_demands_bp,
+        purchase_orders_bp,
         catalog_bp,
         inventory_bp,
+        stock_issues_bp,
+        goods_receipts_bp,
         reports_bp,
         settings_bp,
         technician_tasks_bp,

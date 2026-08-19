@@ -7,6 +7,7 @@ import pytest
 from app.extensions import db
 from app.inventory.service import InventoryService
 from app.models.inventory_part import InventoryPart
+from app.models.inventory_reservation import InventoryReservation
 from app.models.inventory_stock_operation import InventoryStockOperation
 
 
@@ -18,6 +19,7 @@ def inventory_schema(app):
             tables=[
                 InventoryPart.__table__,
                 InventoryStockOperation.__table__,
+                InventoryReservation.__table__,
             ],
         )
 
@@ -29,6 +31,7 @@ def inventory_schema(app):
             bind=db.engine,
             tables=[
                 InventoryStockOperation.__table__,
+                InventoryReservation.__table__,
                 InventoryPart.__table__,
             ],
         )

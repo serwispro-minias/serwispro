@@ -11,11 +11,14 @@
     <a class="btn btn-primary" href="{{ url_for('catalog.parts_create') }}">Nowa część</a>
 </div>
 
-<form method="get" class="mb-3">
-    <div class="input-group" style="max-width: 520px;">
+<form method="get" class="mb-3 row g-2 align-items-end">
+    <div class="col-md-5">
         {{ search_form.q(class="form-control", placeholder="Szukaj po kodzie lub nazwie") }}
-        <button class="btn btn-secondary" type="submit">Szukaj</button>
     </div>
+    <div class="col-md-3"><label class="form-label" for="supplier_id">Preferowany dostawca</label><select class="form-select" id="supplier_id" name="supplier_id">{% for value, label in supplier_choices %}<option value="{{ value if value else '' }}" {% if selected_supplier_id == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+    <div class="col-md-2"><label class="form-label" for="sort_by">Sortuj</label><select class="form-select" id="sort_by" name="sort_by"><option value="name" {% if sort_by == 'name' %}selected{% endif %}>Nazwa</option><option value="code" {% if sort_by == 'code' %}selected{% endif %}>Kod</option><option value="current_stock" {% if sort_by == 'current_stock' %}selected{% endif %}>Stan</option><option value="sale_price_net" {% if sort_by == 'sale_price_net' %}selected{% endif %}>Cena</option></select></div>
+    <div class="col-md-1"><label class="form-label" for="sort_dir">Kierunek</label><select class="form-select" id="sort_dir" name="sort_dir"><option value="asc" {% if sort_dir == 'asc' %}selected{% endif %}>A-Z</option><option value="desc" {% if sort_dir == 'desc' %}selected{% endif %}>Z-A</option></select></div>
+    <div class="col-md-1 d-grid"><button class="btn btn-secondary" type="submit">Szukaj</button></div>
 </form>
 
 {% if parts["items"] %}
@@ -25,6 +28,7 @@
             <tr>
                 <th>Kod</th>
                 <th>Nazwa</th>
+                <th>Preferowany dostawca</th>
                 <th>Stan</th>
                 <th>Minimum</th>
                 <th>Cena netto</th>
@@ -37,6 +41,7 @@
             <tr class="{% if low %}table-warning{% endif %}">
                 <td>{{ item.code }}</td>
                 <td>{{ item.name }}</td>
+                <td>{{ item.preferred_supplier.name if item.preferred_supplier else '-' }}</td>
                 <td>{{ '%.3f'|format(item.current_stock) }} {{ item.unit }}</td>
                 <td>{{ '%.3f'|format(item.minimum_stock) }} {{ item.unit }}</td>
                 <td>{{ '%.2f'|format(item.sale_price_net) }} PLN</td>

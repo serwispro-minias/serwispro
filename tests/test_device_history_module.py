@@ -14,6 +14,7 @@ from app.models.service_estimate import ServiceEstimate
 from app.models.service_estimate_item import ServiceEstimateItem
 from app.models.service_order import ServiceOrder
 from app.models.service_order_action import ServiceOrderAction
+from app.models.purchase_request import PurchaseRequest
 from app.models.user import User
 
 
@@ -28,6 +29,7 @@ def device_history_schema(app):
                 ServiceOrderAction.__table__,
                 ServiceEstimate.__table__,
                 ServiceEstimateItem.__table__,
+                PurchaseRequest.__table__,
             ],
         )
 
@@ -43,6 +45,7 @@ def device_history_schema(app):
                 Device.__table__,
                 ServiceEstimateItem.__table__,
                 ServiceEstimate.__table__,
+                PurchaseRequest.__table__,
             ],
         )
 

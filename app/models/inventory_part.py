@@ -9,6 +9,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import BaseTenantModel
 
 if TYPE_CHECKING:
+    from app.models.inventory_reservation import InventoryReservation
     from app.models.inventory_stock_operation import InventoryStockOperation
     from app.models.service_order_part_usage import ServiceOrderPartUsage
 
@@ -38,6 +39,8 @@ class InventoryPart(BaseTenantModel):
     unit: Mapped[str] = mapped_column(String(40), nullable=False, default="szt.")
     minimum_stock: Mapped[Decimal] = mapped_column(Numeric(12, 3), nullable=False, default=Decimal("0"))
     current_stock: Mapped[Decimal] = mapped_column(Numeric(12, 3), nullable=False, default=Decimal("0"))
+    quantity_total: Mapped[Decimal] = mapped_column(Numeric(12, 3), nullable=False, default=Decimal("0"))
+    quantity_reserved: Mapped[Decimal] = mapped_column(Numeric(12, 3), nullable=False, default=Decimal("0"))
     location: Mapped[str | None] = mapped_column(String(120), nullable=True)
     purchase_price_net: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=Decimal("0"))
     sale_price_net: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=Decimal("0"))
@@ -53,12 +56,23 @@ class InventoryPart(BaseTenantModel):
         cascade="all, delete-orphan",
         order_by="InventoryStockOperation.operation_at.asc()",
     )
+    reservations: Mapped[list["InventoryReservation"]] = relationship(
+        "InventoryReservation",
+        back_populates="inventory_item",
+        lazy="select",
+        cascade="all, delete-orphan",
+        order_by="InventoryReservation.reserved_at.asc()",
+    )
     order_usages: Mapped[list["ServiceOrderPartUsage"]] = relationship(
         "ServiceOrderPartUsage",
         back_populates="part",
         lazy="select",
         cascade="all, delete-orphan",
     )
+
+    @property
+    def quantity_available(self) -> Decimal:
+        return (Decimal(self.quantity_total) - Decimal(self.quantity_reserved)).quantize(Decimal("0.001"))
 
     def __repr__(self) -> str:
         return f"<InventoryPart id={self.id} code={self.part_code}>"

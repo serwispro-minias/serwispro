@@ -46,6 +46,8 @@ def _set_fk_choices(form: PartForm | MaterialForm | ServiceItemForm, company_id:
         form.category_id.choices = category_choices
     if hasattr(form, "supplier_id"):
         form.supplier_id.choices = supplier_choices
+    if hasattr(form, "preferred_supplier_id"):
+        form.preferred_supplier_id.choices = supplier_choices
     if hasattr(form, "manufacturer_id"):
         form.manufacturer_id.choices = manufacturer_choices
 
@@ -293,8 +295,12 @@ def parts_index():
     page, query = _paging()
     company_id, _, _ = _tenant()
     search_form = CatalogSearchForm(request.args, meta={"csrf": False})
-    data = service.list_entities(service.parts, page=page, per_page=20, company_id=company_id, query_text=query)
-    return render_template("catalog/parts_index.html", parts=data, q=query, search_form=search_form)
+    supplier_id = request.args.get("supplier_id", type=int) or None
+    sort_by = request.args.get("sort_by") or "name"
+    sort_dir = request.args.get("sort_dir") or "asc"
+    data = service.parts.list_paginated(page=page, per_page=20, company_id=company_id, query_text=query, supplier_id=supplier_id, sort_by=sort_by, sort_dir=sort_dir)
+    supplier_choices = [(0, "Wszyscy")] + service.supplier_choices(company_id=company_id)
+    return render_template("catalog/parts_index.html", parts=data, q=query, search_form=search_form, supplier_choices=supplier_choices, selected_supplier_id=supplier_id, sort_by=sort_by, sort_dir=sort_dir)
 
 
 @bp.route("/parts/create", methods=["GET", "POST"])

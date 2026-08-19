@@ -17,6 +17,7 @@ from app.devices.exceptions import DeviceValidationError
 from app.devices.forms import DeviceForm
 from app.devices.repository import DeviceRepository
 from app.devices.service import DeviceService
+from app.extensions import db
 from app.inventory.exceptions import InventoryNotFoundError, InventoryValidationError
 from app.inventory.service import InventoryService
 from app.order_photos.forms import ServiceOrderPhotoDeleteForm, ServiceOrderPhotoFilterForm, ServiceOrderPhotoUploadForm
@@ -41,6 +42,7 @@ from .service import ServiceOrderService
 from .print_service import ServiceOrderPrintService
 from .timeline_exceptions import OrderTimelineNotFoundError, OrderTimelineValidationError
 from .timeline_service import ServiceOrderTimelineService
+from .readiness_service import OrderReadinessService
 
 
 service = ServiceOrderService(ServiceOrderRepository())
@@ -54,6 +56,7 @@ order_item_service = ServiceOrderItemService()
 notification_service = NotificationService()
 workflow_service = WorkflowService()
 photo_service = ServiceOrderPhotoService()
+readiness_service = OrderReadinessService()
 logger = logging.getLogger(__name__)
 
 
@@ -369,7 +372,6 @@ def details(order_id: int):
     service_order = service.get_service_order(order_id, company_id=company_id)
     if service_order is None:
         abort(404)
-
     is_admin = "administrator" in _current_user_role_names()
     available_transitions = (
         workflow_service.get_available_transitions(
@@ -473,7 +475,47 @@ def details(order_id: int):
         annotation_create_form=annotation_create_form,
         annotation_update_form=annotation_update_form,
         annotation_delete_form=annotation_delete_form,
+        readiness=readiness_service.build(order_id=order_id, company_id=company_id, branch_id=branch_id) if company_id is not None else None,
     )
+
+
+@bp.route("/<int:order_id>/readiness", methods=["GET"])
+@login_required
+def readiness(order_id: int):
+    company_id = _company_id()
+    if company_id is None:
+        abort(404)
+    summary = readiness_service.build(order_id=order_id, company_id=company_id, branch_id=_branch_id())
+    return jsonify(summary)
+
+
+@bp.route("/<int:order_id>/readiness/reserve", methods=["POST"])
+@login_required
+def reserve_available_for_readiness(order_id: int):
+    company_id = _company_id()
+    if company_id is None:
+        abort(404)
+
+    summary = readiness_service.build(order_id=order_id, company_id=company_id, branch_id=_branch_id())
+    from app.catalog.service import CatalogService
+
+    reserved_count = 0
+    for line in summary["lines"]:
+        available_to_reserve = min(Decimal(str(line["required"])), Decimal(str(line["available"])))
+        already_reserved = Decimal(str(line["reserved"]))
+        quantity = max(Decimal("0"), available_to_reserve - already_reserved)
+        if quantity <= 0:
+            continue
+        CatalogService().reserve_part_for_order(
+            order_id=order_id,
+            part_id=int(line["part_id"]),
+            quantity=quantity,
+            user_id=getattr(current_user, "id", None),
+            company_id=company_id,
+            branch_id=_branch_id(),
+        )
+        reserved_count += 1
+    return jsonify({"ok": True, "reserved_count": reserved_count, "summary": readiness_service.build(order_id=order_id, company_id=company_id, branch_id=_branch_id())})
 
 
 def _send_protocol_pdf(*, content: bytes, filename: str, as_attachment: bool):

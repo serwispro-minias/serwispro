@@ -16,6 +16,7 @@ from app.models.service_estimate import ServiceEstimate
 from app.models.service_estimate_item import ServiceEstimateItem
 from app.models.service_order import ServiceOrder
 from app.models.service_order_item import ServiceOrderItem
+from app.models.purchase_request import PurchaseRequest
 from app.orders.item_service import ServiceOrderItemService
 
 
@@ -34,6 +35,7 @@ def order_items_schema(app):
                 ServiceEstimate.__table__,
                 ServiceEstimateItem.__table__,
                 ServiceOrderItem.__table__,
+                PurchaseRequest.__table__,
             ],
         )
 
@@ -53,6 +55,7 @@ def order_items_schema(app):
                 Device.__table__,
                 ServiceEstimateItem.__table__,
                 ServiceEstimate.__table__,
+                PurchaseRequest.__table__,
             ],
         )
 

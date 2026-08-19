@@ -269,7 +269,7 @@ class PartDemandService:
 
         requested_quantity = self._required_decimal(data.get("requested_quantity"), field_name="ilość wymagana")
         reserved_quantity = self._optional_decimal(data.get("reserved_quantity"), default=Decimal("0"))
-        missing_quantity = self._optional_decimal(data.get("missing_quantity"), default=requested_quantity - reserved_quantity)
+        missing_quantity = max(Decimal("0"), requested_quantity - reserved_quantity)
 
         status = self._normalize_status(data.get("status"))
         priority = self._normalize_priority(data.get("priority"))
@@ -286,6 +286,8 @@ class PartDemandService:
 
         if requested_quantity < Decimal("0") or reserved_quantity < Decimal("0") or missing_quantity < Decimal("0"):
             raise PartDemandValidationError("Ilości nie mogą być ujemne.")
+
+        missing_quantity = max(Decimal("0"), requested_quantity - reserved_quantity)
 
         return {
             "service_order_id": order.id,

@@ -9,6 +9,7 @@ from sqlalchemy.sql import Select
 
 from app.extensions import db
 from app.models.customer import Customer
+from app.models.part_demand import PartDemand
 
 
 @dataclass(frozen=True)
@@ -20,6 +21,10 @@ class DashboardStats:
     active_repairs_count: int
     completed_repairs_count: int
     new_reports_today_count: int
+    new_purchase_requests_count: int
+    pending_purchase_requests_count: int
+    ordered_purchase_requests_count: int
+    awaiting_delivery_purchase_requests_count: int
 
 
 @dataclass(frozen=True)
@@ -44,6 +49,10 @@ class DashboardService:
             active_repairs_count=self._count_active_repairs(),
             completed_repairs_count=self._count_completed_repairs(),
             new_reports_today_count=self._count_new_reports_today(),
+            new_purchase_requests_count=self._count_purchase_requests("NEW"),
+            pending_purchase_requests_count=self._count_purchase_requests("APPROVED"),
+            ordered_purchase_requests_count=self._count_purchase_requests("ORDERED"),
+            awaiting_delivery_purchase_requests_count=self._count_purchase_requests("RECEIVED"),
         )
 
         repairs_table = self._get_table("repairs")
@@ -155,6 +164,17 @@ class DashboardService:
             .select_from(table)
             .where(and_(created_at_col >= start, created_at_col < end))
         )
+        return int(db.session.scalar(query) or 0)
+
+    def _count_purchase_requests(self, status: str) -> int:
+        if not self._has_table(PartDemand.__tablename__):
+            return 0
+        status_map = {
+            "APPROVED": "IN_PURCHASE",
+            "RECEIVED": "DELIVERED",
+        }
+        demand_status = status_map.get(status, status)
+        query = select(func.count()).select_from(PartDemand).where(PartDemand.status == demand_status, PartDemand.is_active.is_(True))
         return int(db.session.scalar(query) or 0)
 
     def _get_recent_repairs(

@@ -12,6 +12,7 @@ from app.models.catalog_part import CatalogPart
 from app.models.catalog_stock_movement import CatalogStockMovement
 from app.models.customer import Customer
 from app.models.device import Device
+from app.models.inventory_reservation import InventoryReservation
 from app.models.part_demand import PartDemand, PartDemandStatusEnum
 from app.models.role import Role
 from app.models.service_order import ServiceOrder
@@ -41,6 +42,7 @@ def part_demand_schema(app):
                 CatalogPart.__table__,
                 CatalogStockMovement.__table__,
                 ServiceOrderPartReservation.__table__,
+                InventoryReservation.__table__,
                 PartDemand.__table__,
             ],
         )
@@ -53,6 +55,7 @@ def part_demand_schema(app):
             bind=db.engine,
             tables=[
                 PartDemand.__table__,
+                InventoryReservation.__table__,
                 ServiceOrderPartReservation.__table__,
                 CatalogStockMovement.__table__,
                 CatalogPart.__table__,
@@ -363,3 +366,64 @@ def test_fulfill_demand_and_permissions(app, part_demand_schema):
                 expected_date_to=None,
                 query_text=None,
             )
+
+
+def test_missing_quantity_is_derived_from_requested_and_reserved_quantity(app, part_demand_schema):
+    with app.app_context():
+        company_id = int(app.config["TEST_COMPANY_ID"])
+        admin = db.session.get(User, int(app.config["TEST_USER_ID"]))
+        assert admin is not None
+
+        branch = _create_branch(company_id, "PD-MISSING")
+        admin.branch_id = branch.id
+        db.session.commit()
+        _assign_role(company_id=company_id, branch_id=branch.id, user_id=admin.id, role_name="Administrator")
+
+        order, part = _create_order_and_part(company_id=company_id, branch_id=branch.id, order_number="SO-PD-201")
+        part.branch_id = None
+        db.session.add(part)
+        db.session.commit()
+
+        service = PartDemandService()
+        created = service.create_demand(
+            data={
+                "service_order_id": order.id,
+                "service_order_item_id": None,
+                "inventory_item_id": part.id,
+                "requested_quantity": "10",
+                "reserved_quantity": "3",
+                "missing_quantity": "999",
+                "status": "NEW",
+                "priority": "HIGH",
+                "expected_date": date.today(),
+                "notes": "Automatyczne wyliczenie braków",
+            },
+            company_id=company_id,
+            branch_scope_id=branch.id,
+            actor=admin,
+        )
+
+        assert Decimal(created.requested_quantity) == Decimal("10")
+        assert Decimal(created.reserved_quantity) == Decimal("3")
+        assert Decimal(created.missing_quantity) == Decimal("7")
+
+        updated = service.update_demand(
+            demand_id=created.id,
+            data={
+                "service_order_id": order.id,
+                "service_order_item_id": None,
+                "inventory_item_id": part.id,
+                "requested_quantity": "15",
+                "reserved_quantity": "8",
+                "missing_quantity": "999",
+                "status": "TO_ORDER",
+                "priority": "HIGH",
+                "expected_date": date.today(),
+                "notes": created.notes,
+            },
+            company_id=company_id,
+            branch_scope_id=branch.id,
+            actor=admin,
+        )
+
+        assert Decimal(updated.missing_quantity) == Decimal("7")

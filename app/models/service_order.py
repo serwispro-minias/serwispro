@@ -12,6 +12,7 @@ from app.models.base import BaseTenantModel
 
 if TYPE_CHECKING:
     from app.models.part_demand import PartDemand
+    from app.models.purchase_request import PurchaseRequest
     from app.models.customer import Customer
     from app.models.device import Device
     from app.models.notification_message import NotificationMessage
@@ -19,6 +20,7 @@ if TYPE_CHECKING:
     from app.models.service_order_action import ServiceOrderAction
     from app.models.service_estimate import ServiceEstimate
     from app.models.service_order_item import ServiceOrderItem
+    from app.models.inventory_reservation import InventoryReservation
     from app.models.service_order_part_usage import ServiceOrderPartUsage
     from app.models.service_order_part_reservation import ServiceOrderPartReservation
     from app.models.service_order_status_history import ServiceOrderStatusHistory
@@ -153,6 +155,13 @@ class ServiceOrder(BaseTenantModel):
         cascade="all, delete-orphan",
         order_by="ServiceOrderPartReservation.created_at.asc()",
     )
+    inventory_reservations: Mapped[list["InventoryReservation"]] = relationship(
+        "InventoryReservation",
+        back_populates="service_order",
+        lazy="select",
+        cascade="all, delete-orphan",
+        order_by="InventoryReservation.reserved_at.asc()",
+    )
     items: Mapped[list["ServiceOrderItem"]] = relationship(
         "ServiceOrderItem",
         back_populates="service_order",
@@ -194,6 +203,13 @@ class ServiceOrder(BaseTenantModel):
         lazy="select",
         cascade="all, delete-orphan",
         order_by="PartDemand.created_at.asc(), PartDemand.id.asc()",
+    )
+    purchase_requests: Mapped[list["PurchaseRequest"]] = relationship(
+        "PurchaseRequest",
+        back_populates="service_order",
+        lazy="select",
+        cascade="all, delete-orphan",
+        order_by="PurchaseRequest.created_at.asc(), PurchaseRequest.id.asc()",
     )
     photos: Mapped[list["ServiceOrderPhoto"]] = relationship(
         "ServiceOrderPhoto",

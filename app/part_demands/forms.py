@@ -14,7 +14,12 @@ class PartDemandForm(FlaskForm):
 
     requested_quantity = DecimalField("Ilość wymagana", places=3, validators=[DataRequired(), NumberRange(min=0.001)])
     reserved_quantity = DecimalField("Ilość zarezerwowana", places=3, validators=[Optional(), NumberRange(min=0)])
-    missing_quantity = DecimalField("Ilość brakująca", places=3, validators=[Optional(), NumberRange(min=0)])
+    missing_quantity = DecimalField(
+        "Ilość brakująca",
+        places=3,
+        validators=[Optional(), NumberRange(min=0)],
+        render_kw={"readonly": True, "tabindex": "-1"},
+    )
 
     status = SelectField("Status", choices=PART_DEMAND_STATUS_CHOICES, validators=[DataRequired()])
     priority = SelectField("Priorytet", choices=PART_DEMAND_PRIORITY_CHOICES, validators=[DataRequired()])

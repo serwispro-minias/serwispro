@@ -114,6 +114,32 @@ class ManufacturersRepository(_BaseCatalogRepository[CatalogManufacturer]):
 class PartsRepository(_BaseCatalogRepository[CatalogPart]):
     model = CatalogPart
 
+    def list_paginated(self, *, page: int, per_page: int, company_id: int | None, query_text: str | None, supplier_id: int | None = None, sort_by: str = "name", sort_dir: str = "asc") -> dict[str, Any]:
+        filters = [CatalogPart.is_active.is_(True)]
+        if company_id is not None:
+            filters.append(CatalogPart.company_id == company_id)
+        if supplier_id is not None:
+            filters.append(CatalogPart.preferred_supplier_id == supplier_id)
+        if query_text:
+            term = f"%{query_text}%"
+            filters.append(or_(CatalogPart.code.ilike(term), CatalogPart.name.ilike(term)))
+        sort_columns = {
+            "code": CatalogPart.code,
+            "name": CatalogPart.name,
+            "current_stock": CatalogPart.current_stock,
+            "minimum_stock": CatalogPart.minimum_stock,
+            "sale_price_net": CatalogPart.sale_price_net,
+        }
+        sort_column = sort_columns.get(sort_by, CatalogPart.name)
+        if sort_dir.lower() == "desc":
+            sort_column = sort_column.desc()
+        else:
+            sort_column = sort_column.asc()
+        total = int(db.session.scalar(select(func.count()).select_from(CatalogPart).where(*filters)) or 0)
+        items = list(db.session.scalars(select(CatalogPart).options(selectinload(CatalogPart.preferred_supplier)).where(*filters).order_by(sort_column, CatalogPart.id.asc()).offset((page - 1) * per_page).limit(per_page)).all())
+        pages = (total + per_page - 1) // per_page if total else 0
+        return {"items": items, "total": total, "page": page, "per_page": per_page, "pages": pages}
+
     def get(self, entity_id: int, *, company_id: int | None) -> CatalogPart | None:
         query = (
             select(CatalogPart)

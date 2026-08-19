@@ -21,6 +21,7 @@ from app.models.service_order import ServiceOrder
 from app.models.service_order_material_usage import ServiceOrderMaterialUsage
 from app.models.service_order_part_reservation import ServiceOrderPartReservation
 from app.models.service_order_service_line import ServiceOrderServiceLine
+from app.models.purchase_request import PurchaseRequest
 from app.models.user import User
 
 
@@ -37,6 +38,7 @@ def _schema_tables() -> list:
         ServiceOrderServiceLine.__table__,
         ServiceEstimate.__table__,
         ServiceEstimateItem.__table__,
+        PurchaseRequest.__table__,
     ]
 
 

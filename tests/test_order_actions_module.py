@@ -12,6 +12,7 @@ from app.models.service_estimate_item import ServiceEstimateItem
 from app.models.service_order import ServiceOrder
 from app.models.service_order_action import ServiceOrderAction
 from app.models.user import User
+from app.models.purchase_request import PurchaseRequest
 
 
 @pytest.fixture()
@@ -25,6 +26,7 @@ def order_actions_schema(app):
                 ServiceOrderAction.__table__,
                 ServiceEstimate.__table__,
                 ServiceEstimateItem.__table__,
+                PurchaseRequest.__table__,
             ],
         )
 
@@ -40,6 +42,7 @@ def order_actions_schema(app):
                 Device.__table__,
                 ServiceEstimateItem.__table__,
                 ServiceEstimate.__table__,
+                PurchaseRequest.__table__,
             ],
         )
 

@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from app.models.catalog_manufacturer import CatalogManufacturer
     from app.models.catalog_stock_movement import CatalogStockMovement
     from app.models.part_demand import PartDemand
+    from app.models.purchase_request import PurchaseRequest
     from app.models.catalog_supplier import CatalogSupplier
     from app.models.service_order_part_reservation import ServiceOrderPartReservation
 
@@ -28,6 +29,7 @@ class CatalogPart(BaseTenantModel):
         Index("ix_catalog_parts_name", "name"),
         Index("ix_catalog_parts_category_id", "category_id"),
         Index("ix_catalog_parts_supplier_id", "supplier_id"),
+        Index("ix_catalog_parts_preferred_supplier_id", "preferred_supplier_id"),
         Index("ix_catalog_parts_manufacturer_id", "manufacturer_id"),
     )
 
@@ -47,10 +49,12 @@ class CatalogPart(BaseTenantModel):
 
     category_id: Mapped[int | None] = mapped_column(ForeignKey("catalog_categories.id"), nullable=True)
     supplier_id: Mapped[int | None] = mapped_column(ForeignKey("catalog_suppliers.id"), nullable=True)
+    preferred_supplier_id: Mapped[int | None] = mapped_column(ForeignKey("catalog_suppliers.id"), nullable=True)
     manufacturer_id: Mapped[int | None] = mapped_column(ForeignKey("catalog_manufacturers.id"), nullable=True)
 
     category: Mapped["CatalogCategory | None"] = relationship("CatalogCategory", back_populates="parts", lazy="select")
-    supplier: Mapped["CatalogSupplier | None"] = relationship("CatalogSupplier", back_populates="parts", lazy="select")
+    supplier: Mapped["CatalogSupplier | None"] = relationship("CatalogSupplier", back_populates="parts", foreign_keys=[supplier_id], lazy="select")
+    preferred_supplier: Mapped["CatalogSupplier | None"] = relationship("CatalogSupplier", foreign_keys=[preferred_supplier_id], lazy="select")
     manufacturer: Mapped["CatalogManufacturer | None"] = relationship("CatalogManufacturer", back_populates="parts", lazy="select")
     movements: Mapped[list["CatalogStockMovement"]] = relationship(
         "CatalogStockMovement",
@@ -63,6 +67,7 @@ class CatalogPart(BaseTenantModel):
         lazy="select",
     )
     part_demands: Mapped[list["PartDemand"]] = relationship("PartDemand", back_populates="inventory_item", lazy="select")
+    purchase_requests: Mapped[list["PurchaseRequest"]] = relationship("PurchaseRequest", back_populates="part", lazy="select")
 
     def __repr__(self) -> str:
         return f"<CatalogPart id={self.id} code={self.code}>"
