@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Nowe RW{% endblock %}
+{% block content %}
+<h1 class="h3 mb-3">Nowe RW</h1>
+<form method="post" id="warehouse-document-form">{{ form.hidden_tag() }}
+    <div class="row g-3 mb-3">
+        <div class="col-md-4"><label class="form-label">Data</label><input class="form-control" type="date"
+                name="issue_date"></div>
+        <div class="col-md-4"><label class="form-label">Zlecenie ID</label><input class="form-control" type="number"
+                min="1" name="service_order_id"></div>
+        <div class="col-md-4 d-flex align-items-end"><button class="btn btn-outline-primary" type="button"
+                id="add-assortment">+ Dodaj asortyment</button></div>
+    </div>
+    <div class="border rounded p-3 mb-3 d-none" id="product-selector"><label class="form-label"
+            for="product-search">Szukaj produktu</label><input class="form-control" id="product-search"
+            autocomplete="off" placeholder="Kod, nazwa, EAN...">
+        <div class="list-group mt-2" id="product-results"></div>
+    </div>
+    <table class="table table-striped" id="document-items">
+        <thead>
+            <tr>
+                <th>Produkt</th>
+                <th>Stan</th>
+                <th>Ilość</th>
+                <th>Cena z kartoteki</th>
+                <th>Wartość</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+    <div class="text-muted mb-3" id="empty-items-message">Brak pozycji. Użyj „+ Dodaj asortyment”.</div>
+    <div class="mb-3"><label class="form-label">Uwagi</label><textarea class="form-control" name="notes"></textarea>
+    </div><button class="btn btn-primary" type="submit">Utwórz RW</button>
+</form>
+<script>
+    (function () {
+        const form = document.getElementById('warehouse-document-form'); const selector = document.getElementById('product-selector'); const search = document.getElementById('product-search'); const results = document.getElementById('product-results'); const tbody = document.querySelector('#document-items tbody'); const emptyMessage = document.getElementById('empty-items-message'); const addButton = document.getElementById('add-assortment'); const searchUrl = "{{ url_for('catalog.parts_search') }}"; let selectedRow = null;
+        function recalc(row) { const qty = parseFloat(row.querySelector('.item-qty').value || '0'); const price = parseFloat(row.dataset.salePrice || '0'); row.querySelector('.item-value').textContent = (qty * price).toFixed(2); }
+        function renumber() { tbody.querySelectorAll('tr').forEach((row, index) => row.querySelectorAll('[name]').forEach(input => input.name = input.name.replace(/items-\d+-/, `items-${index}-`))); emptyMessage.classList.toggle('d-none', tbody.children.length > 0); }
+        function addProduct(product) { if (tbody.querySelector(`tr[data-product-id="${product.id}"]`)) return; const row = document.createElement('tr'); row.dataset.productId = product.id; row.dataset.salePrice = product.sale_price_net || '0'; row.innerHTML = `<td>${product.code} | ${product.name}<input type="hidden" name="items-0-inventory_item_id" value="${product.id}"></td><td>${product.current_stock}</td><td><input class="form-control item-qty" type="number" min="1" step="1" name="items-0-quantity" value="1"></td><td>${product.sale_price_net}</td><td class="item-value">0.00</td><td><button class="btn btn-sm btn-outline-danger remove-item" type="button">Usuń pozycję</button></td>`; tbody.appendChild(row); selectedRow = row; renumber(); recalc(row); row.querySelector('.item-qty').focus(); row.querySelector('.item-qty').addEventListener('input', () => recalc(row)); row.querySelector('.remove-item').addEventListener('click', () => { row.remove(); renumber(); }); }
+        async function runSearch() { const response = await fetch(`${searchUrl}?q=${encodeURIComponent(search.value)}`); const data = await response.json(); results.innerHTML = ''; data.items.forEach(item => { const button = document.createElement('button'); button.type = 'button'; button.className = 'list-group-item list-group-item-action'; button.textContent = `${item.code} | ${item.name}${item.barcode ? ' | ' + item.barcode : ''} | ${item.category || '-'} | stan: ${item.current_stock}`; button.addEventListener('click', () => addProduct(item)); results.appendChild(button); }); }
+        addButton.addEventListener('click', () => { selector.classList.remove('d-none'); search.focus(); runSearch(); }); search.addEventListener('input', runSearch); tbody.addEventListener('click', event => { selectedRow = event.target.closest('tr') || selectedRow; }); document.addEventListener('keydown', event => { if (event.key === 'Insert') { event.preventDefault(); addButton.click(); } if (event.key === 'Delete' && selectedRow) { event.preventDefault(); selectedRow.remove(); renumber(); } if (event.key === 'Escape') selector.classList.add('d-none'); if (event.ctrlKey && event.key.toLowerCase() === 's') { event.preventDefault(); form.requestSubmit(); } }); emptyMessage.classList.remove('d-none');
+    })();
+</script>
+{% endblock %}

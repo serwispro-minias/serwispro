@@ -44,7 +44,7 @@ class InventoryStockOperation(BaseTenantModel):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    part_id: Mapped[int] = mapped_column(ForeignKey("inventory_parts.id"), nullable=False)
+    part_id: Mapped[int] = mapped_column(ForeignKey("inventory_items.id"), nullable=False)
     user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     service_order_id: Mapped[int | None] = mapped_column(ForeignKey("service_orders.id"), nullable=True)
     operation_type: Mapped[str] = mapped_column(String(40), nullable=False)
@@ -55,7 +55,7 @@ class InventoryStockOperation(BaseTenantModel):
     document_number: Mapped[str | None] = mapped_column(String(120), nullable=True)
     comment: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    part: Mapped["InventoryPart"] = relationship("InventoryPart", back_populates="stock_operations")
+    part: Mapped["InventoryPart"] = relationship("InventoryItem", back_populates="stock_operations")
     user: Mapped["User | None"] = relationship("User", lazy="select")
     service_order: Mapped["ServiceOrder | None"] = relationship("ServiceOrder", lazy="select")
 

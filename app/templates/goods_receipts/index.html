@@ -1,6 +1,38 @@
 {% extends "base.html" %}
 {% block title %}Zakupy - Przyjęcia PZ{% endblock %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3"><div><h1 class="h3 mb-0">Przyjęcia dostawy</h1><small class="text-muted">Dokumenty PZ</small></div></div>
-<div class="table-responsive"><table class="table table-striped table-hover align-middle"><thead><tr><th>Numer</th><th>Data</th><th>Dostawca</th><th>Zamówienie</th><th>Pozycje</th><th>Status</th><th>Przyjął</th><th>Akcje</th></tr></thead><tbody>{% for receipt in receipts %}<tr><td>{{ receipt.receipt_number }}</td><td>{{ receipt.receipt_date }}</td><td>{{ receipt.supplier.name }}</td><td>{{ receipt.purchase_order.po_number }}</td><td>{{ receipt.items|length }}</td><td>{{ status_labels.get(receipt.status, receipt.status) }}</td><td>{{ receipt.receiver.login if receipt.receiver else '-' }}</td><td><a class="btn btn-sm btn-outline-primary" href="{{ url_for('goods_receipts.details', receipt_id=receipt.id) }}">Szczegóły</a></td></tr>{% else %}<tr><td colspan="8" class="text-center text-muted py-4">Brak dokumentów PZ.</td></tr>{% endfor %}</tbody></table></div>
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h1 class="h3 mb-0">Przyjęcia dostawy</h1><small class="text-muted">Dokumenty PZ</small>
+    </div><a class="btn btn-primary" href="{{ url_for('goods_receipts.create_manual') }}">Nowe PZ</a>
+</div>
+<div class="table-responsive">
+    <table class="table table-striped table-hover align-middle">
+        <thead>
+            <tr>
+                <th>Numer</th>
+                <th>Data</th>
+                <th>Dostawca</th>
+                <th>Zamówienie</th>
+                <th>Pozycje</th>
+                <th>Status</th>
+                <th>Przyjął</th>
+                <th>Akcje</th>
+            </tr>
+        </thead>
+        <tbody>{% for receipt in receipts %}<tr>
+                <td>{{ receipt.receipt_number }}</td>
+                <td>{{ receipt.receipt_date }}</td>
+                <td>{{ receipt.supplier.name }}</td>
+                <td>{{ receipt.purchase_order.po_number }}</td>
+                <td>{{ receipt.items|length }}</td>
+                <td>{{ status_labels.get(receipt.status, receipt.status) }}</td>
+                <td>{{ receipt.receiver.login if receipt.receiver else '-' }}</td>
+                <td><a class="btn btn-sm btn-outline-primary"
+                        href="{{ url_for('goods_receipts.details', receipt_id=receipt.id) }}">Szczegóły</a></td>
+            </tr>{% else %}<tr>
+                <td colspan="8" class="text-center text-muted py-4">Brak dokumentów PZ.</td>
+            </tr>{% endfor %}</tbody>
+    </table>
+</div>
 {% endblock %}

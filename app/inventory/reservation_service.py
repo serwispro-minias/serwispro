@@ -6,7 +6,7 @@ from decimal import Decimal
 from typing import Any
 
 from app.extensions import db
-from app.models.inventory_part import InventoryPart
+from app.models.inventory_item import InventoryItem
 from app.models.inventory_reservation import InventoryReservation, InventoryReservationStatusEnum
 from app.models.service_order import ServiceOrder
 
@@ -24,7 +24,7 @@ class InventoryReservationService:
     def reserve_for_order(
         self,
         *,
-        inventory_item: InventoryPart,
+        inventory_item: InventoryItem,
         service_order: ServiceOrder,
         quantity: Decimal,
         user_id: int | None,
@@ -35,7 +35,11 @@ class InventoryReservationService:
         if quantity <= Decimal("0"):
             raise ValueError("Ilość rezerwacji musi być większa od zera.")
 
-        available = Decimal(inventory_item.quantity_available)
+        reserved = sum(
+            (Decimal(row.quantity) for row in inventory_item.inventory_reservations if row.status == InventoryReservationStatusEnum.RESERVED.value),
+            Decimal("0"),
+        )
+        available = Decimal(inventory_item.current_stock) - reserved
         reserved_quantity = min(quantity, available)
         missing_quantity = max(Decimal("0"), quantity - reserved_quantity)
 
@@ -59,24 +63,20 @@ class InventoryReservationService:
             )
 
         if reserved_quantity > Decimal("0"):
-            reservation = InventoryReservation(
-                inventory_item_id=inventory_item.id,
-                service_order_id=service_order.id,
-                quantity=reserved_quantity,
-                reserved_by=user_id,
-                reserved_at=datetime.now(timezone.utc),
-                status=InventoryReservationStatusEnum.RESERVED.value,
-                company_id=company_id,
-                branch_id=branch_id,
-                created_by=user_id,
-                updated_by=user_id,
-            )
+            reservation = InventoryReservation()
+            reservation.inventory_item_id = inventory_item.id
+            reservation.service_order_id = service_order.id
+            reservation.quantity = reserved_quantity
+            reservation.reserved_by = user_id
+            reservation.reserved_at = datetime.now(timezone.utc)
+            reservation.status = InventoryReservationStatusEnum.RESERVED.value
+            reservation.company_id = company_id
+            reservation.branch_id = branch_id
+            reservation.created_by = user_id
+            reservation.updated_by = user_id
             db.session.add(reservation)
             db.session.flush()
 
-            inventory_item.quantity_reserved = Decimal(inventory_item.quantity_reserved) + reserved_quantity
-            inventory_item.quantity_total = Decimal(inventory_item.quantity_total)
-            db.session.add(inventory_item)
 
             self._record_history(
                 inventory_item=inventory_item,
@@ -119,9 +119,6 @@ class InventoryReservationService:
         reservation.status = InventoryReservationStatusEnum.RELEASED.value
         reservation.released_at = datetime.now(timezone.utc)
         reservation.updated_by = user_id
-        reservation.inventory_item.quantity_reserved = max(
-            Decimal("0"), Decimal(reservation.inventory_item.quantity_reserved) - Decimal(reservation.quantity)
-        )
         db.session.add(reservation)
         db.session.add(reservation.inventory_item)
         self._record_history(
@@ -142,9 +139,8 @@ class InventoryReservationService:
         for row in reservations:
             row.status = InventoryReservationStatusEnum.CONSUMED.value
             row.updated_by = user_id
-            if row.inventory_item.quantity_total >= row.quantity:
-                row.inventory_item.quantity_total = Decimal(row.inventory_item.quantity_total) - Decimal(row.quantity)
-                row.inventory_item.quantity_reserved = max(Decimal("0"), Decimal(row.inventory_item.quantity_reserved) - Decimal(row.quantity))
+            if row.inventory_item.current_stock >= row.quantity:
+                row.inventory_item.current_stock = int(Decimal(row.inventory_item.current_stock) - Decimal(row.quantity))
             self._record_history(
                 inventory_item=row.inventory_item,
                 service_order=service_order,
@@ -159,7 +155,7 @@ class InventoryReservationService:
     def _record_history(
         self,
         *,
-        inventory_item: InventoryPart,
+        inventory_item: InventoryItem,
         service_order: ServiceOrder,
         quantity: Decimal,
         operation_type: str,
@@ -169,19 +165,18 @@ class InventoryReservationService:
     ) -> None:
         from app.models.inventory_stock_operation import InventoryStockOperation
 
-        operation = InventoryStockOperation(
-            part_id=inventory_item.id,
-            user_id=user_id,
-            service_order_id=service_order.id,
-            operation_type=operation_type,
-            quantity=Decimal(quantity),
-            stock_before=Decimal(inventory_item.quantity_total) - Decimal(inventory_item.quantity_reserved),
-            stock_after=(Decimal(inventory_item.quantity_total) - Decimal(inventory_item.quantity_reserved)),
-            document_number=f"SO-{service_order.id}",
-            comment=f"Operacja magazynowa: {operation_type}",
-            company_id=company_id,
-            branch_id=branch_id,
-            created_by=user_id,
-            updated_by=user_id,
-        )
+        operation = InventoryStockOperation()
+        operation.part_id = inventory_item.id
+        operation.user_id = user_id
+        operation.service_order_id = service_order.id
+        operation.operation_type = operation_type
+        operation.quantity = Decimal(quantity)
+        operation.stock_before = Decimal(inventory_item.current_stock)
+        operation.stock_after = Decimal(inventory_item.current_stock)
+        operation.document_number = f"SO-{service_order.id}"
+        operation.comment = f"Operacja magazynowa: {operation_type}"
+        operation.company_id = company_id
+        operation.branch_id = branch_id
+        operation.created_by = user_id
+        operation.updated_by = user_id
         db.session.add(operation)

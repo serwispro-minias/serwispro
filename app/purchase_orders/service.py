@@ -63,7 +63,7 @@ class PurchaseOrderService:
         self._assert_manage(actor)
         if not demand_ids:
             raise PurchaseOrderValidationError("Wybierz co najmniej jedno zapotrzebowanie.")
-        supplier = db.session.scalar(select(CatalogSupplier).where(CatalogSupplier.id == supplier_id, CatalogSupplier.company_id == company_id, CatalogSupplier.is_active.is_(True), CatalogSupplier.is_supplier_active.is_(True)))
+        supplier = db.session.scalar(select(CatalogSupplier).where(CatalogSupplier.id == supplier_id, CatalogSupplier.company_id == company_id, CatalogSupplier.is_active.is_(True)))
         if supplier is None:
             raise PurchaseOrderValidationError("Nie znaleziono aktywnego dostawcy.")
         query = select(PartDemand).options(selectinload(PartDemand.inventory_item)).where(PartDemand.id.in_(demand_ids), PartDemand.company_id == company_id, PartDemand.is_active.is_(True), PartDemand.status.in_([PartDemandStatusEnum.NEW.value, PartDemandStatusEnum.TO_ORDER.value, PartDemandStatusEnum.IN_PURCHASE.value]))
@@ -72,8 +72,8 @@ class PurchaseOrderService:
         demands = list(db.session.scalars(query).all())
         if len(demands) != len(set(demand_ids)):
             raise PurchaseOrderValidationError("Niektóre zapotrzebowania są niedostępne lub już zamknięte.")
-        if any(d.inventory_item is None or d.inventory_item.supplier_id != supplier.id for d in demands):
-            raise PurchaseOrderValidationError("Wszystkie wybrane części muszą należeć do wybranego dostawcy.")
+        if any(d.inventory_item is None for d in demands):
+            raise PurchaseOrderValidationError("Nie znaleziono części dla wybranych zapotrzebowań.")
 
         po = PurchaseOrder(po_number=self._next_number(company_id), supplier_id=supplier.id, status=PurchaseOrderStatusEnum.DRAFT.value, order_date=order_date or date.today(), expected_delivery_date=expected_delivery_date, notes=(notes or "").strip() or None, company_id=company_id, branch_id=branch_id, created_by=getattr(actor, "id", None), updated_by=getattr(actor, "id", None))
         db.session.add(po)
@@ -87,10 +87,10 @@ class PurchaseOrderService:
             if quantity <= 0:
                 continue
             price = Decimal(part.purchase_price_net or 0)
-            vat = Decimal(part.vat_rate or 0)
+            vat = Decimal(part.vat.rate) if part.vat else Decimal("0")
             total_net = (quantity * price).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
             total_vat = (total_net * vat / Decimal("100")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-            item = PurchaseOrderItem(purchase_order_id=po.id, part_id=part.id, code_snapshot=part.code, manufacturer_snapshot=part.manufacturer.name if getattr(part, "manufacturer", None) else None, quantity_ordered=quantity, unit=part.unit, unit_price_net=price, vat_rate=vat, total_net=total_net, total_vat=total_vat, total_gross=total_net + total_vat, expected_delivery_date=expected_delivery_date, created_by=getattr(actor, "id", None), updated_by=getattr(actor, "id", None))
+            item = PurchaseOrderItem(purchase_order_id=po.id, part_id=part.id, code_snapshot=part.code, manufacturer_snapshot=None, quantity_ordered=quantity, unit="szt.", unit_price_net=price, vat_rate=vat, total_net=total_net, total_vat=total_vat, total_gross=total_net + total_vat, expected_delivery_date=expected_delivery_date, created_by=getattr(actor, "id", None), updated_by=getattr(actor, "id", None))
             db.session.add(item)
             db.session.flush()
             for demand in grouped:
@@ -103,23 +103,12 @@ class PurchaseOrderService:
         db.session.commit()
         return po
 
-    def preferred_supplier_suggestions(self, *, demand_ids: list[int], company_id: int, branch_id: int | None) -> dict[str, object]:
-        query = select(PartDemand.inventory_item_id, CatalogPart.preferred_supplier_id, CatalogPart.code, CatalogPart.name).join(CatalogPart, CatalogPart.id == PartDemand.inventory_item_id).where(PartDemand.id.in_(demand_ids), PartDemand.company_id == company_id, PartDemand.is_active.is_(True))
-        if branch_id is not None:
-            query = query.where(PartDemand.branch_id == branch_id)
-        rows = db.session.execute(query).all()
-        groups: dict[int, list[dict[str, object]]] = {}
-        for _, supplier_id, code, name in rows:
-            if supplier_id is not None:
-                groups.setdefault(int(supplier_id), []).append({"code": code, "name": name})
-        return {"supplier_ids": sorted(groups), "groups": groups, "single_supplier_id": next(iter(groups)) if len(groups) == 1 else None}
-
     def update_order(self, *, order_id: int, supplier_id: int, order_date: date, expected_delivery_date: date | None, notes: str | None, company_id: int, branch_id: int | None, actor) -> PurchaseOrder:
         self._assert_manage(actor)
         po = self.get_order(order_id=order_id, company_id=company_id, branch_id=branch_id, actor=actor)
         if po.status not in {PurchaseOrderStatusEnum.DRAFT.value, PurchaseOrderStatusEnum.SENT.value}:
             raise PurchaseOrderValidationError("Tego zamówienia nie można już edytować.")
-        supplier = db.session.scalar(select(CatalogSupplier).where(CatalogSupplier.id == supplier_id, CatalogSupplier.company_id == company_id, CatalogSupplier.is_active.is_(True), CatalogSupplier.is_supplier_active.is_(True)))
+        supplier = db.session.scalar(select(CatalogSupplier).where(CatalogSupplier.id == supplier_id, CatalogSupplier.company_id == company_id, CatalogSupplier.is_active.is_(True)))
         if supplier is None:
             raise PurchaseOrderValidationError("Nie znaleziono aktywnego dostawcy.")
         po.supplier_id = supplier.id

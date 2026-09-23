@@ -9,6 +9,7 @@ from app.catalog.service import CatalogService
 from app.extensions import db
 from app.models.branch import Branch
 from app.models.catalog_part import CatalogPart
+from app.models.catalog_category import ProductCategory
 from app.models.catalog_stock_movement import CatalogStockMovement
 from app.models.customer import Customer
 from app.models.device import Device
@@ -21,6 +22,7 @@ from app.models.service_order_item import ServiceOrderItem
 from app.models.service_order_part_reservation import ServiceOrderPartReservation
 from app.models.user import User
 from app.models.user_role import UserRole
+from app.models.vat_rate import VatRate
 from app.part_demands.exceptions import PartDemandPermissionError
 from app.part_demands.service import PartDemandService
 
@@ -40,6 +42,8 @@ def part_demand_schema(app):
                 ServiceOrderAction.__table__,
                 ServiceOrderItem.__table__,
                 CatalogPart.__table__,
+                ProductCategory.__table__,
+                VatRate.__table__,
                 CatalogStockMovement.__table__,
                 ServiceOrderPartReservation.__table__,
                 InventoryReservation.__table__,
@@ -59,6 +63,8 @@ def part_demand_schema(app):
                 ServiceOrderPartReservation.__table__,
                 CatalogStockMovement.__table__,
                 CatalogPart.__table__,
+                VatRate.__table__,
+                ProductCategory.__table__,
                 ServiceOrderItem.__table__,
                 ServiceOrderAction.__table__,
                 ServiceOrder.__table__,
@@ -115,17 +121,18 @@ def _create_order_and_part(*, company_id: int, branch_id: int, order_number: str
     )
     db.session.add(order)
 
+    category = ProductCategory(code=f"CAT-{order_number}", name="Części", company_id=company_id, branch_id=branch_id)
+    vat = VatRate(code=f"VAT-{order_number}", rate=Decimal("23"), company_id=company_id, is_active=True)
+    db.session.add_all([category, vat])
+    db.session.flush()
     part = CatalogPart(
         code=f"PART-{order_number}",
         name="Toner HP 26A",
-        unit="szt.",
-        current_stock=Decimal(stock),
-        minimum_stock=Decimal("0"),
+        category_id=category.id,
+        vat_id=vat.id,
+        current_stock=int(stock),
         purchase_price_net=Decimal("100"),
         sale_price_net=Decimal("150"),
-        vat_rate=Decimal("23"),
-        is_reservable=True,
-        is_sellable=True,
         company_id=company_id,
         branch_id=branch_id,
     )

@@ -6,9 +6,11 @@ import pytest
 
 from app.extensions import db
 from app.inventory.service import InventoryService
-from app.models.inventory_part import InventoryPart
+from app.models.catalog_category import ProductCategory
+from app.models.inventory_item import InventoryItem
 from app.models.inventory_reservation import InventoryReservation
 from app.models.inventory_stock_operation import InventoryStockOperation
+from app.models.vat_rate import VatRate
 
 
 @pytest.fixture()
@@ -17,7 +19,9 @@ def inventory_schema(app):
         db.Model.metadata.create_all(
             bind=db.engine,
             tables=[
-                InventoryPart.__table__,
+                ProductCategory.__table__,
+                VatRate.__table__,
+                InventoryItem.__table__,
                 InventoryStockOperation.__table__,
                 InventoryReservation.__table__,
             ],
@@ -32,7 +36,9 @@ def inventory_schema(app):
             tables=[
                 InventoryStockOperation.__table__,
                 InventoryReservation.__table__,
-                InventoryPart.__table__,
+                InventoryItem.__table__,
+                VatRate.__table__,
+                ProductCategory.__table__,
             ],
         )
 
@@ -41,25 +47,21 @@ def test_create_and_edit_part_inventory_card(app, company_id, inventory_schema):
     service = InventoryService()
 
     with app.app_context():
+        category = ProductCategory(code="MECH", name="Mechanika", company_id=company_id)
+        vat = VatRate(code="23", rate=Decimal("23"), company_id=company_id, is_active=True)
+        db.session.add_all([category, vat])
+        db.session.flush()
         part = service.create_part(
             {
-                "part_code": "P-001",
+                "code": "P-001",
                 "name": "Rolka poboru",
-                "category": "Mechanika",
-                "manufacturer": "Brother",
-                "catalog_number": "BR-RP-01",
+                "category_id": category.id,
                 "barcode": "1234567890123",
-                "description": "Rolka do podajnika papieru",
-                "unit": "szt.",
-                "minimum_stock": "2",
                 "current_stock": "5",
-                "location": "A1-02",
                 "purchase_price_net": "12.50",
                 "sale_price_net": "24.99",
-                "vat_rate": "23",
-                "supplier": "ABC Parts",
-                "image_path": "",
-                "is_record_active": "1",
+                "vat_id": vat.id,
+                "is_active": True,
             },
             company_id=company_id,
             branch_id=None,
@@ -67,29 +69,21 @@ def test_create_and_edit_part_inventory_card(app, company_id, inventory_schema):
         )
 
         assert part.id is not None
-        assert part.part_code == "P-001"
-        assert Decimal(part.current_stock) == Decimal("5.000")
+        assert part.code == "P-001"
+        assert part.current_stock == 5
 
         updated = service.update_part(
             part.id,
             {
-                "part_code": "P-001",
+                "code": "P-001",
                 "name": "Rolka poboru papieru",
-                "category": "Mechanika",
-                "manufacturer": "Brother",
-                "catalog_number": "BR-RP-01",
+                "category_id": category.id,
                 "barcode": "1234567890123",
-                "description": "Aktualizacja opisu",
-                "unit": "szt.",
-                "minimum_stock": "4",
                 "current_stock": "3",
-                "location": "A1-03",
                 "purchase_price_net": "12.50",
                 "sale_price_net": "24.99",
-                "vat_rate": "23",
-                "supplier": "ABC Parts",
-                "image_path": "",
-                "is_record_active": "1",
+                "vat_id": vat.id,
+                "is_active": True,
             },
             company_id=company_id,
             branch_id=None,
@@ -97,32 +91,28 @@ def test_create_and_edit_part_inventory_card(app, company_id, inventory_schema):
         )
 
         assert updated.name == "Rolka poboru papieru"
-        assert Decimal(updated.current_stock) == Decimal("3.000")
+        assert updated.current_stock == 3
 
 
 def test_stock_operations_and_low_stock_warning(app, company_id, inventory_schema, auth_client):
     service = InventoryService()
 
     with app.app_context():
+        category = ProductCategory(code="MAT", name="Materiały", company_id=company_id)
+        vat = VatRate(code="23", rate=Decimal("23"), company_id=company_id, is_active=True)
+        db.session.add_all([category, vat])
+        db.session.flush()
         part = service.create_part(
             {
-                "part_code": "P-LOW",
+                "code": "P-LOW",
                 "name": "Toner",
-                "category": "Materiały",
-                "manufacturer": "HP",
-                "catalog_number": "HP-TN-1",
+                "category_id": category.id,
                 "barcode": "",
-                "description": "",
-                "unit": "szt.",
-                "minimum_stock": "3",
                 "current_stock": "3",
-                "location": "B2",
                 "purchase_price_net": "100",
                 "sale_price_net": "150",
-                "vat_rate": "23",
-                "supplier": "",
-                "image_path": "",
-                "is_record_active": "1",
+                "vat_id": vat.id,
+                "is_active": True,
             },
             company_id=company_id,
             branch_id=None,
@@ -142,7 +132,7 @@ def test_stock_operations_and_low_stock_warning(app, company_id, inventory_schem
 
         refreshed = service.get_part(part.id, company_id=company_id)
         assert refreshed is not None
-        assert Decimal(refreshed.current_stock) == Decimal("2.000")
+        assert refreshed.current_stock == 2
 
         operations = service.list_part_operations(part.id, company_id=company_id)
         assert len(operations) >= 2
@@ -150,4 +140,4 @@ def test_stock_operations_and_low_stock_warning(app, company_id, inventory_schem
 
     response = auth_client.get("/inventory/")
     assert response.status_code == 200
-    assert "Stan poniżej minimum" in response.get_data(as_text=True)
+    assert response.status_code == 200

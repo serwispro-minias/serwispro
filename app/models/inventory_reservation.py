@@ -43,7 +43,7 @@ class InventoryReservation(BaseTenantModel):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    inventory_item_id: Mapped[int] = mapped_column(ForeignKey("inventory_parts.id"), nullable=False)
+    inventory_item_id: Mapped[int] = mapped_column(ForeignKey("inventory_items.id"), nullable=False)
     service_order_id: Mapped[int] = mapped_column(ForeignKey("service_orders.id"), nullable=False)
     quantity: Mapped[Decimal] = mapped_column(Numeric(12, 3), nullable=False, default=Decimal("0"))
     reserved_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
@@ -51,7 +51,7 @@ class InventoryReservation(BaseTenantModel):
     released_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default=InventoryReservationStatusEnum.RESERVED.value)
 
-    inventory_item: Mapped["InventoryPart"] = relationship("InventoryPart", back_populates="reservations", lazy="select")
+    inventory_item: Mapped["InventoryPart"] = relationship("InventoryItem", back_populates="inventory_reservations", lazy="select")
     service_order: Mapped["ServiceOrder"] = relationship("ServiceOrder", lazy="select")
     user: Mapped["User | None"] = relationship("User", lazy="select")
 

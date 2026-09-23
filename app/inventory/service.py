@@ -5,7 +5,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from typing import Any
 
 from app.extensions import db
-from app.models.inventory_part import InventoryPart
+from app.models.inventory_item import InventoryItem
 from app.models.inventory_stock_operation import INVENTORY_OPERATION_TYPE_LABELS
 from app.models.service_order_part_usage import ServiceOrderPartUsage
 
@@ -36,22 +36,20 @@ class InventoryService:
             query_text=(query_text or "").strip() or None,
         )
 
-    def get_part(self, part_id: int, *, company_id: int | None) -> InventoryPart | None:
+    def get_part(self, part_id: int, *, company_id: int | None) -> InventoryItem | None:
         return self.repository.get_part(part_id, company_id=company_id)
 
-    def create_part(self, data: dict[str, Any], *, company_id: int | None, branch_id: int | None, user_id: int | None) -> InventoryPart:
+    def create_part(self, data: dict[str, Any], *, company_id: int | None, branch_id: int | None, user_id: int | None) -> InventoryItem:
         if company_id is None:
             raise InventoryValidationError("Brak identyfikatora firmy.")
 
         payload = self._normalize_part_payload(data)
-        existing = self.repository.get_by_code(payload["part_code"], company_id=company_id)
+        existing = self.repository.get_by_code(payload["code"], company_id=company_id)
         if existing is not None:
             raise InventoryValidationError("Część o podanym kodzie już istnieje.")
 
         payload["company_id"] = company_id
         payload["branch_id"] = branch_id
-        payload["quantity_total"] = payload["current_stock"]
-        payload["quantity_reserved"] = Decimal("0")
         payload["created_by"] = user_id
         payload["updated_by"] = user_id
 
@@ -60,7 +58,7 @@ class InventoryService:
             self._create_stock_operation(
                 part=part,
                 operation_type="INVENTORY",
-                quantity=part.current_stock,
+                quantity=Decimal(part.current_stock),
                 document_number="OTWARCIE",
                 comment="Stan początkowy podczas zakładania karty.",
                 user_id=user_id,
@@ -80,13 +78,13 @@ class InventoryService:
         company_id: int | None,
         branch_id: int | None,
         user_id: int | None,
-    ) -> InventoryPart:
+    ) -> InventoryItem:
         part = self.repository.get_part(part_id, company_id=company_id)
         if part is None:
             raise InventoryNotFoundError("Nie znaleziono części.")
 
         payload = self._normalize_part_payload(data)
-        existing = self.repository.get_by_code(payload["part_code"], company_id=company_id)
+        existing = self.repository.get_by_code(payload["code"], company_id=company_id)
         if existing is not None and existing.id != part.id:
             raise InventoryValidationError("Część o podanym kodzie już istnieje.")
 
@@ -94,8 +92,6 @@ class InventoryService:
         stock_after = payload["current_stock"]
 
         payload["branch_id"] = branch_id
-        payload["quantity_total"] = stock_after
-        payload["quantity_reserved"] = Decimal(part.quantity_reserved)
         payload["updated_by"] = user_id
         self.repository.update_part(part, payload)
 
@@ -184,7 +180,7 @@ class InventoryService:
         if unit_net_price < Decimal("0"):
             raise InventoryValidationError("Cena jednostkowa netto nie może być ujemna.")
 
-        vat_rate = Decimal(part.vat_rate)
+        vat_rate = Decimal(part.vat.rate) if part.vat else Decimal("0")
         net_value = (quantity * unit_net_price).quantize(TWO_DP, rounding=ROUND_HALF_UP)
         vat_value = (net_value * vat_rate / Decimal("100")).quantize(TWO_DP, rounding=ROUND_HALF_UP)
         gross_value = (net_value + vat_value).quantize(TWO_DP, rounding=ROUND_HALF_UP)
@@ -243,7 +239,7 @@ class InventoryService:
     def low_stock_count(self, *, company_id: int | None) -> int:
         return self.repository.low_stock_count(company_id=company_id)
 
-    def low_stock_list(self, *, company_id: int | None) -> list[InventoryPart]:
+    def low_stock_list(self, *, company_id: int | None) -> list[InventoryItem]:
         return self.repository.low_stock_list(company_id=company_id)
 
     def stock_summary(self, *, company_id: int | None) -> dict[str, Decimal]:
@@ -255,7 +251,7 @@ class InventoryService:
     def _create_stock_operation(
         self,
         *,
-        part: InventoryPart,
+        part: InventoryItem,
         operation_type: str,
         quantity: Decimal,
         document_number: str | None,
@@ -282,7 +278,10 @@ class InventoryService:
         if stock_after < Decimal("0"):
             raise InventoryValidationError("Stan magazynowy nie może spaść poniżej 0.")
 
-        part.current_stock = stock_after.quantize(THREE_DP, rounding=ROUND_HALF_UP)
+        stock_after = Decimal(stock_after)
+        if stock_after != stock_after.to_integral_value():
+            raise InventoryValidationError("Ilość produktu musi być liczbą całkowitą.")
+        part.current_stock = int(stock_after)
         db.session.add(part)
         db.session.flush()
 
@@ -304,7 +303,7 @@ class InventoryService:
                 "operation_type": operation_type,
                 "quantity": stored_quantity,
                 "stock_before": stock_before.quantize(THREE_DP, rounding=ROUND_HALF_UP),
-                "stock_after": part.current_stock,
+                "stock_after": Decimal(part.current_stock),
                 "document_number": document_number,
                 "comment": comment,
                 "company_id": part.company_id,
@@ -316,31 +315,39 @@ class InventoryService:
 
     def _normalize_part_payload(self, data: dict[str, Any]) -> dict[str, Any]:
         payload = {
-            "part_code": self._require_text(data.get("part_code"), "Kod części jest wymagany.", max_len=80).upper(),
+            "code": self._require_text(data.get("code"), "Kod produktu jest wymagany.", max_len=80).upper(),
             "name": self._require_text(data.get("name"), "Nazwa jest wymagana.", max_len=255),
-            "category": self._optional_text(data.get("category"), max_len=120),
-            "manufacturer": self._optional_text(data.get("manufacturer"), max_len=120),
-            "catalog_number": self._optional_text(data.get("catalog_number"), max_len=120),
-            "barcode": self._optional_text(data.get("barcode"), max_len=120),
-            "description": self._optional_text(data.get("description"), max_len=10000),
-            "unit": self._require_text(data.get("unit"), "Jednostka jest wymagana.", max_len=40),
-            "minimum_stock": self._to_decimal(data.get("minimum_stock"), places=3),
-            "current_stock": self._to_decimal(data.get("current_stock"), places=3),
-            "location": self._optional_text(data.get("location"), max_len=120),
+            "category_id": self._to_positive_int(data.get("category_id"), "Kategoria jest wymagana."),
+            "barcode": self._optional_text(data.get("barcode"), max_len=64),
+            "current_stock": self._to_integer(data.get("current_stock"), "Ilość sztuk"),
             "purchase_price_net": self._to_decimal(data.get("purchase_price_net"), places=2),
             "sale_price_net": self._to_decimal(data.get("sale_price_net"), places=2),
-            "vat_rate": self._to_decimal(data.get("vat_rate"), places=2),
-            "supplier": self._optional_text(data.get("supplier"), max_len=180),
-            "image_path": self._optional_text(data.get("image_path"), max_len=500),
-            "is_record_active": self._to_bool(data.get("is_record_active")),
+            "vat_id": self._to_positive_int(data.get("vat_id"), "Stawka VAT jest wymagana."),
+            "is_active": self._to_bool(data.get("is_active", True)),
         }
-        if payload["minimum_stock"] < Decimal("0") or payload["current_stock"] < Decimal("0"):
-            raise InventoryValidationError("Stany magazynowe nie mogą być ujemne.")
+        if payload["current_stock"] < 0:
+            raise InventoryValidationError("Ilość sztuk nie może być ujemna.")
         if payload["purchase_price_net"] < Decimal("0") or payload["sale_price_net"] < Decimal("0"):
             raise InventoryValidationError("Ceny nie mogą być ujemne.")
-        if payload["vat_rate"] < Decimal("0"):
-            raise InventoryValidationError("Stawka VAT nie może być ujemna.")
         return payload
+
+    def _to_positive_int(self, value: Any, message: str) -> int:
+        try:
+            result = int(value)
+        except (TypeError, ValueError) as exc:
+            raise InventoryValidationError(message) from exc
+        if result <= 0:
+            raise InventoryValidationError(message)
+        return result
+
+    def _to_integer(self, value: Any, label: str) -> int:
+        try:
+            decimal_value = Decimal(str(value).replace(",", "."))
+        except Exception as exc:
+            raise InventoryValidationError(f"{label} musi być liczbą całkowitą.") from exc
+        if decimal_value != decimal_value.to_integral_value():
+            raise InventoryValidationError(f"{label} musi być liczbą całkowitą.")
+        return int(decimal_value)
 
     def _require_text(self, value: Any, message: str, *, max_len: int) -> str:
         text = (value or "").strip()

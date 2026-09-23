@@ -28,26 +28,13 @@ class Role(BaseTenantModel):
         "Permission",
         secondary="role_permissions",
         back_populates="roles",
-        overlaps="role_permissions,permission",
         lazy="select",
     )
-    users: Mapped[List["User"]] = relationship(
-        "User",
-        secondary="user_roles",
-        back_populates="roles",
-        overlaps="user_roles,user",
-        lazy="select",
-    )
-    user_roles: Mapped[List["UserRole"]] = relationship(
-        "UserRole",
-        back_populates="role",
-        overlaps="users,roles",
-        lazy="select",
-    )
+    users: Mapped[List["User"]] = relationship("User", secondary="user_roles", back_populates="roles", lazy="select")
+    user_roles: Mapped[List["UserRole"]] = relationship("UserRole", back_populates="role", lazy="select")
     role_permissions: Mapped[List["RolePermission"]] = relationship(
         "RolePermission",
         back_populates="role",
-        overlaps="permissions,roles",
         lazy="select",
     )
 

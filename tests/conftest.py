@@ -21,7 +21,6 @@ def app(monkeypatch: pytest.MonkeyPatch) -> Generator:
         WTF_CSRF_ENABLED=False,
         SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
     )
-    app.jinja_env.globals["csrf_token"] = lambda: ""
 
     template_overrides = DictLoader(
         {

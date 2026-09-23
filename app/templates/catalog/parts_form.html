@@ -16,21 +16,11 @@
                 <div class="col-md-3">{{ form.code.label(class="form-label") }}{{ form.code(class="form-control") }}</div>
                 <div class="col-md-9">{{ form.name.label(class="form-label") }}{{ form.name(class="form-control") }}</div>
                 <div class="col-md-4">{{ form.category_id.label(class="form-label") }}{{ form.category_id(class="form-select") }}</div>
-                <div class="col-md-4">{{ form.supplier_id.label(class="form-label") }}{{ form.supplier_id(class="form-select") }}</div>
-                <div class="col-md-4">{{ form.preferred_supplier_id.label(class="form-label") }}{{ form.preferred_supplier_id(class="form-select") }}</div>
-                <div class="col-md-4">{{ form.manufacturer_id.label(class="form-label") }}{{ form.manufacturer_id(class="form-select") }}</div>
-                <div class="col-md-2">{{ form.unit.label(class="form-label") }}{{ form.unit(class="form-control") }}</div>
-                <div class="col-md-2">{{ form.current_stock.label(class="form-label") }}{{ form.current_stock(class="form-control") }}</div>
-                <div class="col-md-2">{{ form.minimum_stock.label(class="form-label") }}{{ form.minimum_stock(class="form-control") }}</div>
-                <div class="col-md-2">{{ form.purchase_price_net.label(class="form-label") }}{{ form.purchase_price_net(class="form-control") }}</div>
-                <div class="col-md-2">{{ form.sale_price_net.label(class="form-label") }}{{ form.sale_price_net(class="form-control") }}</div>
-                <div class="col-md-2">{{ form.vat_rate.label(class="form-label") }}{{ form.vat_rate(class="form-control") }}</div>
-                <div class="col-md-4">{{ form.location.label(class="form-label") }}{{ form.location(class="form-control") }}</div>
-                <div class="col-md-4 d-flex align-items-center gap-4 mt-4">
-                    <div class="form-check">{{ form.is_sellable(class="form-check-input") }} {{ form.is_sellable.label(class="form-check-label") }}</div>
-                    <div class="form-check">{{ form.is_reservable(class="form-check-input") }} {{ form.is_reservable.label(class="form-check-label") }}</div>
-                </div>
-                <div class="col-12">{{ form.description.label(class="form-label") }}{{ form.description(class="form-control", rows=4) }}</div>
+                <div class="col-md-4">{{ form.barcode.label(class="form-label") }}{{ form.barcode(class="form-control") }}</div>
+                <div class="col-md-4">{{ form.current_stock.label(class="form-label") }}{{ form.current_stock(class="form-control") }}</div>
+                <div class="col-md-4">{{ form.purchase_price_net.label(class="form-label") }}{{ form.purchase_price_net(class="form-control") }}</div>
+                <div class="col-md-4">{{ form.sale_price_net.label(class="form-label") }}{{ form.sale_price_net(class="form-control") }}</div>
+                <div class="col-md-4">{{ form.vat_id.label(class="form-label") }}{{ form.vat_id(class="form-select") }}</div>
             </div>
             <div class="mt-4">{{ form.submit(class="btn btn-primary") }}</div>
         </form>

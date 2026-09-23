@@ -17,16 +17,12 @@
 <div class="card mb-3">
     <div class="card-body">
         <div class="row g-3">
-            <div class="col-md-3"><strong>Stan:</strong> {{ '%.3f'|format(entity.current_stock) }} {{ entity.unit }}</div>
-            <div class="col-md-3"><strong>Minimum:</strong> {{ '%.3f'|format(entity.minimum_stock) }} {{ entity.unit }}</div>
+            <div class="col-md-3"><strong>Stan:</strong> {{ entity.current_stock }} szt.</div>
             <div class="col-md-3"><strong>Cena zakupu:</strong> {{ '%.2f'|format(entity.purchase_price_net) }} PLN</div>
             <div class="col-md-3"><strong>Cena sprzedaży:</strong> {{ '%.2f'|format(entity.sale_price_net) }} PLN</div>
-            <div class="col-md-3"><strong>VAT:</strong> {{ '%.2f'|format(entity.vat_rate) }}%</div>
-            <div class="col-md-3"><strong>Lokalizacja:</strong> {{ entity.location or '-' }}</div>
+            <div class="col-md-3"><strong>VAT:</strong> {{ '%.2f'|format(entity.vat.rate) if entity.vat else '-' }}%</div>
             <div class="col-md-3"><strong>Kategoria:</strong> {{ entity.category.name if entity.category else '-' }}</div>
-            <div class="col-md-3"><strong>Dostawca:</strong> {{ entity.supplier.name if entity.supplier else '-' }}</div>
-            <div class="col-md-3"><strong>Preferowany dostawca:</strong> {% if entity.preferred_supplier %}<a href="{{ url_for('catalog.suppliers_details', supplier_id=entity.preferred_supplier.id) }}">{{ entity.preferred_supplier.name }}</a><br><small>{{ entity.preferred_supplier.phone or '-' }} | {{ entity.preferred_supplier.email or '-' }}</small>{% else %}-{% endif %}</div>
-            <div class="col-12"><strong>Opis:</strong> {{ entity.description or '-' }}</div>
+            <div class="col-md-3"><strong>Kod kreskowy:</strong> {{ entity.barcode or '-' }}</div>
         </div>
     </div>
 </div>

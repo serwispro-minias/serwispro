@@ -31,8 +31,7 @@ class CatalogSearchForm(FlaskForm):
 class CategoryForm(FlaskForm):
     code = StringField("Kod", validators=[DataRequired(), Length(max=60)])
     name = StringField("Nazwa", validators=[DataRequired(), Length(max=160)])
-    kind = SelectField("Typ kategorii", choices=CATEGORY_KIND_CHOICES, validators=[DataRequired()])
-    description = TextAreaField("Opis", validators=[Optional(), Length(max=5000)])
+    is_active = BooleanField("Aktywna", default=True)
     submit = SubmitField("Zapisz")
 
 
@@ -41,13 +40,10 @@ class SupplierForm(FlaskForm):
     name = StringField("Nazwa", validators=[DataRequired(), Length(max=180)])
     email = StringField("E-mail", validators=[Optional(), Email(), Length(max=120)])
     phone = StringField("Telefon", validators=[Optional(), Length(max=50)])
-    address = TextAreaField("Adres", validators=[Optional(), Length(max=5000)])
     tax_id = StringField("NIP", validators=[Optional(), Length(max=20)])
     contact_person = StringField("Osoba kontaktowa", validators=[Optional(), Length(max=180)])
     website = StringField("WWW", validators=[Optional(), Length(max=255)])
-    default_lead_time_days = IntegerField("Termin realizacji (dni)", validators=[Optional(), NumberRange(min=0, max=3650)])
-    notes = TextAreaField("Uwagi", validators=[Optional(), Length(max=10000)])
-    is_supplier_active = BooleanField("Aktywny", default=True)
+    is_active = BooleanField("Aktywny", default=True)
     submit = SubmitField("Zapisz")
 
 
@@ -59,23 +55,23 @@ class ManufacturerForm(FlaskForm):
     submit = SubmitField("Zapisz")
 
 
+class VatRateForm(FlaskForm):
+    code = StringField("Kod", validators=[DataRequired(), Length(max=20)])
+    rate = DecimalField("Stawka (%)", validators=[DataRequired(), NumberRange(min=0)], places=2)
+    is_default = BooleanField("Domyślna")
+    is_active = BooleanField("Aktywna", default=True)
+    submit = SubmitField("Zapisz")
+
+
 class PartForm(FlaskForm):
     code = StringField("Kod", validators=[DataRequired(), Length(max=80)])
+    category_id = SelectField("Kategoria", coerce=int, validators=[DataRequired(message="Kategoria jest wymagana.")])
     name = StringField("Nazwa", validators=[DataRequired(), Length(max=255)])
-    category_id = SelectField("Kategoria", coerce=int, validators=[Optional()])
-    supplier_id = SelectField("Dostawca", coerce=int, validators=[Optional()])
-    preferred_supplier_id = SelectField("Preferowany dostawca", coerce=int, validators=[Optional()])
-    manufacturer_id = SelectField("Producent", coerce=int, validators=[Optional()])
-    unit = StringField("Jednostka", validators=[DataRequired(), Length(max=40)])
-    current_stock = DecimalField("Stan", validators=[DataRequired(), NumberRange(min=0)], places=3)
-    minimum_stock = DecimalField("Minimum", validators=[DataRequired(), NumberRange(min=0)], places=3)
+    barcode = StringField("Kod kreskowy", validators=[Optional(), Length(max=64)])
+    current_stock = IntegerField("Ilość sztuk", validators=[DataRequired(), NumberRange(min=0)])
     purchase_price_net = DecimalField("Cena zakupu netto", validators=[DataRequired(), NumberRange(min=0)], places=2)
+    vat_id = SelectField("VAT", coerce=int, validators=[DataRequired(message="Stawka VAT jest wymagana.")])
     sale_price_net = DecimalField("Cena sprzedaży netto", validators=[DataRequired(), NumberRange(min=0)], places=2)
-    vat_rate = DecimalField("VAT (%)", validators=[DataRequired(), NumberRange(min=0)], places=2)
-    location = StringField("Lokalizacja", validators=[Optional(), Length(max=120)])
-    is_sellable = BooleanField("Sprzedaż")
-    is_reservable = BooleanField("Rezerwacja")
-    description = TextAreaField("Opis", validators=[Optional(), Length(max=10000)])
     submit = SubmitField("Zapisz")
 
 
@@ -83,7 +79,6 @@ class MaterialForm(FlaskForm):
     code = StringField("Kod", validators=[DataRequired(), Length(max=80)])
     name = StringField("Nazwa", validators=[DataRequired(), Length(max=255)])
     category_id = SelectField("Kategoria", coerce=int, validators=[Optional()])
-    supplier_id = SelectField("Dostawca", coerce=int, validators=[Optional()])
     manufacturer_id = SelectField("Producent", coerce=int, validators=[Optional()])
     unit = StringField("Jednostka", validators=[DataRequired(), Length(max=40)])
     current_stock = DecimalField("Stan", validators=[DataRequired(), NumberRange(min=0)], places=3)

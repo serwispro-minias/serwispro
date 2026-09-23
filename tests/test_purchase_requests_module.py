@@ -6,6 +6,8 @@ from decimal import Decimal
 from app.extensions import db
 from app.models.branch import Branch
 from app.models.catalog_part import CatalogPart
+from app.models.catalog_category import ProductCategory
+from app.models.vat_rate import VatRate
 from app.models.company import Company
 from app.models.customer import Customer
 from app.models.device import Device
@@ -30,6 +32,8 @@ def test_purchase_request_model_fields_and_statuses(app):
                 Device.__table__,
                 ServiceOrder.__table__,
                 CatalogPart.__table__,
+                ProductCategory.__table__,
+                VatRate.__table__,
                 PurchaseRequest.__table__,
             ],
         )
@@ -73,17 +77,18 @@ def test_purchase_request_model_fields_and_statuses(app):
         )
         db.session.add(order)
 
+        category = ProductCategory(code="PR-CAT", name="Części", company_id=company.id, branch_id=branch.id)
+        vat = VatRate(code="PR-23", rate=Decimal("23"), company_id=company.id, is_active=True)
+        db.session.add_all([category, vat])
+        db.session.flush()
         part = CatalogPart(
             code="PR-100",
             name="Część testowa",
-            unit="szt.",
-            current_stock=Decimal("0"),
-            minimum_stock=Decimal("0"),
+            category_id=category.id,
+            vat_id=vat.id,
+            current_stock=0,
             purchase_price_net=Decimal("12.50"),
             sale_price_net=Decimal("20.00"),
-            vat_rate=Decimal("23"),
-            is_reservable=True,
-            is_sellable=True,
             company_id=company.id,
             branch_id=branch.id,
         )

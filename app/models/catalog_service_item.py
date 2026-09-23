@@ -9,7 +9,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import BaseTenantModel
 
 if TYPE_CHECKING:
-    from app.models.catalog_category import CatalogCategory
+    from app.models.catalog_category import ProductCategory
     from app.models.service_order_service_line import ServiceOrderServiceLine
 
 
@@ -34,9 +34,9 @@ class CatalogServiceItem(BaseTenantModel):
     standard_duration_minutes: Mapped[int] = mapped_column(nullable=False, default=60)
     is_sellable: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
-    category_id: Mapped[int | None] = mapped_column(ForeignKey("catalog_categories.id"), nullable=True)
+    category_id: Mapped[int | None] = mapped_column(ForeignKey("product_categories.id"), nullable=True)
 
-    category: Mapped["CatalogCategory | None"] = relationship("CatalogCategory", back_populates="services", lazy="select")
+    category: Mapped["ProductCategory | None"] = relationship("ProductCategory", lazy="select")
     order_lines: Mapped[list["ServiceOrderServiceLine"]] = relationship(
         "ServiceOrderServiceLine",
         back_populates="service_item",

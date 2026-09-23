@@ -26,13 +26,11 @@ class Permission(BaseTenantModel):
         "Role",
         secondary="role_permissions",
         back_populates="permissions",
-        overlaps="role_permissions,permission",
         lazy="select",
     )
     role_permissions: Mapped[List["RolePermission"]] = relationship(
         "RolePermission",
         back_populates="permission",
-        overlaps="roles,permissions",
         lazy="select",
     )
 

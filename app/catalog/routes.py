@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from flask import abort, flash, redirect, render_template, request, url_for
+from flask import abort, flash, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
 from . import bp
@@ -20,9 +20,15 @@ from .forms import (
     ServiceOrderLineForm,
     StockMovementForm,
     SupplierForm,
+    VatRateForm,
 )
-from .service import CatalogService, default_material_payload, default_part_payload, default_service_payload, tenant_catalog_context
-
+from .service import (
+    CatalogService,
+    default_material_payload,
+    default_part_payload,
+    default_service_payload,
+    tenant_catalog_context,
+)
 
 service = CatalogService()
 
@@ -38,18 +44,22 @@ def _paging() -> tuple[int, str]:
 
 
 def _set_fk_choices(form: PartForm | MaterialForm | ServiceItemForm, company_id: int | None) -> None:
-    category_choices = [(0, "---")] + service.category_choices(company_id=company_id)
     supplier_choices = [(0, "---")] + service.supplier_choices(company_id=company_id)
     manufacturer_choices = [(0, "---")] + service.manufacturer_choices(company_id=company_id)
+    vat_choices = service.vat_rate_choices(company_id=company_id)
 
     if hasattr(form, "category_id"):
-        form.category_id.choices = category_choices
+        # PartForm requires a real category (no blank option); Material/Service dictionaries stay optional.
+        if isinstance(form, PartForm):
+            form.category_id.choices = service.category_choices(company_id=company_id)
+        else:
+            form.category_id.choices = [(0, "---")] + service.category_choices(company_id=company_id)
     if hasattr(form, "supplier_id"):
         form.supplier_id.choices = supplier_choices
-    if hasattr(form, "preferred_supplier_id"):
-        form.preferred_supplier_id.choices = supplier_choices
     if hasattr(form, "manufacturer_id"):
         form.manufacturer_id.choices = manufacturer_choices
+    if hasattr(form, "vat_id"):
+        form.vat_id.choices = vat_choices
 
 
 @bp.route("/")
@@ -289,18 +299,103 @@ def manufacturers_delete(manufacturer_id: int):
     return redirect(url_for("catalog.manufacturers_index"))
 
 
+@bp.route("/vat-rates")
+@login_required
+def vat_rates_index():
+    page, query = _paging()
+    company_id, _, _ = _tenant()
+    search_form = CatalogSearchForm(request.args, meta={"csrf": False})
+    data = service.list_entities(service.vat_rates, page=page, per_page=20, company_id=company_id, query_text=query)
+    return render_template("catalog/vat_rates_index.html", vat_rates=data, q=query, search_form=search_form)
+
+
+@bp.route("/vat-rates/create", methods=["GET", "POST"])
+@login_required
+def vat_rates_create():
+    company_id, branch_id, _ = _tenant()
+    form = VatRateForm()
+
+    if form.validate_on_submit():
+        try:
+            service.create_entity(service.vat_rates, form.data, company_id=company_id, branch_id=branch_id)
+            flash("Stawka VAT została utworzona.", "success")
+            return redirect(url_for("catalog.vat_rates_index"))
+        except CatalogValidationError as exc:
+            flash(str(exc), "danger")
+
+    return render_template("catalog/vat_rates_form.html", form=form, title="Nowa stawka VAT", entity=None)
+
+
+@bp.route("/vat-rates/<int:vat_rate_id>/edit", methods=["GET", "POST"])
+@login_required
+def vat_rates_edit(vat_rate_id: int):
+    company_id, _, _ = _tenant()
+    try:
+        entity = service.get_entity_or_404(service.vat_rates, vat_rate_id, company_id=company_id)
+    except CatalogNotFoundError:
+        abort(404)
+
+    form = VatRateForm(obj=entity)
+    if form.validate_on_submit():
+        try:
+            service.update_entity(service.vat_rates, vat_rate_id, form.data, company_id=company_id)
+            flash("Stawka VAT została zaktualizowana.", "success")
+            return redirect(url_for("catalog.vat_rates_index"))
+        except CatalogValidationError as exc:
+            flash(str(exc), "danger")
+
+    return render_template("catalog/vat_rates_form.html", form=form, title="Edycja stawki VAT", entity=entity)
+
+
+@bp.route("/vat-rates/<int:vat_rate_id>/delete", methods=["POST"])
+@login_required
+def vat_rates_delete(vat_rate_id: int):
+    company_id, _, _ = _tenant()
+    try:
+        service.delete_entity(service.vat_rates, vat_rate_id, company_id=company_id)
+        flash("Stawka VAT została usunięta.", "success")
+    except CatalogNotFoundError:
+        flash("Nie znaleziono stawki VAT.", "danger")
+    return redirect(url_for("catalog.vat_rates_index"))
+
+
 @bp.route("/parts")
 @login_required
 def parts_index():
     page, query = _paging()
     company_id, _, _ = _tenant()
     search_form = CatalogSearchForm(request.args, meta={"csrf": False})
-    supplier_id = request.args.get("supplier_id", type=int) or None
+    category_id = request.args.get("category_id", type=int) or None
     sort_by = request.args.get("sort_by") or "name"
     sort_dir = request.args.get("sort_dir") or "asc"
-    data = service.parts.list_paginated(page=page, per_page=20, company_id=company_id, query_text=query, supplier_id=supplier_id, sort_by=sort_by, sort_dir=sort_dir)
-    supplier_choices = [(0, "Wszyscy")] + service.supplier_choices(company_id=company_id)
-    return render_template("catalog/parts_index.html", parts=data, q=query, search_form=search_form, supplier_choices=supplier_choices, selected_supplier_id=supplier_id, sort_by=sort_by, sort_dir=sort_dir)
+    data = service.parts.list_paginated(page=page, per_page=20, company_id=company_id, query_text=query, category_id=category_id, sort_by=sort_by, sort_dir=sort_dir)
+    category_choices = [(0, "Wszystkie")] + service.category_choices(company_id=company_id)
+    return render_template("catalog/parts_index.html", parts=data, q=query, search_form=search_form, category_choices=category_choices, selected_category_id=category_id, sort_by=sort_by, sort_dir=sort_dir)
+
+
+@bp.route("/parts/search")
+@login_required
+def parts_search():
+    company_id, _, _ = _tenant()
+    rows = service.parts.search(company_id=company_id, query_text=request.args.get("q"), limit=request.args.get("limit", 20, type=int) or 20)
+    return jsonify({
+        "items": [
+            {
+                "id": row.id,
+                "code": row.code,
+                "name": row.name,
+                "barcode": row.barcode,
+                "category": row.category.name if row.category else None,
+                "current_stock": row.current_stock,
+                "purchase_price_net": f"{row.purchase_price_net:.2f}",
+                "sale_price_net": f"{row.sale_price_net:.2f}",
+                "vat_id": row.vat_id,
+                "vat_code": row.vat.code if row.vat else None,
+                "vat_rate": f"{row.vat.rate:.2f}" if row.vat else "0.00",
+            }
+            for row in rows
+        ]
+    })
 
 
 @bp.route("/parts/create", methods=["GET", "POST"])
@@ -312,19 +407,18 @@ def parts_create():
 
     if request.method == "GET":
         defaults = default_part_payload()
-        form.unit.data = defaults["unit"]
         form.current_stock.data = defaults["current_stock"]
-        form.minimum_stock.data = defaults["minimum_stock"]
         form.purchase_price_net.data = defaults["purchase_price_net"]
         form.sale_price_net.data = defaults["sale_price_net"]
-        form.vat_rate.data = defaults["vat_rate"]
-        form.is_sellable.data = defaults["is_sellable"]
-        form.is_reservable.data = defaults["is_reservable"]
 
     if form.validate_on_submit():
         try:
+            if request.args.get("return_to") == "goods_receipt":
+                form.current_stock.data = 0
             entity = service.create_entity(service.parts, form.data, company_id=company_id, branch_id=branch_id)
             flash("Część została utworzona.", "success")
+            if request.args.get("return_to") == "goods_receipt":
+                return redirect(url_for("goods_receipts.create_manual", new_item_id=entity.id))
             return redirect(url_for("catalog.parts_details", part_id=entity.id))
         except CatalogValidationError as exc:
             flash(str(exc), "danger")
@@ -357,11 +451,9 @@ def parts_edit(part_id: int):
     form = PartForm(obj=entity)
     _set_fk_choices(form, company_id)
     if request.method == "GET":
-        form.current_stock.data = Decimal(entity.current_stock)
-        form.minimum_stock.data = Decimal(entity.minimum_stock)
+        form.current_stock.data = int(entity.current_stock)
         form.purchase_price_net.data = Decimal(entity.purchase_price_net)
         form.sale_price_net.data = Decimal(entity.sale_price_net)
-        form.vat_rate.data = Decimal(entity.vat_rate)
 
     if form.validate_on_submit():
         try:

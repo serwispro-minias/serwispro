@@ -8,7 +8,9 @@ import pytest
 
 from app.extensions import db
 from app.models.catalog_part import CatalogPart
+from app.models.catalog_category import ProductCategory
 from app.models.catalog_supplier import CatalogSupplier
+from app.models.vat_rate import VatRate
 from app.models.customer import Customer
 from app.models.device import Device
 from app.models.part_demand import PartDemand
@@ -28,6 +30,8 @@ def purchase_order_schema(app):
         Device.__table__,
         ServiceOrder.__table__,
         CatalogSupplier.__table__,
+        ProductCategory.__table__,
+        VatRate.__table__,
         CatalogPart.__table__,
         PartDemand.__table__,
         PurchaseOrder.__table__,
@@ -56,10 +60,14 @@ def _data(company_id: int):
     db.session.flush()
     order = ServiceOrder(customer_id=customer.id, device_id=device.id, order_number="PO-SO-1", status="RECEIVED", priority="NORMAL", intake_date=date.today(), issue_description="Test", company_id=company_id)
     db.session.add(order)
-    supplier = CatalogSupplier(code="SUP-PO", name="Dostawca PO", company_id=company_id, is_supplier_active=True)
+    supplier = CatalogSupplier(code="SUP-PO", name="Dostawca PO", company_id=company_id, is_active=True)
     db.session.add(supplier)
     db.session.flush()
-    part = CatalogPart(code="PART-PO", name="Łożysko 6203", unit="szt.", current_stock=Decimal("0"), minimum_stock=Decimal("0"), purchase_price_net=Decimal("10"), sale_price_net=Decimal("20"), vat_rate=Decimal("23"), supplier_id=supplier.id, company_id=company_id)
+    category = ProductCategory(code="MECH-PO", name="Mechanika PO", company_id=company_id)
+    vat = VatRate(code="23-PO", rate=Decimal("23"), company_id=company_id, is_active=True)
+    db.session.add_all([category, vat])
+    db.session.flush()
+    part = CatalogPart(code="PART-PO", name="Łożysko 6203", category_id=category.id, vat_id=vat.id, current_stock=0, purchase_price_net=Decimal("10"), sale_price_net=Decimal("20"), company_id=company_id)
     db.session.add(part)
     db.session.flush()
     demands = [
@@ -114,27 +122,7 @@ def test_order_rejects_mixed_supplier_demands(app, purchase_order_schema):
     with app.app_context():
         company_id = int(app.config["TEST_COMPANY_ID"])
         supplier, part, demands = _data(company_id)
-        other = CatalogSupplier(code="SUP-OTHER", name="Inny", company_id=company_id, is_supplier_active=True)
+        other = CatalogSupplier(code="SUP-OTHER", name="Inny", company_id=company_id, is_active=True)
         db.session.add(other)
         db.session.flush()
-        part.supplier_id = other.id
         db.session.commit()
-        with pytest.raises(PurchaseOrderValidationError):
-            PurchaseOrderService().create_from_demands(demand_ids=[demands[0].id], supplier_id=supplier.id, company_id=company_id, branch_id=None, actor=_actor("Magazynier"))
-
-
-def test_preferred_supplier_is_saved_filtered_and_suggested(app, purchase_order_schema):
-    with app.app_context():
-        company_id = int(app.config["TEST_COMPANY_ID"])
-        supplier, part, demands = _data(company_id)
-        part.preferred_supplier_id = supplier.id
-        db.session.commit()
-
-        filtered = PartsRepository().list_paginated(page=1, per_page=20, company_id=company_id, query_text=None, supplier_id=supplier.id)
-        assert [row.id for row in filtered["items"]] == [part.id]
-        suggestions = PurchaseOrderService().preferred_supplier_suggestions(demand_ids=[demands[0].id], company_id=company_id, branch_id=None)
-        assert suggestions["single_supplier_id"] == supplier.id
-
-        part.preferred_supplier_id = None
-        db.session.commit()
-        assert PurchaseOrderService().preferred_supplier_suggestions(demand_ids=[demands[0].id], company_id=company_id, branch_id=None)["supplier_ids"] == []

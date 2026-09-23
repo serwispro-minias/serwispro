@@ -5,15 +5,21 @@ from app.models.catalog_part import CatalogPart
 from app.models.catalog_service_item import CatalogServiceItem
 from app.models.catalog_stock_movement import CatalogStockMovement
 from app.models.catalog_supplier import CatalogSupplier
+from app.models.catalog_supplier import Supplier
+from app.models.catalog_category import ProductCategory
+from app.models.catalog_part import InventoryItem
 from app.models.service_order_material_usage import ServiceOrderMaterialUsage
 from app.models.service_order_part_reservation import ServiceOrderPartReservation
 from app.models.service_order_service_line import ServiceOrderServiceLine
 
 __all__ = [
     "CatalogCategory",
+    "ProductCategory",
     "CatalogSupplier",
+    "Supplier",
     "CatalogManufacturer",
     "CatalogPart",
+    "InventoryItem",
     "CatalogMaterial",
     "CatalogServiceItem",
     "CatalogStockMovement",

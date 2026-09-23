@@ -11,7 +11,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import BaseTenantModel
 
 if TYPE_CHECKING:
-    from app.models.catalog_part import CatalogPart
+    from app.models.catalog_part import InventoryItem
     from app.models.service_order import ServiceOrder
     from app.models.service_order_item import ServiceOrderItem
 
@@ -70,7 +70,7 @@ class PartDemand(BaseTenantModel):
     id: Mapped[int] = mapped_column(primary_key=True)
     service_order_id: Mapped[int] = mapped_column(ForeignKey("service_orders.id"), nullable=False)
     service_order_item_id: Mapped[int | None] = mapped_column(ForeignKey("service_order_items.id"), nullable=True)
-    inventory_item_id: Mapped[int] = mapped_column(ForeignKey("catalog_parts.id"), nullable=False)
+    inventory_item_id: Mapped[int] = mapped_column(ForeignKey("inventory_items.id"), nullable=False)
 
     requested_quantity: Mapped[Decimal] = mapped_column(Numeric(12, 3), nullable=False, default=Decimal("0"))
     reserved_quantity: Mapped[Decimal] = mapped_column(Numeric(12, 3), nullable=False, default=Decimal("0"))
@@ -83,7 +83,7 @@ class PartDemand(BaseTenantModel):
 
     service_order: Mapped["ServiceOrder"] = relationship("ServiceOrder", back_populates="part_demands", lazy="select")
     service_order_item: Mapped["ServiceOrderItem | None"] = relationship("ServiceOrderItem", back_populates="part_demands", lazy="select")
-    inventory_item: Mapped["CatalogPart"] = relationship("CatalogPart", lazy="select")
+    inventory_item: Mapped["InventoryItem"] = relationship("InventoryItem", lazy="select")
 
     def __repr__(self) -> str:
         return f"<PartDemand id={self.id} order_id={self.service_order_id} part_id={self.inventory_item_id}>"

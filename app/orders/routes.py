@@ -113,9 +113,9 @@ def _order_part_usage_form(company_id: int | None) -> tuple[OrderPartUsageForm, 
     form = OrderPartUsageForm()
     parts_page = inventory_service.list_parts(page=1, per_page=1000, company_id=company_id, query_text=None)
     parts = parts_page["items"]
-    form.part_id.choices = [(-1, "Wybierz część")] + [(part.id, f"{part.part_code} | {part.name}") for part in parts]
+    form.part_id.choices = [(-1, "Wybierz produkt")] + [(part.id, f"{part.code} | {part.name}") for part in parts]
     part_price_map = {part.id: f"{part.sale_price_net:.2f}" for part in parts}
-    part_vat_map = {part.id: f"{part.vat_rate:.2f}" for part in parts}
+    part_vat_map = {part.id: f"{(part.vat.rate if part.vat else 0):.2f}" for part in parts}
     return form, part_price_map, part_vat_map
 
 

@@ -30,24 +30,21 @@ class InventoryPrintService:
             return None
 
         context = InventoryPdfContext(
-            title="Karta części / materiału",
+            title="Karta produktu",
             generated_at=datetime.now(timezone.utc),
             company_lines=self._company_lines(company_id),
             rows=[
-                ("Kod części", part.part_code),
+                ("Kod produktu", part.code),
                 ("Nazwa", part.name),
-                ("Producent", part.manufacturer or "-"),
-                ("Numer katalogowy", part.catalog_number or "-"),
-                ("Stan", f"{Decimal(part.current_stock):.3f} {part.unit}"),
-                ("Stan minimalny", f"{Decimal(part.minimum_stock):.3f} {part.unit}"),
-                ("Cena netto", f"{Decimal(part.sale_price_net):.2f} PLN"),
-                ("VAT", f"{Decimal(part.vat_rate):.2f}%"),
-                ("Lokalizacja", part.location or "-"),
-                ("Dostawca", part.supplier or "-"),
+                ("Kod kreskowy", part.barcode or "-"),
+                ("Ilość sztuk", str(part.current_stock)),
+                ("Cena zakupu netto", f"{Decimal(part.purchase_price_net):.2f} PLN"),
+                ("Cena sprzedaży netto", f"{Decimal(part.sale_price_net):.2f} PLN"),
+                ("VAT", f"{Decimal(part.vat.rate if part.vat else 0):.2f}%"),
             ],
         )
         return InventoryPdfDocument(
-            filename=f"karta_czesci_{part.part_code}.pdf",
+            filename=f"karta_produktu_{part.code}.pdf",
             content=self.generator.render(context),
         )
 
@@ -71,15 +68,15 @@ class InventoryPrintService:
             )
 
         context = InventoryPdfContext(
-            title=f"Historia operacji: {part.part_code}",
+            title=f"Historia operacji: {part.code}",
             generated_at=datetime.now(timezone.utc),
             company_lines=self._company_lines(company_id),
-            rows=[("Część", f"{part.part_code} | {part.name}")],
+            rows=[("Produkt", f"{part.code} | {part.name}")],
             table_headers=("Data", "Typ", "Ilość", "Przed", "Po", "Dokument"),
             table_rows=rows,
         )
         return InventoryPdfDocument(
-            filename=f"historia_czesci_{part.part_code}.pdf",
+            filename=f"historia_produktu_{part.code}.pdf",
             content=self.generator.render(context),
         )
 
@@ -87,17 +84,16 @@ class InventoryPrintService:
         parts_page = self.service.list_parts(page=1, per_page=1000, company_id=company_id, query_text=None)
         rows: list[tuple[str, ...]] = []
         for part in parts_page["items"]:
-            state = f"{Decimal(part.current_stock):.3f} {part.unit}"
-            minimum = f"{Decimal(part.minimum_stock):.3f} {part.unit}"
-            warning = "Stan poniżej minimum" if Decimal(part.current_stock) < Decimal(part.minimum_stock) else "-"
-            rows.append((part.part_code, part.name, state, minimum, warning))
+            state = str(part.current_stock)
+            warning = "Brak stanu" if part.current_stock == 0 else "-"
+            rows.append((part.code, part.name, state, warning))
 
         context = InventoryPdfContext(
             title="Stany magazynowe",
             generated_at=datetime.now(timezone.utc),
             company_lines=self._company_lines(company_id),
             rows=[],
-            table_headers=("Kod", "Nazwa", "Stan", "Minimum", "Uwagi"),
+            table_headers=("Kod", "Nazwa", "Ilość", "Uwagi"),
             table_rows=rows,
         )
         return InventoryPdfDocument(

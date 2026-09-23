@@ -18,6 +18,7 @@ from app.models.service_order import ServiceOrder
 from app.models.service_order_material_usage import ServiceOrderMaterialUsage
 from app.models.service_order_part_reservation import ServiceOrderPartReservation
 from app.models.service_order_service_line import ServiceOrderServiceLine
+from app.models.vat_rate import VatRate
 
 TModel = TypeVar("TModel")
 
@@ -96,7 +97,7 @@ class _BaseCatalogRepository(Generic[TModel]):
         if company_id is not None:
             query = query.where(getattr(self.model, "company_id") == company_id)
         items = list(db.session.scalars(query).all())
-        return [(item.id, f"{getattr(item, self.code_field)} | {getattr(item, self.name_field)}") for item in items]
+        return [(getattr(item, "id"), f"{getattr(item, self.code_field)} | {getattr(item, self.name_field)}") for item in items]
 
 
 class CategoriesRepository(_BaseCatalogRepository[CatalogCategory]):
@@ -111,23 +112,33 @@ class ManufacturersRepository(_BaseCatalogRepository[CatalogManufacturer]):
     model = CatalogManufacturer
 
 
+class VatRatesRepository(_BaseCatalogRepository[VatRate]):
+    model = VatRate
+
+    def list_choices(self, *, company_id: int | None) -> list[tuple[int, str]]:
+        query = select(VatRate).where(VatRate.is_active.is_(True)).order_by(VatRate.rate.asc(), VatRate.id.asc())
+        if company_id is not None:
+            query = query.where(VatRate.company_id == company_id)
+        items = db.session.scalars(query).all()
+        return [(item.id, f"{item.code} ({item.rate}%)") for item in items]
+
+
 class PartsRepository(_BaseCatalogRepository[CatalogPart]):
     model = CatalogPart
 
-    def list_paginated(self, *, page: int, per_page: int, company_id: int | None, query_text: str | None, supplier_id: int | None = None, sort_by: str = "name", sort_dir: str = "asc") -> dict[str, Any]:
-        filters = [CatalogPart.is_active.is_(True)]
+    def list_paginated(self, *, page: int, per_page: int, company_id: int | None, query_text: str | None, category_id: int | None = None, sort_by: str = "name", sort_dir: str = "asc") -> dict[str, Any]:
+        filters: list[Any] = [CatalogPart.is_active.is_(True)]
         if company_id is not None:
             filters.append(CatalogPart.company_id == company_id)
-        if supplier_id is not None:
-            filters.append(CatalogPart.preferred_supplier_id == supplier_id)
+        if category_id is not None:
+            filters.append(CatalogPart.category_id == category_id)
         if query_text:
             term = f"%{query_text}%"
-            filters.append(or_(CatalogPart.code.ilike(term), CatalogPart.name.ilike(term)))
+            filters.append(or_(CatalogPart.code.ilike(term), CatalogPart.name.ilike(term), CatalogPart.barcode.ilike(term)))
         sort_columns = {
             "code": CatalogPart.code,
             "name": CatalogPart.name,
             "current_stock": CatalogPart.current_stock,
-            "minimum_stock": CatalogPart.minimum_stock,
             "sale_price_net": CatalogPart.sale_price_net,
         }
         sort_column = sort_columns.get(sort_by, CatalogPart.name)
@@ -136,7 +147,7 @@ class PartsRepository(_BaseCatalogRepository[CatalogPart]):
         else:
             sort_column = sort_column.asc()
         total = int(db.session.scalar(select(func.count()).select_from(CatalogPart).where(*filters)) or 0)
-        items = list(db.session.scalars(select(CatalogPart).options(selectinload(CatalogPart.preferred_supplier)).where(*filters).order_by(sort_column, CatalogPart.id.asc()).offset((page - 1) * per_page).limit(per_page)).all())
+        items = list(db.session.scalars(select(CatalogPart).options(selectinload(CatalogPart.category), selectinload(CatalogPart.vat)).where(*filters).order_by(sort_column, CatalogPart.id.asc()).offset((page - 1) * per_page).limit(per_page)).all())
         pages = (total + per_page - 1) // per_page if total else 0
         return {"items": items, "total": total, "page": page, "per_page": per_page, "pages": pages}
 
@@ -147,8 +158,7 @@ class PartsRepository(_BaseCatalogRepository[CatalogPart]):
             .where(CatalogPart.is_active.is_(True))
             .options(
                 selectinload(CatalogPart.category),
-                selectinload(CatalogPart.supplier),
-                selectinload(CatalogPart.manufacturer),
+                selectinload(CatalogPart.vat),
                 selectinload(CatalogPart.movements).selectinload(CatalogStockMovement.user),
                 selectinload(CatalogPart.reservations),
             )
@@ -161,13 +171,26 @@ class PartsRepository(_BaseCatalogRepository[CatalogPart]):
         query = (
             select(CatalogPart)
             .where(CatalogPart.is_active.is_(True))
-            .where(CatalogPart.is_reservable.is_(True))
             .order_by(CatalogPart.name.asc(), CatalogPart.id.asc())
         )
         if company_id is not None:
             query = query.where(CatalogPart.company_id == company_id)
         items = db.session.scalars(query).all()
         return [(item.id, f"{item.code} | {item.name}") for item in items]
+
+    def search(self, *, company_id: int | None, query_text: str | None, limit: int = 20) -> list[CatalogPart]:
+        query = select(CatalogPart).options(selectinload(CatalogPart.category), selectinload(CatalogPart.vat)).where(CatalogPart.is_active.is_(True))
+        if company_id is not None:
+            query = query.where(CatalogPart.company_id == company_id)
+        terms = [term for term in (query_text or "").strip().split() if term]
+        if len(terms) == 1 and terms[0].isdigit():
+            pattern = f"%{terms[0]}%"
+            query = query.where(or_(CatalogPart.id == int(terms[0]), CatalogPart.code.ilike(pattern), CatalogPart.name.ilike(pattern), CatalogPart.barcode.ilike(pattern)))
+            return list(db.session.scalars(query.order_by(CatalogPart.name.asc(), CatalogPart.id.asc()).limit(limit)).all())
+        for term in terms:
+            pattern = f"%{term}%"
+            query = query.where(or_(CatalogPart.code.ilike(pattern), CatalogPart.name.ilike(pattern), CatalogPart.barcode.ilike(pattern)))
+        return list(db.session.scalars(query.order_by(CatalogPart.name.asc(), CatalogPart.id.asc()).limit(limit)).all())
 
 
 class MaterialsRepository(_BaseCatalogRepository[CatalogMaterial]):
@@ -180,7 +203,6 @@ class MaterialsRepository(_BaseCatalogRepository[CatalogMaterial]):
             .where(CatalogMaterial.is_active.is_(True))
             .options(
                 selectinload(CatalogMaterial.category),
-                selectinload(CatalogMaterial.supplier),
                 selectinload(CatalogMaterial.manufacturer),
                 selectinload(CatalogMaterial.movements).selectinload(CatalogStockMovement.user),
                 selectinload(CatalogMaterial.usages),
@@ -315,7 +337,8 @@ class StockRepository:
         else:
             stock_after = stock_before + quantity
 
-        part.current_stock = stock_after
+        # Product stock is a whole-unit count ("ilość sztuk").
+        part.current_stock = int(stock_after)
         db.session.add(part)
         db.session.flush()
         return stock_before, stock_after

@@ -333,7 +333,7 @@ class ServiceOrderItemService:
             )
             if part is None:
                 raise ServiceOrderItemNotFoundError("Nie znaleziono części.")
-            part.current_stock = stock_after.quantize(THREE_DP, rounding=ROUND_HALF_UP)
+            part.current_stock = int(stock_after)
             db.session.add(part)
             db.session.flush()
             db.session.add(

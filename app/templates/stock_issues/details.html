@@ -1,3 +1,36 @@
 {% extends "base.html" %}
 {% block title %}{{ issue.issue_number }}{% endblock %}
-{% block content %}<div class="d-flex justify-content-between align-items-center mb-3"><div><h1 class="h3">{{ issue.issue_number }}</h1><small>{{ issue.service_order.order_number }} | {{ issue.issue_date }}</small></div><a class="btn btn-outline-secondary" href="{{ url_for('stock_issues.index') }}">Powrót</a></div><div class="card"><div class="card-body"><p><strong>Status:</strong> {{ status_labels.get(issue.status, issue.status) }}</p><p><strong>Magazyn:</strong> {{ issue.branch.name if issue.branch else '-' }}</p><p><strong>Serwisant:</strong> {{ issue.issuer.login if issue.issuer else '-' }}</p><div class="table-responsive"><table class="table table-sm"><thead><tr><th>Część</th><th>Ilość wydana</th><th>Zapotrzebowanie</th><th>Rezerwacja</th></tr></thead><tbody>{% for item in issue.items %}<tr><td>{{ item.part.code }} | {{ item.part.name }}</td><td>{{ item.quantity_issued }}</td><td>{{ item.demand.id if item.demand else '-' }}</td><td>{{ item.reservation_id }}</td></tr>{% endfor %}</tbody></table></div></div></div>{% endblock %}
+{% block content %}<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h1 class="h3">{{ issue.issue_number }}</h1><small>{{ issue.service_order.order_number if issue.service_order
+            else 'Wydanie magazynowe' }} | {{ issue.issue_date }}</small>
+    </div><a class="btn btn-outline-secondary" href="{{ url_for('stock_issues.index') }}">Powrót</a>
+</div>
+<div class="card">
+    <div class="card-body">
+        <p><strong>Status:</strong> {{ status_labels.get(issue.status, issue.status) }}</p>
+        <p><strong>Magazyn:</strong> {{ issue.branch.name if issue.branch else '-' }}</p>
+        <p><strong>Wystawił:</strong> {{ issue.issuer.login if issue.issuer else '-' }}</p>
+        {% if issue.status == 'DRAFT' %}<form method="post"
+            action="{{ url_for('stock_issues.post', issue_id=issue.id) }}" class="mb-3">{{ post_form.hidden_tag() }}{{
+            post_form.submit(class="btn btn-success") }}</form>{% endif %}
+        <div class="table-responsive">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Produkt</th>
+                        <th>Ilość wydana</th>
+                        <th>Zapotrzebowanie</th>
+                        <th>Rezerwacja</th>
+                    </tr>
+                </thead>
+                <tbody>{% for item in issue.items %}<tr>
+                        <td>{{ item.inventory_item.code }} | {{ item.inventory_item.name }}</td>
+                        <td>{{ item.quantity_issued }}</td>
+                        <td>{{ item.demand.id if item.demand else '-' }}</td>
+                        <td>{{ item.reservation_id or '-' }}</td>
+                    </tr>{% endfor %}</tbody>
+            </table>
+        </div>
+    </div>
+</div>{% endblock %}

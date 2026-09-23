@@ -48,7 +48,7 @@ class PurchaseOrder(BaseTenantModel):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     po_number: Mapped[str] = mapped_column(String(60), nullable=False, unique=True)
-    supplier_id: Mapped[int] = mapped_column(ForeignKey("catalog_suppliers.id"), nullable=False)
+    supplier_id: Mapped[int] = mapped_column(ForeignKey("suppliers.id"), nullable=False)
     status: Mapped[str] = mapped_column(String(24), nullable=False, default=PurchaseOrderStatusEnum.DRAFT.value)
     order_date: Mapped[date] = mapped_column(Date, nullable=False, default=date.today)
     expected_delivery_date: Mapped[date | None] = mapped_column(Date, nullable=True)
@@ -57,6 +57,6 @@ class PurchaseOrder(BaseTenantModel):
     total_vat: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False, default=Decimal("0"))
     total_gross: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False, default=Decimal("0"))
 
-    supplier: Mapped["CatalogSupplier"] = relationship("CatalogSupplier", lazy="select")
+    supplier: Mapped["CatalogSupplier"] = relationship("Supplier", lazy="select")
     items: Mapped[list["PurchaseOrderItem"]] = relationship("PurchaseOrderItem", back_populates="purchase_order", cascade="all, delete-orphan", lazy="select")
     history: Mapped[list["PurchaseOrderHistory"]] = relationship("PurchaseOrderHistory", back_populates="purchase_order", cascade="all, delete-orphan", order_by="PurchaseOrderHistory.changed_at.asc()", lazy="select")

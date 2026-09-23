@@ -11,7 +11,7 @@ from app.models.base import BaseTenantModel
 
 if TYPE_CHECKING:
     from app.models.catalog_material import CatalogMaterial
-    from app.models.catalog_part import CatalogPart
+    from app.models.catalog_part import InventoryItem
     from app.models.user import User
 
 
@@ -22,6 +22,7 @@ CATALOG_ITEM_TYPE_CHOICES: list[tuple[str, str]] = [
 
 CATALOG_MOVEMENT_TYPE_CHOICES: list[tuple[str, str]] = [
     ("RECEIPT", "Przyjęcie"),
+    ("OPENING_BALANCE", "Bilans otwarcia"),
     ("ISSUE", "Wydanie"),
     ("ADJUSTMENT", "Korekta"),
     ("RESERVATION", "Rezerwacja"),
@@ -49,7 +50,7 @@ class CatalogStockMovement(BaseTenantModel):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     item_type: Mapped[str] = mapped_column(String(20), nullable=False)
-    part_id: Mapped[int | None] = mapped_column(ForeignKey("catalog_parts.id"), nullable=True)
+    part_id: Mapped[int | None] = mapped_column(ForeignKey("inventory_items.id"), nullable=True)
     material_id: Mapped[int | None] = mapped_column(ForeignKey("catalog_materials.id"), nullable=True)
     user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     service_order_id: Mapped[int | None] = mapped_column(ForeignKey("service_orders.id"), nullable=True)
@@ -62,7 +63,7 @@ class CatalogStockMovement(BaseTenantModel):
     reference_id: Mapped[str | None] = mapped_column(String(80), nullable=True)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    part: Mapped["CatalogPart | None"] = relationship("CatalogPart", back_populates="movements", lazy="select")
+    part: Mapped["InventoryItem | None"] = relationship("InventoryItem", back_populates="movements", lazy="select")
     material: Mapped["CatalogMaterial | None"] = relationship("CatalogMaterial", back_populates="movements", lazy="select")
     user: Mapped["User | None"] = relationship("User", lazy="select")
 

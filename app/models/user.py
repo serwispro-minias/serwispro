@@ -34,19 +34,8 @@ class User(BaseTenantModel, UserMixin):
     locked_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     company: Mapped["Company | None"] = relationship("Company", back_populates="users")
-    roles: Mapped[List["Role"]] = relationship(
-        "Role",
-        secondary="user_roles",
-        back_populates="users",
-        overlaps="user_roles,role",
-        lazy="select",
-    )
-    user_roles: Mapped[List["UserRole"]] = relationship(
-        "UserRole",
-        back_populates="user",
-        overlaps="roles,users",
-        lazy="select",
-    )
+    roles: Mapped[List["Role"]] = relationship("Role", secondary="user_roles", back_populates="users", lazy="select")
+    user_roles: Mapped[List["UserRole"]] = relationship("UserRole", back_populates="user", lazy="select")
     audit_logs: Mapped[List["AuditLog"]] = relationship("AuditLog", back_populates="user", lazy="select")
 
     def __repr__(self) -> str:

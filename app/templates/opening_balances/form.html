@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Nowy bilans otwarcia{% endblock %}
+{% block content %}
+<h1 class="h3 mb-3">Nowy bilans otwarcia</h1>
+<form method="post"> <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="mb-3"><label class="form-label" for="document_date">Data</label><input class="form-control" type="date"
+            id="document_date" name="document_date"></div>
+    <div class="table-responsive">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Produkt</th>
+                    <th>Stan</th>
+                    <th>Ilość BO</th>
+                    <th>Cena zakupu netto</th>
+                    <th>VAT</th>
+                </tr>
+            </thead>
+            <tbody>{% for product in products %}<tr>
+                    <td>{{ product.code }} | {{ product.name }}</td>
+                    <td>{{ product.current_stock }}</td>
+                    <td><input class="form-control" type="number" min="1" step="1" name="quantity_{{ product.id }}">
+                    </td>
+                    <td><input class="form-control" type="number" min="0" step="0.01" name="price_{{ product.id }}"
+                            value="{{ product.purchase_price_net }}"></td>
+                    <td><select class="form-select" name="vat_{{ product.id }}">{% for vat in vats %}<option
+                                value="{{ vat.id }}" {% if vat.id==product.vat_id %}selected{% endif %}>{{ vat.code }}
+                                ({{ vat.rate }}%)</option>{% endfor %}</select></td>
+                </tr>{% endfor %}</tbody>
+        </table>
+    </div>
+    <div class="mb-3"><label class="form-label" for="notes">Uwagi</label><textarea class="form-control" id="notes"
+            name="notes"></textarea></div><button class="btn btn-primary" type="submit">Utwórz BO</button>
+</form>
+{% endblock %}

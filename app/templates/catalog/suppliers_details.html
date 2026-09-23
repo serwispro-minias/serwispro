@@ -23,8 +23,9 @@
         <p><strong>Osoba kontaktowa:</strong> {{ entity.contact_person or '-' }}</p>
         <p><strong>WWW:</strong> {{ entity.website or '-' }}</p>
         <p><strong>Termin realizacji:</strong> {{ entity.default_lead_time_days or '-' }} dni</p>
-        <p><strong>Status:</strong> {{ 'Aktywny' if entity.is_supplier_active else 'Nieaktywny' }}</p>
-        <form method="post" action="{{ url_for('catalog.suppliers_delete', supplier_id=entity.id) }}" onsubmit="return confirm('Usunąć dostawcę?');">
+        <p><strong>Status:</strong> {{ 'Aktywny' if entity.is_active else 'Nieaktywny' }}</p>
+        <form method="post" action="{{ url_for('catalog.suppliers_delete', supplier_id=entity.id) }}"
+            onsubmit="return confirm('Usunąć dostawcę?');">
             <button type="submit" class="btn btn-outline-danger">Usuń</button>
         </form>
     </div>

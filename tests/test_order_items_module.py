@@ -8,6 +8,7 @@ import pytest
 from app.extensions import db
 from app.models.catalog_material import CatalogMaterial
 from app.models.catalog_part import CatalogPart
+from app.models.catalog_category import ProductCategory
 from app.models.catalog_service_item import CatalogServiceItem
 from app.models.catalog_stock_movement import CatalogStockMovement
 from app.models.customer import Customer
@@ -18,6 +19,7 @@ from app.models.service_order import ServiceOrder
 from app.models.service_order_item import ServiceOrderItem
 from app.models.purchase_request import PurchaseRequest
 from app.orders.item_service import ServiceOrderItemService
+from app.models.vat_rate import VatRate
 
 
 @pytest.fixture()
@@ -29,6 +31,8 @@ def order_items_schema(app):
                 Device.__table__,
                 ServiceOrder.__table__,
                 CatalogPart.__table__,
+                ProductCategory.__table__,
+                VatRate.__table__,
                 CatalogMaterial.__table__,
                 CatalogServiceItem.__table__,
                 CatalogStockMovement.__table__,
@@ -51,6 +55,8 @@ def order_items_schema(app):
                 CatalogServiceItem.__table__,
                 CatalogMaterial.__table__,
                 CatalogPart.__table__,
+                VatRate.__table__,
+                ProductCategory.__table__,
                 ServiceOrder.__table__,
                 Device.__table__,
                 ServiceEstimateItem.__table__,
@@ -97,15 +103,18 @@ def _create_order(company_id: int) -> int:
 
 
 def _create_catalog_records(company_id: int):
+    category = ProductCategory(code="ITEM-CAT", name="Części", company_id=company_id)
+    vat = VatRate(code="ITEM-23", rate=23, company_id=company_id, is_active=True)
+    db.session.add_all([category, vat])
+    db.session.flush()
     part = CatalogPart(
         code="PART-001",
         name="Rolka poboru",
-        unit="szt.",
-        current_stock=Decimal("10"),
-        minimum_stock=Decimal("1"),
+        category_id=category.id,
+        vat_id=vat.id,
+        current_stock=10,
         purchase_price_net=Decimal("10.00"),
         sale_price_net=Decimal("20.00"),
-        vat_rate=Decimal("23"),
         company_id=company_id,
     )
     material = CatalogMaterial(

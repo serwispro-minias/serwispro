@@ -1,16 +1,18 @@
 {% extends "base.html" %}
 
-{% block title %}Karta części{% endblock %}
+{% block title %}Karta produktu{% endblock %}
 
 {% block content %}
 <div class="page-header d-flex justify-content-between align-items-center mb-3">
     <div>
-        <h1 class="h3">Karta części: {{ part.part_code }}</h1>
+        <h1 class="h3">Karta produktu: {{ part.code }}</h1>
         <small class="text-muted">{{ part.name }}</small>
     </div>
     <div class="d-flex gap-2">
-        <a class="btn btn-outline-primary" href="{{ url_for('inventory.print_part_card', part_id=part.id) }}" target="_blank" rel="noopener">Drukuj kartę</a>
-        <a class="btn btn-outline-primary" href="{{ url_for('inventory.print_part_history', part_id=part.id) }}" target="_blank" rel="noopener">Drukuj historię</a>
+        <a class="btn btn-outline-primary" href="{{ url_for('inventory.print_part_card', part_id=part.id) }}"
+            target="_blank" rel="noopener">Drukuj kartę</a>
+        <a class="btn btn-outline-primary" href="{{ url_for('inventory.print_part_history', part_id=part.id) }}"
+            target="_blank" rel="noopener">Drukuj historię</a>
         <a class="btn btn-secondary" href="{{ url_for('inventory.edit_part', part_id=part.id) }}">Edytuj</a>
         <a class="btn btn-outline-secondary" href="{{ url_for('inventory.index') }}">Powrót</a>
     </div>
@@ -19,20 +21,17 @@
 <div class="card mb-3">
     <div class="card-body">
         <div class="row g-3">
-            <div class="col-md-3"><strong>Kod:</strong> {{ part.part_code }}</div>
-            <div class="col-md-3"><strong>Producent:</strong> {{ part.manufacturer or '-' }}</div>
-            <div class="col-md-3"><strong>Nr katalogowy:</strong> {{ part.catalog_number or '-' }}</div>
-            <div class="col-md-3"><strong>Lokalizacja:</strong> {{ part.location or '-' }}</div>
+            <div class="col-md-3"><strong>Kod:</strong> {{ part.code }}</div>
+            <div class="col-md-3"><strong>Kod kreskowy:</strong> {{ part.barcode or '-' }}</div>
+            <div class="col-md-3"><strong>Kategoria:</strong> {{ part.category.name }}</div>
+            <div class="col-md-3"><strong>VAT:</strong> {{ part.vat.code }}</div>
             <div class="col-md-3">
-                <strong>Stan:</strong> {{ '%.3f'|format(part.current_stock) }} {{ part.unit }}
-                {% if part.current_stock < part.minimum_stock %}
-                <span class="badge bg-warning text-dark">Stan poniżej minimum</span>
-                {% endif %}
+                <strong>Ilość sztuk:</strong> {{ part.current_stock }}
             </div>
-            <div class="col-md-3"><strong>Minimum:</strong> {{ '%.3f'|format(part.minimum_stock) }} {{ part.unit }}</div>
-            <div class="col-md-3"><strong>Cena netto:</strong> {{ '%.2f'|format(part.sale_price_net) }} PLN</div>
-            <div class="col-md-3"><strong>VAT:</strong> {{ '%.2f'|format(part.vat_rate) }}%</div>
-            <div class="col-12"><strong>Opis:</strong> {{ part.description or '-' }}</div>
+            <div class="col-md-3"><strong>Cena zakupu netto:</strong> {{ '%.2f'|format(part.purchase_price_net) }} PLN
+            </div>
+            <div class="col-md-3"><strong>Cena sprzedaży netto:</strong> {{ '%.2f'|format(part.sale_price_net) }} PLN
+            </div>
         </div>
     </div>
 </div>

@@ -12,43 +12,59 @@
 
 <div class="row g-3 mb-4">
     <div class="col-md-3">
-        <div class="card h-100"><div class="card-body">
-            <h2 class="h6">Kartoteka i słowniki</h2>
-            <div class="d-grid gap-1">
-                <a class="btn btn-sm btn-outline-primary" href="{{ url_for('catalog.parts_index') }}">Kartoteka części</a>
-                <a class="btn btn-sm btn-outline-primary" href="{{ url_for('catalog.categories_index') }}">Kategorie części</a>
-                <a class="btn btn-sm btn-outline-primary" href="{{ url_for('catalog.suppliers_index') }}">Dostawcy</a>
+        <div class="card h-100">
+            <div class="card-body">
+                <h2 class="h6">Kartoteka i słowniki</h2>
+                <div class="d-grid gap-1">
+                    <a class="btn btn-sm btn-outline-primary" href="{{ url_for('catalog.parts_index') }}">Kartoteka
+                        części</a>
+                    <a class="btn btn-sm btn-outline-primary" href="{{ url_for('catalog.categories_index') }}">Kategorie
+                        części</a>
+                    <a class="btn btn-sm btn-outline-primary"
+                        href="{{ url_for('catalog.suppliers_index') }}">Dostawcy</a>
+                </div>
             </div>
-        </div></div>
+        </div>
     </div>
     <div class="col-md-3">
-        <div class="card h-100"><div class="card-body">
-            <h2 class="h6">Zapotrzebowania i zakupy</h2>
-            <div class="d-grid gap-1">
-                <a class="btn btn-sm btn-outline-success" href="{{ url_for('part_demands.index') }}">Zapotrzebowania</a>
-                <a class="btn btn-sm btn-outline-success" href="{{ url_for('purchase_orders.index') }}">Zamówienia do dostawców</a>
+        <div class="card h-100">
+            <div class="card-body">
+                <h2 class="h6">Zapotrzebowania i zakupy</h2>
+                <div class="d-grid gap-1">
+                    <a class="btn btn-sm btn-outline-success"
+                        href="{{ url_for('part_demands.index') }}">Zapotrzebowania</a>
+                    <a class="btn btn-sm btn-outline-success" href="{{ url_for('purchase_orders.index') }}">Zamówienia
+                        do dostawców</a>
+                </div>
             </div>
-        </div></div>
+        </div>
     </div>
     <div class="col-md-3">
-        <div class="card h-100"><div class="card-body">
-            <h2 class="h6">Dokumenty magazynowe</h2>
-            <div class="d-grid gap-1">
-                <a class="btn btn-sm btn-outline-warning" href="{{ url_for('goods_receipts.index') }}">Przyjęcia (PZ)</a>
-                <a class="btn btn-sm btn-outline-warning" href="{{ url_for('stock_issues.index') }}">Wydania (RW)</a>
+        <div class="card h-100">
+            <div class="card-body">
+                <h2 class="h6">Dokumenty magazynowe</h2>
+                <div class="d-grid gap-1">
+                    <a class="btn btn-sm btn-outline-warning" href="{{ url_for('goods_receipts.index') }}">Przyjęcia
+                        (PZ)</a>
+                    <a class="btn btn-sm btn-outline-warning" href="{{ url_for('stock_issues.index') }}">Wydania
+                        (RW)</a>
+                </div>
             </div>
-        </div></div>
+        </div>
     </div>
     <div class="col-md-3">
-        <div class="card h-100"><div class="card-body">
-            <h2 class="h6">Stany magazynowe</h2>
-            <p class="mb-1">Pozycji: <strong>{{ parts["total"] }}</strong></p>
-            <p class="mb-2">Ostrzeżeń: <strong>{{ low_stock_count }}</strong></p>
-            <div class="d-flex gap-2">
-                <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('inventory.print_stock_state') }}" target="_blank" rel="noopener">Drukuj stany</a>
-                <a class="btn btn-sm btn-primary" href="{{ url_for('inventory.create_part') }}">Nowa część</a>
+        <div class="card h-100">
+            <div class="card-body">
+                <h2 class="h6">Stany magazynowe</h2>
+                <p class="mb-1">Pozycji: <strong>{{ parts["total"] }}</strong></p>
+                <p class="mb-2">Ostrzeżeń: <strong>{{ low_stock_count }}</strong></p>
+                <div class="d-flex gap-2">
+                    <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('inventory.print_stock_state') }}"
+                        target="_blank" rel="noopener">Drukuj stany</a>
+                    <a class="btn btn-sm btn-primary" href="{{ url_for('inventory.create_part') }}">Nowa część</a>
+                </div>
             </div>
-        </div></div>
+        </div>
     </div>
 </div>
 
@@ -61,9 +77,10 @@
 
 {% if low_stock_parts %}
 <div class="alert alert-warning">
-    <strong>Stan poniżej minimum:</strong>
+    <strong>Brak stanu:</strong>
     {% for part in low_stock_parts %}
-    <a href="{{ url_for('inventory.details', part_id=part.id) }}" class="alert-link">{{ part.part_code }}</a>{% if not loop.last %}, {% endif %}
+    <a href="{{ url_for('inventory.details', part_id=part.id) }}" class="alert-link">{{ part.code }}</a>{% if not
+    loop.last %}, {% endif %}
     {% endfor %}
 </div>
 {% endif %}
@@ -75,34 +92,28 @@
             <tr>
                 <th>Kod</th>
                 <th>Nazwa</th>
-                <th>Producent</th>
-                <th>Lokalizacja</th>
-                <th>Stan</th>
-                <th>Minimum</th>
+                <th>Kategoria</th>
+                <th>Ilość sztuk</th>
                 <th>Cena netto</th>
                 <th>Akcje</th>
             </tr>
         </thead>
         <tbody>
             {% for part in parts["items"] %}
-            {% set low = part.current_stock < part.minimum_stock %}
+            {% set low = part.current_stock == 0 %}
             <tr class="{% if low %}table-warning{% endif %}">
-                <td>{{ part.part_code }}</td>
+                <td>{{ part.code }}</td>
                 <td>{{ part.name }}</td>
-                <td>{{ part.manufacturer or '-' }}</td>
-                <td>{{ part.location or '-' }}</td>
-                <td>
-                    {{ '%.3f'|format(part.current_stock) }} {{ part.unit }}
-                    {% if low %}
-                    <div><span class="badge bg-warning text-dark">Stan poniżej minimum</span></div>
-                    {% endif %}
-                </td>
-                <td>{{ '%.3f'|format(part.minimum_stock) }} {{ part.unit }}</td>
+                <td>{{ part.category.name }}</td>
+                <td>{{ part.current_stock }}{% if low %} <span class="badge bg-warning text-dark">Brak stanu</span>{%
+                    endif %}</td>
                 <td>{{ '%.2f'|format(part.sale_price_net) }} PLN</td>
                 <td>
                     <div class="btn-group btn-group-sm">
-                        <a class="btn btn-outline-primary" href="{{ url_for('inventory.details', part_id=part.id) }}">Karta</a>
-                        <a class="btn btn-outline-secondary" href="{{ url_for('inventory.edit_part', part_id=part.id) }}">Edytuj</a>
+                        <a class="btn btn-outline-primary"
+                            href="{{ url_for('inventory.details', part_id=part.id) }}">Karta</a>
+                        <a class="btn btn-outline-secondary"
+                            href="{{ url_for('inventory.edit_part', part_id=part.id) }}">Edytuj</a>
                     </div>
                 </td>
             </tr>
@@ -122,7 +133,7 @@
 <nav aria-label="Strony magazynu" class="mt-3">
     <ul class="pagination">
         {% for page_num in range(1, parts["pages"] + 1) %}
-        <li class="page-item{% if page_num == parts["page"] %} active{% endif %}">
+        <li class="page-item{% if page_num == parts[" page"] %} active{% endif %}">
             <a class="page-link" href="{{ url_for('inventory.index', page=page_num, q=q) }}">{{ page_num }}</a>
         </li>
         {% endfor %}

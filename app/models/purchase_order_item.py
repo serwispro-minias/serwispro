@@ -10,7 +10,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import BaseModel
 
 if TYPE_CHECKING:
-    from app.models.catalog_part import CatalogPart
+    from app.models.catalog_part import InventoryItem
     from app.models.purchase_order import PurchaseOrder
     from app.models.purchase_order_demand_link import PurchaseOrderDemandLink
 
@@ -21,7 +21,7 @@ class PurchaseOrderItem(BaseModel):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     purchase_order_id: Mapped[int] = mapped_column(ForeignKey("purchase_orders.id"), nullable=False)
-    part_id: Mapped[int] = mapped_column(ForeignKey("catalog_parts.id"), nullable=False)
+    part_id: Mapped[int] = mapped_column(ForeignKey("inventory_items.id"), nullable=False)
     code_snapshot: Mapped[str] = mapped_column(String(80), nullable=False)
     manufacturer_snapshot: Mapped[str | None] = mapped_column(String(180), nullable=True)
     quantity_ordered: Mapped[Decimal] = mapped_column(Numeric(12, 3), nullable=False)
@@ -36,5 +36,5 @@ class PurchaseOrderItem(BaseModel):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     purchase_order: Mapped["PurchaseOrder"] = relationship("PurchaseOrder", back_populates="items", lazy="select")
-    part: Mapped["CatalogPart"] = relationship("CatalogPart", lazy="select")
+    part: Mapped["InventoryItem"] = relationship("InventoryItem", lazy="select")
     demand_links: Mapped[list["PurchaseOrderDemandLink"]] = relationship("PurchaseOrderDemandLink", back_populates="purchase_order_item", cascade="all, delete-orphan", lazy="select")

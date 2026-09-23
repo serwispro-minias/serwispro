@@ -11,6 +11,7 @@ from app.extensions import db
 from app.models.branch import Branch
 from app.models.catalog_material import CatalogMaterial
 from app.models.catalog_part import CatalogPart
+from app.models.catalog_category import ProductCategory
 from app.models.catalog_service_item import CatalogServiceItem
 from app.models.customer import Customer
 from app.models.device import Device
@@ -23,6 +24,7 @@ from app.models.service_order_part_reservation import ServiceOrderPartReservatio
 from app.models.service_order_service_line import ServiceOrderServiceLine
 from app.models.purchase_request import PurchaseRequest
 from app.models.user import User
+from app.models.vat_rate import VatRate
 
 
 def _schema_tables() -> list:
@@ -30,6 +32,8 @@ def _schema_tables() -> list:
         Device.__table__,
         ServiceOrder.__table__,
         CatalogPart.__table__,
+        ProductCategory.__table__,
+        VatRate.__table__,
         CatalogMaterial.__table__,
         CatalogServiceItem.__table__,
         Setting.__table__,
@@ -91,15 +95,18 @@ def _create_order(company_id: int, *, branch_id: int | None = None) -> int:
     db.session.add(order)
     db.session.flush()
 
+    category = ProductCategory(code="EST-CAT", name="Części", company_id=company_id, branch_id=branch_id)
+    vat = VatRate(code="EST-23", rate=23, company_id=company_id, is_active=True)
+    db.session.add_all([category, vat])
+    db.session.flush()
     part = CatalogPart(
         code="PART-EST-1",
         name="Rolki poboru",
-        unit="szt.",
+        category_id=category.id,
+        vat_id=vat.id,
         current_stock=10,
-        minimum_stock=1,
         purchase_price_net=12.00,
         sale_price_net=24.00,
-        vat_rate=23,
         company_id=company_id,
         branch_id=branch_id,
     )

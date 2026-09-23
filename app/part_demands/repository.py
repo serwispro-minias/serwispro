@@ -17,7 +17,7 @@ from app.models.service_order import ServiceOrder
 @dataclass(slots=True)
 class PartDemandGroupedRow:
     inventory_item_id: int
-    part_code: str
+    product_code: str
     part_name: str
     total_missing: Decimal
     order_numbers: list[str]
@@ -130,7 +130,7 @@ class PartDemandRepository:
             rows.append(
                 PartDemandGroupedRow(
                     inventory_item_id=int(item.inventory_item_id),
-                    part_code=str(item.code),
+                    product_code=str(item.code),
                     part_name=str(item.name),
                     total_missing=Decimal(str(item.total_missing or "0")),
                     order_numbers=sorted(set(order_numbers)),

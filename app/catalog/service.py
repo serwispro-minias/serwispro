@@ -26,6 +26,7 @@ from .repository import (
     ServicesRepository,
     StockRepository,
     SuppliersRepository,
+    VatRatesRepository,
 )
 
 
@@ -60,6 +61,7 @@ class CatalogService:
         self.categories = CategoriesRepository()
         self.suppliers = SuppliersRepository()
         self.manufacturers = ManufacturersRepository()
+        self.vat_rates = VatRatesRepository()
         self.parts = PartsRepository()
         self.materials = MaterialsRepository()
         self.services = ServicesRepository()
@@ -95,6 +97,9 @@ class CatalogService:
 
     def manufacturer_choices(self, *, company_id: int | None) -> list[tuple[int, str]]:
         return self.manufacturers.list_choices(company_id=company_id)
+
+    def vat_rate_choices(self, *, company_id: int | None) -> list[tuple[int, str]]:
+        return self.vat_rates.list_choices(company_id=company_id)
 
     def part_choices(self, *, company_id: int | None) -> list[tuple[int, str]]:
         return self.parts.list_choices(company_id=company_id)
@@ -287,17 +292,17 @@ class CatalogService:
             }
         )
 
-        inventory_reservation = InventoryReservation(
-            inventory_item_id=part.id,
-            service_order_id=order.id,
-            quantity=reserved_quantity,
-            reserved_by=user_id,
-            status=InventoryReservationStatusEnum.RESERVED.value,
-            company_id=company_id,
-            branch_id=branch_id,
-            created_by=user_id,
-            updated_by=user_id,
-        )
+        inventory_reservation = InventoryReservation()
+        inventory_reservation.inventory_item_id = part.id
+        inventory_reservation.service_order_id = order.id
+        inventory_reservation.quantity = reserved_quantity
+        inventory_reservation.reserved_by = user_id
+        inventory_reservation.status = InventoryReservationStatusEnum.RESERVED.value
+        if company_id is not None:
+            inventory_reservation.company_id = company_id
+        inventory_reservation.branch_id = branch_id
+        inventory_reservation.created_by = user_id
+        inventory_reservation.updated_by = user_id
         db.session.add(inventory_reservation)
 
         if missing_quantity > Decimal("0") and company_id is not None:
@@ -460,7 +465,7 @@ class CatalogService:
 
     def _normalize_foreign_keys(self, data: dict[str, Any]) -> dict[str, Any]:
         normalized = dict(data)
-        for fk in ("category_id", "supplier_id", "manufacturer_id"):
+        for fk in ("category_id", "manufacturer_id", "vat_id"):
             if fk in normalized and normalized[fk] in ("", 0, "0", None):
                 normalized[fk] = None
         return normalized
@@ -475,14 +480,9 @@ def tenant_catalog_context(current_user: Any) -> tuple[int | None, int | None, i
 
 def default_part_payload() -> dict[str, Any]:
     return {
-        "unit": "szt",
-        "current_stock": _safe_decimal("0"),
-        "minimum_stock": _safe_decimal("0"),
+        "current_stock": 0,
         "purchase_price_net": _safe_decimal("0"),
         "sale_price_net": _safe_decimal("0"),
-        "vat_rate": _safe_decimal("23"),
-        "is_sellable": True,
-        "is_reservable": True,
     }
 
 

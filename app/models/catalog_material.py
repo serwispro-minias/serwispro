@@ -9,10 +9,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import BaseTenantModel
 
 if TYPE_CHECKING:
-    from app.models.catalog_category import CatalogCategory
+    from app.models.catalog_category import ProductCategory
     from app.models.catalog_manufacturer import CatalogManufacturer
     from app.models.catalog_stock_movement import CatalogStockMovement
-    from app.models.catalog_supplier import CatalogSupplier
     from app.models.service_order_material_usage import ServiceOrderMaterialUsage
 
 
@@ -26,7 +25,6 @@ class CatalogMaterial(BaseTenantModel):
         Index("ix_catalog_materials_code", "code"),
         Index("ix_catalog_materials_name", "name"),
         Index("ix_catalog_materials_category_id", "category_id"),
-        Index("ix_catalog_materials_supplier_id", "supplier_id"),
         Index("ix_catalog_materials_manufacturer_id", "manufacturer_id"),
     )
 
@@ -43,12 +41,10 @@ class CatalogMaterial(BaseTenantModel):
     location: Mapped[str | None] = mapped_column(String(120), nullable=True)
     auto_issue_on_order: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
-    category_id: Mapped[int | None] = mapped_column(ForeignKey("catalog_categories.id"), nullable=True)
-    supplier_id: Mapped[int | None] = mapped_column(ForeignKey("catalog_suppliers.id"), nullable=True)
+    category_id: Mapped[int | None] = mapped_column(ForeignKey("product_categories.id"), nullable=True)
     manufacturer_id: Mapped[int | None] = mapped_column(ForeignKey("catalog_manufacturers.id"), nullable=True)
 
-    category: Mapped["CatalogCategory | None"] = relationship("CatalogCategory", back_populates="materials", lazy="select")
-    supplier: Mapped["CatalogSupplier | None"] = relationship("CatalogSupplier", back_populates="materials", lazy="select")
+    category: Mapped["ProductCategory | None"] = relationship("ProductCategory", lazy="select")
     manufacturer: Mapped["CatalogManufacturer | None"] = relationship("CatalogManufacturer", back_populates="materials", lazy="select")
     movements: Mapped[list["CatalogStockMovement"]] = relationship(
         "CatalogStockMovement",

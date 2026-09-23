@@ -14,11 +14,16 @@
 <div class="card mb-3">
     <div class="card-body">
         <form method="get" class="row g-2 align-items-end">
-            <div class="col-md-3">{{ filter_form.status.label(class="form-label") }}{{ filter_form.status(class="form-select") }}</div>
-            <div class="col-md-3">{{ filter_form.priority.label(class="form-label") }}{{ filter_form.priority(class="form-select") }}</div>
-            <div class="col-md-3">{{ filter_form.branch_id.label(class="form-label") }}{{ filter_form.branch_id(class="form-select") }}</div>
-            <div class="col-md-3">{{ filter_form.expected_date_from.label(class="form-label") }}{{ filter_form.expected_date_from(class="form-control") }}</div>
-            <div class="col-md-3">{{ filter_form.expected_date_to.label(class="form-label") }}{{ filter_form.expected_date_to(class="form-control") }}</div>
+            <div class="col-md-3">{{ filter_form.status.label(class="form-label") }}{{
+                filter_form.status(class="form-select") }}</div>
+            <div class="col-md-3">{{ filter_form.priority.label(class="form-label") }}{{
+                filter_form.priority(class="form-select") }}</div>
+            <div class="col-md-3">{{ filter_form.branch_id.label(class="form-label") }}{{
+                filter_form.branch_id(class="form-select") }}</div>
+            <div class="col-md-3">{{ filter_form.expected_date_from.label(class="form-label") }}{{
+                filter_form.expected_date_from(class="form-control") }}</div>
+            <div class="col-md-3">{{ filter_form.expected_date_to.label(class="form-label") }}{{
+                filter_form.expected_date_to(class="form-control") }}</div>
             <div class="col-md-3 d-grid">{{ filter_form.submit(class="btn btn-outline-primary") }}</div>
         </form>
     </div>
@@ -30,7 +35,7 @@
         <div class="card h-100">
             <div class="card-body">
                 <h2 class="h5">{{ row.part_name }}</h2>
-                <div class="text-muted small mb-2">{{ row.part_code }}</div>
+                <div class="text-muted small mb-2">{{ row.product_code }}</div>
                 <p class="mb-2"><strong>Potrzebne:</strong> {{ row.total_missing }} szt.</p>
                 <p class="mb-1"><strong>Dla zleceń:</strong></p>
                 <ul class="mb-0">

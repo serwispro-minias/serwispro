@@ -11,7 +11,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import BaseTenantModel
 
 if TYPE_CHECKING:
-    from app.models.catalog_part import CatalogPart
+    from app.models.catalog_part import InventoryItem
     from app.models.service_order import ServiceOrder
 
 
@@ -64,7 +64,7 @@ class PurchaseRequest(BaseTenantModel):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     service_order_id: Mapped[int] = mapped_column(ForeignKey("service_orders.id"), nullable=False)
-    part_id: Mapped[int] = mapped_column(ForeignKey("catalog_parts.id"), nullable=False)
+    part_id: Mapped[int] = mapped_column(ForeignKey("inventory_items.id"), nullable=False)
     quantity: Mapped[Decimal] = mapped_column(Numeric(12, 3), nullable=False, default=Decimal("0"))
     status: Mapped[str] = mapped_column(String(24), nullable=False, default=PurchaseRequestStatusEnum.NEW.value)
     priority: Mapped[str] = mapped_column(String(20), nullable=False, default=PurchaseRequestPriorityEnum.NORMAL.value)
@@ -74,7 +74,7 @@ class PurchaseRequest(BaseTenantModel):
     received_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     service_order: Mapped["ServiceOrder"] = relationship("ServiceOrder", back_populates="purchase_requests", lazy="select")
-    part: Mapped["CatalogPart"] = relationship("CatalogPart", back_populates="purchase_requests", lazy="select")
+    part: Mapped["InventoryItem"] = relationship("InventoryItem", back_populates="purchase_requests", lazy="select")
 
     def __repr__(self) -> str:
         return f"<PurchaseRequest id={self.id} service_order_id={self.service_order_id} part_id={self.part_id}>"

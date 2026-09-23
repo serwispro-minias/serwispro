@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import cast
 
-from flask import Flask
-from flask import render_template
+from flask import Flask, render_template
 from flask_login import login_required
+from flask_wtf.csrf import generate_csrf
 from sqlalchemy import text
 
 from app.api import bp as api_bp
@@ -14,20 +14,19 @@ from app.common import bp as common_bp
 from app.customers import bp as customers_bp
 from app.dashboard import bp as dashboard_bp
 from app.devices import bp as devices_bp
-from app.estimate_approval import bp as estimate_approval_bp
 from app.extensions import db, login_manager, migrate
-from app.inventory import bp as inventory_bp
-from app.stock_issues import bp as stock_issues_bp
 from app.goods_receipts import bp as goods_receipts_bp
+from app.inventory import bp as inventory_bp
 from app.models import Company, User
+from app.opening_balances import bp as opening_balances_bp
 from app.order_photos import bp as order_photos_bp
 from app.orders import bp as orders_bp
 from app.part_demands import bp as part_demands_bp
 from app.purchase_orders import bp as purchase_orders_bp
 from app.reports import bp as reports_bp
-from app.bootstrap import bootstrap_database, is_database_empty, register_bootstrap_command
 from app.services import bp as services_bp
 from app.settings import bp as settings_bp
+from app.stock_issues import bp as stock_issues_bp
 from app.technician_tasks import bp as technician_tasks_bp
 from app.utils import bp as utils_bp
 from app.workflow import bp as workflow_bp
@@ -42,22 +41,11 @@ def create_app(environment: str | None = None) -> Flask:
     app.config.from_pyfile('config.py', silent=True)
 
     register_extensions(app)
-    register_cli_commands(app)
+    app.jinja_env.globals["csrf_token"] = generate_csrf
     register_blueprints(app)
     register_routes(app)
 
-    with app.app_context():
-        if is_database_empty():
-            bootstrap_database()
-
     return app
-
-
-def register_cli_commands(app: Flask) -> None:
-    from app.seed import register_seed_command
-
-    register_seed_command(app)
-    register_bootstrap_command(app)
 
 
 def register_extensions(app: Flask) -> None:
@@ -67,10 +55,7 @@ def register_extensions(app: Flask) -> None:
 
     @login_manager.user_loader
     def load_user(user_id: str) -> User | None:
-        try:
-            return db.session.get(User, int(user_id))
-        except (TypeError, ValueError):
-            return None
+        return User.query.get(int(user_id))
 
 
 def register_blueprints(app: Flask) -> None:
@@ -79,15 +64,15 @@ def register_blueprints(app: Flask) -> None:
         dashboard_bp,
         customers_bp,
         devices_bp,
-        estimate_approval_bp,
         orders_bp,
         order_photos_bp,
         part_demands_bp,
         purchase_orders_bp,
         catalog_bp,
         inventory_bp,
-        stock_issues_bp,
         goods_receipts_bp,
+        opening_balances_bp,
+        stock_issues_bp,
         reports_bp,
         settings_bp,
         technician_tasks_bp,

@@ -9,11 +9,10 @@ from app.models.base import BaseTenantModel
 
 if TYPE_CHECKING:
     from app.models.catalog_material import CatalogMaterial
-    from app.models.catalog_part import CatalogPart
 
 
 class CatalogManufacturer(BaseTenantModel):
-    """Manufacturer shared by parts/materials."""
+    """Manufacturer shared by materials."""
 
     __tablename__ = "catalog_manufacturers"
     __table_args__ = (
@@ -29,7 +28,6 @@ class CatalogManufacturer(BaseTenantModel):
     website: Mapped[str | None] = mapped_column(String(255), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    parts: Mapped[list["CatalogPart"]] = relationship("CatalogPart", back_populates="manufacturer", lazy="select")
     materials: Mapped[list["CatalogMaterial"]] = relationship("CatalogMaterial", back_populates="manufacturer", lazy="select")
 
     def __repr__(self) -> str:

@@ -174,7 +174,7 @@ class ServiceOrderItemRepository:
                     name=part.name,
                     barcode=None,
                     unit_price_net=Decimal(part.sale_price_net),
-                    vat_rate=Decimal(part.vat_rate),
+                    vat_rate=Decimal(part.vat.rate if part.vat else 0),
                     current_stock=Decimal(part.current_stock),
                     source_label="inventory",
                 )
@@ -227,7 +227,7 @@ class ServiceOrderItemRepository:
                 name=part.name,
                 barcode=None,
                 unit_price_net=Decimal(part.sale_price_net),
-                vat_rate=Decimal(part.vat_rate),
+                vat_rate=Decimal(part.vat.rate if part.vat else 0),
                 current_stock=Decimal(part.current_stock),
                 source_label="inventory",
             )

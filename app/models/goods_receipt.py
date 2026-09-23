@@ -11,18 +11,20 @@ from app.models.base import BaseTenantModel
 
 if TYPE_CHECKING:
     from app.models.catalog_supplier import CatalogSupplier
+    from app.models.goods_receipt_item import GoodsReceiptItem
     from app.models.purchase_order import PurchaseOrder
     from app.models.user import User
-    from app.models.goods_receipt_item import GoodsReceiptItem
 
 
 class GoodsReceiptStatusEnum(str, PyEnum):
-    NEW = "NEW"
-    ACCEPTED = "ACCEPTED"
+    DRAFT = "DRAFT"
+    POSTED = "POSTED"
     CANCELLED = "CANCELLED"
+    NEW = "DRAFT"
+    ACCEPTED = "POSTED"
 
 
-GOODS_RECEIPT_STATUS_CHOICES = [("NEW", "Nowe"), ("ACCEPTED", "Przyjęte"), ("CANCELLED", "Anulowane")]
+GOODS_RECEIPT_STATUS_CHOICES = [("DRAFT", "Robocze"), ("POSTED", "Zaksięgowane"), ("CANCELLED", "Anulowane")]
 GOODS_RECEIPT_STATUS_LABELS = dict(GOODS_RECEIPT_STATUS_CHOICES)
 
 
@@ -39,12 +41,13 @@ class GoodsReceipt(BaseTenantModel):
     id: Mapped[int] = mapped_column(primary_key=True)
     receipt_number: Mapped[str] = mapped_column(String(60), nullable=False, unique=True)
     receipt_date: Mapped[date] = mapped_column(Date, nullable=False, default=date.today)
-    supplier_id: Mapped[int] = mapped_column(ForeignKey("catalog_suppliers.id"), nullable=False)
-    purchase_order_id: Mapped[int] = mapped_column(ForeignKey("purchase_orders.id"), nullable=False)
+    supplier_id: Mapped[int | None] = mapped_column(ForeignKey("suppliers.id"), nullable=True)
+    purchase_order_id: Mapped[int | None] = mapped_column(ForeignKey("purchase_orders.id"), nullable=True)
     received_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
-    status: Mapped[str] = mapped_column(String(20), nullable=False, default=GoodsReceiptStatusEnum.NEW.value)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default=GoodsReceiptStatusEnum.DRAFT.value)
+    notes: Mapped[str | None] = mapped_column(String(2000), nullable=True)
 
-    supplier: Mapped["CatalogSupplier"] = relationship("CatalogSupplier", lazy="select")
+    supplier: Mapped["CatalogSupplier"] = relationship("Supplier", lazy="select")
     purchase_order: Mapped["PurchaseOrder"] = relationship("PurchaseOrder", lazy="select")
     receiver: Mapped["User | None"] = relationship("User", foreign_keys=[received_by], lazy="select")
     items: Mapped[list["GoodsReceiptItem"]] = relationship("GoodsReceiptItem", back_populates="goods_receipt", cascade="all, delete-orphan", lazy="select")

@@ -6,6 +6,7 @@ from flask import abort, flash, redirect, render_template, request, send_file, u
 from flask_login import current_user, login_required
 
 from app.models.inventory_stock_operation import INVENTORY_OPERATION_TYPE_LABELS
+from app.catalog.service import CatalogService
 
 from . import bp
 from .exceptions import InventoryNotFoundError, InventoryValidationError
@@ -15,6 +16,7 @@ from .service import InventoryService
 
 
 service = InventoryService()
+catalog_service = CatalogService()
 print_service = InventoryPrintService(service=service)
 
 
@@ -55,9 +57,10 @@ def index():
 @login_required
 def create_part():
     form = InventoryPartForm()
+    form.category_id.choices = catalog_service.category_choices(company_id=_company_id())
+    form.vat_id.choices = catalog_service.vat_rate_choices(company_id=_company_id())
     if request.method == "GET":
-        form.is_record_active.data = "1"
-        form.vat_rate.data = "23"
+        form.is_active.data = "1"
 
     if form.validate_on_submit():
         try:
@@ -102,9 +105,10 @@ def edit_part(part_id: int):
         abort(404)
 
     form = InventoryPartForm(obj=part)
+    form.category_id.choices = catalog_service.category_choices(company_id=_company_id())
+    form.vat_id.choices = catalog_service.vat_rate_choices(company_id=_company_id())
     if request.method == "GET":
-        form.vat_rate.data = str(part.vat_rate)
-        form.is_record_active.data = "1" if part.is_record_active else "0"
+        form.is_active.data = "1" if part.is_active else "0"
 
     if form.validate_on_submit():
         try:

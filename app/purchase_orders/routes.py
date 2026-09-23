@@ -21,7 +21,7 @@ def _branch_id(): return getattr(current_user, "branch_id", None)
 
 
 def _supplier_choices(company_id):
-    rows = CatalogSupplier.query.filter_by(company_id=company_id, is_active=True, is_supplier_active=True).order_by(CatalogSupplier.name.asc()).all()
+    rows = CatalogSupplier.query.filter_by(company_id=company_id, is_active=True).order_by(CatalogSupplier.name.asc()).all()
     return [(0, "Wszyscy")] + [(row.id, f"{row.code} | {row.name}") for row in rows]
 
 
@@ -51,17 +51,11 @@ def create_from_demands():
     form.supplier_id.choices = _supplier_choices(company_id)[1:]
     raw_demand_ids = request.form.getlist("demand_ids") or request.args.getlist("demand_ids")
     demand_ids = [int(value) for value in raw_demand_ids if value.isdigit()]
-    suggestions = purchase_order_service.preferred_supplier_suggestions(demand_ids=demand_ids, company_id=company_id, branch_id=_branch_id()) if demand_ids else {"supplier_ids": [], "groups": {}, "single_supplier_id": None}
-    if len(suggestions["supplier_ids"]) > 1:
-        flash("Zaznaczone części mają różnych preferowanych dostawców. Rozważ utworzenie osobnych zamówień dla każdej grupy.", "warning")
+    suggestions = {"supplier_ids": [], "groups": {}, "single_supplier_id": None}
     if form.order_date.data is None:
         form.order_date.data = date.today()
-    if form.supplier_id.data is None and suggestions["single_supplier_id"] is not None:
-        form.supplier_id.data = suggestions["single_supplier_id"]
     if form.validate_on_submit():
         try:
-            if suggestions["supplier_ids"] and form.supplier_id.data not in suggestions["supplier_ids"]:
-                flash("Wybrany dostawca różni się od preferowanego dla tej części.", "warning")
             order = purchase_order_service.create_from_demands(demand_ids=demand_ids, supplier_id=form.supplier_id.data, company_id=company_id, branch_id=_branch_id(), actor=current_user, order_date=form.order_date.data, expected_delivery_date=form.expected_delivery_date.data, notes=form.notes.data)
         except PurchaseOrderError as exc:
             flash(str(exc), "danger")
@@ -98,7 +92,7 @@ def edit(order_id):
     form.supplier_id.choices = _supplier_choices(company_id)[1:]
     if form.validate_on_submit():
         try:
-            purchase_order_service.update_order(order_id=order_id, supplier_id=form.supplier_id.data, order_date=form.order_date.data, expected_delivery_date=form.expected_delivery_date.data, notes=form.notes.data, company_id=company_id, branch_id=_branch_id(), actor=current_user)
+            purchase_order_service.update_order(order_id=order_id, supplier_id=form.supplier_id.data, order_date=form.order_date.data or date.today(), expected_delivery_date=form.expected_delivery_date.data, notes=form.notes.data, company_id=company_id, branch_id=_branch_id(), actor=current_user)
         except PurchaseOrderError as exc:
             flash(str(exc), "danger")
         else:

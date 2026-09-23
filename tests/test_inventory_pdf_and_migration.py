@@ -11,6 +11,8 @@ from app.inventory.print_service import InventoryPrintService
 from app.inventory.service import InventoryService
 from app.models.inventory_part import InventoryPart
 from app.models.inventory_stock_operation import InventoryStockOperation
+from app.models.catalog_category import ProductCategory
+from app.models.vat_rate import VatRate
 
 
 @pytest.fixture()
@@ -20,6 +22,8 @@ def inventory_pdf_schema(app):
             bind=db.engine,
             tables=[
                 InventoryPart.__table__,
+                ProductCategory.__table__,
+                VatRate.__table__,
                 InventoryStockOperation.__table__,
             ],
         )
@@ -42,25 +46,21 @@ def test_inventory_pdf_outputs(app, company_id, inventory_pdf_schema):
     print_service = InventoryPrintService(service=service)
 
     with app.app_context():
+        category = ProductCategory(code="PDF-CAT", name="Materiały", company_id=company_id)
+        vat = VatRate(code="PDF-23", rate=23, company_id=company_id, is_active=True)
+        db.session.add_all([category, vat])
+        db.session.flush()
         part = service.create_part(
             {
-                "part_code": "PDF-001",
+                "code": "PDF-001",
                 "name": "Pas transferowy",
-                "category": "Materiały",
-                "manufacturer": "Kyocera",
-                "catalog_number": "KYO-TB",
+                "category_id": category.id,
                 "barcode": "",
-                "description": "Opis",
-                "unit": "szt.",
-                "minimum_stock": "1",
                 "current_stock": "4",
-                "location": "C-3",
                 "purchase_price_net": "45",
                 "sale_price_net": "60",
-                "vat_rate": "23",
-                "supplier": "",
-                "image_path": "",
-                "is_record_active": "1",
+                "vat_id": vat.id,
+                "is_active": True,
             },
             company_id=company_id,
             branch_id=None,
@@ -73,7 +73,7 @@ def test_inventory_pdf_outputs(app, company_id, inventory_pdf_schema):
 
         reader = PdfReader(io.BytesIO(doc.content))
         text = "\n".join(page.extract_text() or "" for page in reader.pages)
-        assert "Karta części / materiału" in text
+        assert "Karta produktu" in text
         assert "PDF-001" in text
 
 

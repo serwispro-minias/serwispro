@@ -7,22 +7,22 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import selectinload
 
 from app.extensions import db
-from app.models.inventory_part import InventoryPart
+from app.models.inventory_item import InventoryItem
 from app.models.inventory_stock_operation import InventoryStockOperation
 from app.models.service_order import ServiceOrder
 from app.models.service_order_part_usage import ServiceOrderPartUsage
 
 
 class InventoryRepository:
-    def get_part(self, part_id: int, *, company_id: int | None) -> InventoryPart | None:
+    def get_part(self, part_id: int, *, company_id: int | None) -> InventoryItem | None:
         query = (
-            select(InventoryPart)
-            .where(InventoryPart.id == part_id)
-            .where(InventoryPart.is_active.is_(True))
-            .options(selectinload(InventoryPart.stock_operations))
+            select(InventoryItem)
+            .where(InventoryItem.id == part_id)
+            .where(InventoryItem.is_active.is_(True))
+            .options(selectinload(InventoryItem.stock_operations), selectinload(InventoryItem.vat))
         )
         if company_id is not None:
-            query = query.where(InventoryPart.company_id == company_id)
+            query = query.where(InventoryItem.company_id == company_id)
         return db.session.scalars(query).one_or_none()
 
     def list_parts(
@@ -33,28 +33,25 @@ class InventoryRepository:
         company_id: int | None,
         query_text: str | None,
     ) -> dict[str, Any]:
-        filters = [InventoryPart.is_active.is_(True)]
+        filters: list[Any] = [InventoryItem.is_active.is_(True)]
         if company_id is not None:
-            filters.append(InventoryPart.company_id == company_id)
+            filters.append(InventoryItem.company_id == company_id)
         if query_text:
             term = f"%{query_text}%"
             filters.append(
                 or_(
-                    InventoryPart.part_code.ilike(term),
-                    InventoryPart.name.ilike(term),
-                    InventoryPart.catalog_number.ilike(term),
-                    InventoryPart.manufacturer.ilike(term),
-                    InventoryPart.barcode.ilike(term),
-                    InventoryPart.supplier.ilike(term),
+                    InventoryItem.code.ilike(term),
+                    InventoryItem.name.ilike(term),
+                    InventoryItem.barcode.ilike(term),
                 )
             )
 
-        total = int(db.session.scalar(select(func.count()).select_from(InventoryPart).where(*filters)) or 0)
+        total = int(db.session.scalar(select(func.count()).select_from(InventoryItem).where(*filters)) or 0)
         items = list(
             db.session.scalars(
-                select(InventoryPart)
+                select(InventoryItem)
                 .where(*filters)
-                .order_by(InventoryPart.name.asc(), InventoryPart.id.asc())
+                .order_by(InventoryItem.name.asc(), InventoryItem.id.asc())
                 .offset((page - 1) * per_page)
                 .limit(per_page)
             ).all()
@@ -68,13 +65,13 @@ class InventoryRepository:
             "pages": pages,
         }
 
-    def create_part(self, payload: dict[str, Any]) -> InventoryPart:
-        part = InventoryPart(**payload)
+    def create_part(self, payload: dict[str, Any]) -> InventoryItem:
+        part = InventoryItem(**payload)
         db.session.add(part)
         db.session.flush()
         return part
 
-    def update_part(self, part: InventoryPart, payload: dict[str, Any]) -> InventoryPart:
+    def update_part(self, part: InventoryItem, payload: dict[str, Any]) -> InventoryItem:
         for key, value in payload.items():
             if hasattr(part, key) and key != "id":
                 setattr(part, key, value)
@@ -82,14 +79,14 @@ class InventoryRepository:
         db.session.flush()
         return part
 
-    def get_by_code(self, part_code: str, *, company_id: int | None) -> InventoryPart | None:
+    def get_by_code(self, code: str, *, company_id: int | None) -> InventoryItem | None:
         query = (
-            select(InventoryPart)
-            .where(InventoryPart.part_code == part_code)
-            .where(InventoryPart.is_active.is_(True))
+            select(InventoryItem)
+            .where(InventoryItem.code == code)
+            .where(InventoryItem.is_active.is_(True))
         )
         if company_id is not None:
-            query = query.where(InventoryPart.company_id == company_id)
+            query = query.where(InventoryItem.company_id == company_id)
         return db.session.scalars(query).one_or_none()
 
     def create_stock_operation(self, payload: dict[str, Any]) -> InventoryStockOperation:
@@ -132,16 +129,15 @@ class InventoryRepository:
 
     def list_part_choices(self, *, company_id: int | None) -> list[tuple[int, str]]:
         query = (
-            select(InventoryPart)
-            .where(InventoryPart.is_active.is_(True))
-            .where(InventoryPart.is_record_active.is_(True))
-            .order_by(InventoryPart.name.asc(), InventoryPart.id.asc())
+            select(InventoryItem)
+            .where(InventoryItem.is_active.is_(True))
+            .order_by(InventoryItem.name.asc(), InventoryItem.id.asc())
         )
         if company_id is not None:
-            query = query.where(InventoryPart.company_id == company_id)
+            query = query.where(InventoryItem.company_id == company_id)
 
         parts = db.session.scalars(query).all()
-        return [(part.id, f"{part.part_code} | {part.name}") for part in parts]
+        return [(part.id, f"{part.code} | {part.name}") for part in parts]
 
     def get_service_order(self, order_id: int, *, company_id: int | None, branch_id: int | None) -> ServiceOrder | None:
         query = (
@@ -156,39 +152,39 @@ class InventoryRepository:
         return db.session.scalars(query).one_or_none()
 
     def low_stock_count(self, *, company_id: int | None) -> int:
-        query = select(func.count()).select_from(InventoryPart).where(InventoryPart.is_active.is_(True))
-        query = query.where(InventoryPart.current_stock < InventoryPart.minimum_stock)
+        query = select(func.count()).select_from(InventoryItem).where(InventoryItem.is_active.is_(True))
+        query = query.where(InventoryItem.current_stock == 0)
         if company_id is not None:
-            query = query.where(InventoryPart.company_id == company_id)
+            query = query.where(InventoryItem.company_id == company_id)
         return int(db.session.scalar(query) or 0)
 
-    def low_stock_list(self, *, company_id: int | None) -> list[InventoryPart]:
+    def low_stock_list(self, *, company_id: int | None) -> list[InventoryItem]:
         query = (
-            select(InventoryPart)
-            .where(InventoryPart.is_active.is_(True))
-            .where(InventoryPart.current_stock < InventoryPart.minimum_stock)
-            .order_by((InventoryPart.minimum_stock - InventoryPart.current_stock).desc())
+            select(InventoryItem)
+            .where(InventoryItem.is_active.is_(True))
+            .where(InventoryItem.current_stock == 0)
+            .order_by(InventoryItem.name.asc())
         )
         if company_id is not None:
-            query = query.where(InventoryPart.company_id == company_id)
+            query = query.where(InventoryItem.company_id == company_id)
         return list(db.session.scalars(query).all())
 
     def stock_summary(self, *, company_id: int | None) -> dict[str, Decimal]:
-        filters = [InventoryPart.is_active.is_(True)]
+        filters: list[Any] = [InventoryItem.is_active.is_(True)]
         if company_id is not None:
-            filters.append(InventoryPart.company_id == company_id)
-        total_count = int(db.session.scalar(select(func.count()).select_from(InventoryPart).where(*filters)) or 0)
+            filters.append(InventoryItem.company_id == company_id)
+        total_count = int(db.session.scalar(select(func.count()).select_from(InventoryItem).where(*filters)) or 0)
         low_count = int(
             db.session.scalar(
                 select(func.count())
-                .select_from(InventoryPart)
+                .select_from(InventoryItem)
                 .where(*filters)
-                .where(InventoryPart.current_stock < InventoryPart.minimum_stock)
+                .where(InventoryItem.current_stock == 0)
             )
             or 0
         )
         total_net_value = db.session.scalar(
-            select(func.coalesce(func.sum(InventoryPart.current_stock * InventoryPart.purchase_price_net), 0)).where(*filters)
+            select(func.coalesce(func.sum(InventoryItem.current_stock * InventoryItem.purchase_price_net), 0)).where(*filters)
         )
         return {
             "parts_count": Decimal(total_count),

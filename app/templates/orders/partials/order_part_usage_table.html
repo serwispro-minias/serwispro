@@ -15,7 +15,7 @@
         <tbody>
             {% for usage in part_usages %}
             <tr>
-                <td>{{ usage.part.part_code if usage.part else '-' }} | {{ usage.part.name if usage.part else '-' }}</td>
+                <td>{{ usage.part.code if usage.part else '-' }} | {{ usage.part.name if usage.part else '-' }}</td>
                 <td>{{ '%.3f'|format(usage.quantity) }}</td>
                 <td>{{ '%.2f'|format(usage.unit_net_price) }} PLN</td>
                 <td>{{ '%.2f'|format(usage.vat_rate) }}%</td>

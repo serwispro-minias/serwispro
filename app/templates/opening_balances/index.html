@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Bilanse otwarcia{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3">Bilanse otwarcia</h1><a class="btn btn-primary" href="{{ url_for('opening_balances.create') }}">Nowy
+        BO</a>
+</div>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Numer</th>
+            <th>Data</th>
+            <th>Status</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>{% for balance in balances %}<tr>
+            <td>{{ balance.document_number }}</td>
+            <td>{{ balance.document_date }}</td>
+            <td>{{ balance.status }}</td>
+            <td><a class="btn btn-sm btn-outline-primary"
+                    href="{{ url_for('opening_balances.details', balance_id=balance.id) }}">Szczegóły</a></td>
+        </tr>{% else %}<tr>
+            <td colspan="4">Brak dokumentów.</td>
+        </tr>{% endfor %}</tbody>
+</table>
+{% endblock %}

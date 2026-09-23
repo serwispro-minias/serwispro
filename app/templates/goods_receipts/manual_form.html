@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Nowe PZ{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3">Nowe PZ</h1><a class="btn btn-outline-secondary"
+        href="{{ url_for('goods_receipts.index') }}">Powrót</a>
+</div>
+<form method="post" id="warehouse-document-form" data-document-form="pz">
+    {{ form.hidden_tag() }}
+    <div class="row g-3 mb-3">
+        <div class="col-md-4"><label class="form-label">Dostawca</label><select class="form-select" name="supplier_id"
+                required>
+                <option value="">Wybierz dostawcę</option>{% for supplier in suppliers %}<option
+                    value="{{ supplier.id }}">{{ supplier.code }} | {{ supplier.name }}</option>{% endfor %}
+            </select></div>
+        <div class="col-md-4"><label class="form-label">Data PZ</label><input class="form-control" type="date"
+                name="receipt_date"></div>
+        <div class="col-md-4 d-flex align-items-end gap-2"><button class="btn btn-outline-primary" type="button"
+                id="add-assortment">+ Dodaj asortyment</button><a class="btn btn-outline-secondary"
+                href="{{ url_for('catalog.parts_create', return_to='goods_receipt') }}">+ Nowy produkt</a></div>
+    </div>
+
+    <div class="border rounded p-3 mb-3 d-none" id="product-selector">
+        <label class="form-label" for="product-search">Szukaj produktu</label>
+        <input class="form-control" id="product-search" autocomplete="off" placeholder="Kod, nazwa, EAN...">
+        <div class="list-group mt-2" id="product-results"></div>
+    </div>
+
+    <table class="table table-striped" id="document-items">
+        <thead>
+            <tr>
+                <th>Produkt</th>
+                <th>Stan</th>
+                <th>Ilość</th>
+                <th>Cena zakupu netto</th>
+                <th>Cena sprzedaży netto</th>
+                <th>VAT</th>
+                <th>Wartość netto</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+    <div class="text-muted mb-3" id="empty-items-message">Brak pozycji. Użyj „+ Dodaj asortyment”.</div>
+    <div class="mb-3"><label class="form-label">Uwagi</label><textarea class="form-control" name="notes"></textarea>
+    </div>
+    <button class="btn btn-primary" type="submit">Utwórz PZ</button>
+</form>
+
+<script>
+    (function () {
+        const form = document.getElementById('warehouse-document-form');
+        const selector = document.getElementById('product-selector');
+        const search = document.getElementById('product-search');
+        const results = document.getElementById('product-results');
+        const tbody = document.querySelector('#document-items tbody');
+        const emptyMessage = document.getElementById('empty-items-message');
+        const addButton = document.getElementById('add-assortment');
+        const searchUrl = "{{ url_for('catalog.parts_search') }}";
+        const newItemId = new URLSearchParams(window.location.search).get('new_item_id');
+        let selectedRow = null;
+
+        function marginSuggestedSale(product, purchase) {
+            const oldPurchase = parseFloat(product.purchase_price_net || '0');
+            const oldSale = parseFloat(product.sale_price_net || '0');
+            if (!oldPurchase || oldPurchase <= 0) return oldSale ? oldSale.toFixed(2) : '';
+            return (purchase * (oldSale / oldPurchase)).toFixed(2);
+        }
+        function recalc(row) {
+            const qty = parseFloat(row.querySelector('.item-qty').value || '0');
+            const purchase = parseFloat(row.querySelector('.item-purchase').value || '0');
+            row.querySelector('.item-value').textContent = (qty * purchase).toFixed(2);
+        }
+        function renumber() { tbody.querySelectorAll('tr').forEach((row, index) => row.querySelectorAll('[name]').forEach(input => input.name = input.name.replace(/items-\d+-/, `items-${index}-`))); emptyMessage.classList.toggle('d-none', tbody.children.length > 0); }
+        function addProduct(product) {
+            if (tbody.querySelector(`tr[data-product-id="${product.id}"]`)) return;
+            const row = document.createElement('tr');
+            row.dataset.productId = product.id;
+            row.innerHTML = `<td>${product.code} | ${product.name}<input type="hidden" name="items-0-inventory_item_id" value="${product.id}"></td><td>${product.current_stock}</td><td><input class="form-control item-qty" type="number" min="1" step="1" name="items-0-quantity_received" value="1"></td><td><input class="form-control item-purchase" type="number" min="0" step="0.01" name="items-0-purchase_price_net" value="${product.purchase_price_net}"></td><td><input class="form-control item-sale" type="number" min="0" step="0.01" name="items-0-sale_price_net" value="${marginSuggestedSale(product, parseFloat(product.purchase_price_net || '0'))}"></td><td>${product.vat_code || ''}<input type="hidden" name="items-0-vat_id" value="${product.vat_id || ''}"></td><td class="item-value">0.00</td><td><button class="btn btn-sm btn-outline-danger remove-item" type="button">Usuń pozycję</button></td>`;
+            tbody.appendChild(row); selectedRow = row; renumber(); recalc(row); row.querySelector('.item-qty').focus();
+            row.querySelector('.item-qty').addEventListener('input', () => recalc(row));
+            row.querySelector('.item-purchase').addEventListener('input', () => { if (!row.querySelector('.item-sale').dataset.manual) row.querySelector('.item-sale').value = marginSuggestedSale(product, parseFloat(row.querySelector('.item-purchase').value || '0')); recalc(row); });
+            row.querySelector('.item-sale').addEventListener('input', () => row.querySelector('.item-sale').dataset.manual = '1');
+            row.querySelector('.remove-item').addEventListener('click', () => { row.remove(); renumber(); });
+        }
+        async function runSearch() { const response = await fetch(`${searchUrl}?q=${encodeURIComponent(search.value)}`); const data = await response.json(); results.innerHTML = ''; data.items.forEach(item => { const button = document.createElement('button'); button.type = 'button'; button.className = 'list-group-item list-group-item-action'; button.textContent = `${item.code} | ${item.name}${item.barcode ? ' | ' + item.barcode : ''} | ${item.category || '-'} | stan: ${item.current_stock}`; button.addEventListener('click', () => addProduct(item)); results.appendChild(button); }); }
+        addButton.addEventListener('click', () => { selector.classList.remove('d-none'); search.focus(); runSearch(); });
+        search.addEventListener('input', runSearch);
+        document.addEventListener('keydown', event => { if (event.key === 'Insert') { event.preventDefault(); addButton.click(); } if (event.key === 'Delete' && selectedRow) { event.preventDefault(); selectedRow.remove(); renumber(); } if (event.key === 'Escape') selector.classList.add('d-none'); if (event.ctrlKey && event.key.toLowerCase() === 's') { event.preventDefault(); form.requestSubmit(); } });
+        tbody.addEventListener('click', event => { selectedRow = event.target.closest('tr') || selectedRow; });
+        if (newItemId) { fetch(`${searchUrl}?q=${encodeURIComponent(newItemId)}`).then(r => r.json()).then(data => { const item = data.items.find(row => String(row.id) === String(newItemId)); if (item) addProduct(item); }); }
+        emptyMessage.classList.remove('d-none');
+    })();
+</script>
+{% endblock %}

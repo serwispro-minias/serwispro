@@ -27,7 +27,7 @@ class ServiceOrderPartUsage(BaseTenantModel):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     service_order_id: Mapped[int] = mapped_column(ForeignKey("service_orders.id"), nullable=False)
-    part_id: Mapped[int] = mapped_column(ForeignKey("inventory_parts.id"), nullable=False)
+    part_id: Mapped[int] = mapped_column(ForeignKey("inventory_items.id"), nullable=False)
     stock_operation_id: Mapped[int | None] = mapped_column(ForeignKey("inventory_stock_operations.id"), nullable=True)
     quantity: Mapped[Decimal] = mapped_column(Numeric(12, 3), nullable=False)
     unit_net_price: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
@@ -37,7 +37,7 @@ class ServiceOrderPartUsage(BaseTenantModel):
     gross_value: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
 
     service_order: Mapped["ServiceOrder"] = relationship("ServiceOrder", back_populates="part_usages")
-    part: Mapped["InventoryPart"] = relationship("InventoryPart", back_populates="order_usages")
+    part: Mapped["InventoryPart"] = relationship("InventoryItem", back_populates="order_usages")
     stock_operation: Mapped["InventoryStockOperation | None"] = relationship("InventoryStockOperation", lazy="select")
 
     def __repr__(self) -> str:

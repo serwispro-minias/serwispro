@@ -11,6 +11,8 @@ from app.models.customer import Customer
 from app.models.device import Device
 from app.models.inventory_part import InventoryPart
 from app.models.inventory_stock_operation import InventoryStockOperation
+from app.models.catalog_category import ProductCategory
+from app.models.vat_rate import VatRate
 from app.models.service_order import ServiceOrder
 from app.models.service_order_part_usage import ServiceOrderPartUsage
 
@@ -24,6 +26,8 @@ def order_inventory_schema(app):
                 Device.__table__,
                 ServiceOrder.__table__,
                 InventoryPart.__table__,
+                ProductCategory.__table__,
+                VatRate.__table__,
                 InventoryStockOperation.__table__,
                 ServiceOrderPartUsage.__table__,
             ],
@@ -39,6 +43,8 @@ def order_inventory_schema(app):
                 ServiceOrderPartUsage.__table__,
                 InventoryStockOperation.__table__,
                 InventoryPart.__table__,
+                VatRate.__table__,
+                ProductCategory.__table__,
                 ServiceOrder.__table__,
                 Device.__table__,
             ],
@@ -84,25 +90,21 @@ def test_consume_part_decrements_stock_and_creates_usage(app, company_id, order_
 
     with app.app_context():
         order_id = _create_order(company_id)
+        category = ProductCategory(code="INV-CAT", name="Mechanika", company_id=company_id)
+        vat = VatRate(code="INV-23", rate=23, company_id=company_id, is_active=True)
+        db.session.add_all([category, vat])
+        db.session.flush()
         part = service.create_part(
             {
-                "part_code": "INV-001",
+                "code": "INV-001",
                 "name": "Rolka",
-                "category": "Mechanika",
-                "manufacturer": "Brother",
-                "catalog_number": "BR-ROLL",
+                "category_id": category.id,
                 "barcode": "",
-                "description": "",
-                "unit": "szt.",
-                "minimum_stock": "1",
                 "current_stock": "10",
-                "location": "A-1",
                 "purchase_price_net": "10",
                 "sale_price_net": "20",
-                "vat_rate": "23",
-                "supplier": "",
-                "image_path": "",
-                "is_record_active": "1",
+                "vat_id": vat.id,
+                "is_active": True,
             },
             company_id=company_id,
             branch_id=None,
