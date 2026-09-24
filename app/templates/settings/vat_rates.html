@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Stawki VAT{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h1 class="h3">Stawki VAT</h1>
+        <small class="text-muted">Słownik VAT firmy używany w kartotece produktów i dokumentach PZ.</small>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h2 class="h5 mb-3">{{ 'Edycja stawki' if edited else 'Nowa stawka' }}</h2>
+        <form method="post" class="row g-3 align-items-end">
+            {{ form.hidden_tag() }}
+            <div class="col-md-3">{{ form.code.label(class="form-label") }}{{ form.code(class="form-control") }}</div>
+            <div class="col-md-3">{{ form.rate.label(class="form-label") }}{{ form.rate(class="form-control") }}</div>
+            <div class="col-md-2 form-check">{{ form.is_default(class="form-check-input") }} {{
+                form.is_default.label(class="form-check-label") }}</div>
+            <div class="col-md-2 form-check">{{ form.is_active(class="form-check-input") }} {{
+                form.is_active.label(class="form-check-label") }}</div>
+            <div class="col-md-2">{{ form.submit(class="btn btn-primary w-100") }}</div>
+        </form>
+    </div>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-striped align-middle">
+        <thead>
+            <tr>
+                <th>Kod</th>
+                <th>Stawka</th>
+                <th>Domyślna</th>
+                <th>Status</th>
+                <th>Akcje</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in rates %}
+            <tr>
+                <td>{{ item.code }}</td>
+                <td>{{ '%.2f'|format(item.rate) }}%</td>
+                <td>{{ 'Tak' if item.is_default else 'Nie' }}</td>
+                <td>{{ 'Aktywna' if item.is_active else 'Nieaktywna' }}</td>
+                <td class="d-flex gap-2">
+                    <a class="btn btn-sm btn-outline-secondary"
+                        href="{{ url_for('settings.vat_rates', edit_id=item.id) }}">Edytuj</a>
+                    <form method="post" action="{{ url_for('settings.vat_rates_toggle', vat_rate_id=item.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button class="btn btn-sm btn-outline-warning" type="submit">{{ 'Dezaktywuj' if item.is_active
+                            else 'Aktywuj' }}</button>
+                    </form>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="5" class="text-muted">Brak stawek VAT.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -115,12 +115,15 @@ class ManufacturersRepository(_BaseCatalogRepository[CatalogManufacturer]):
 class VatRatesRepository(_BaseCatalogRepository[VatRate]):
     model = VatRate
 
+    def format_label(self, item: VatRate) -> str:
+        return item.code if Decimal(item.rate) == Decimal("0") and item.code.lower().startswith("zw") else f"{item.code} ({item.rate}%)"
+
     def list_choices(self, *, company_id: int | None) -> list[tuple[int, str]]:
         query = select(VatRate).where(VatRate.is_active.is_(True)).order_by(VatRate.rate.asc(), VatRate.id.asc())
         if company_id is not None:
             query = query.where(VatRate.company_id == company_id)
         items = db.session.scalars(query).all()
-        return [(item.id, f"{item.code} ({item.rate}%)") for item in items]
+        return [(item.id, self.format_label(item)) for item in items]
 
 
 class PartsRepository(_BaseCatalogRepository[CatalogPart]):

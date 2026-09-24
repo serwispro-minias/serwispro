@@ -16,6 +16,7 @@ from app.models.inventory_reservation import InventoryReservation, InventoryRese
 from app.models.service_order_material_usage import ServiceOrderMaterialUsage
 from app.models.service_order_part_reservation import ServiceOrderPartReservation
 from app.models.service_order_service_line import ServiceOrderServiceLine
+from app.models.vat_rate import VatRate
 
 from .exceptions import CatalogNotFoundError, CatalogValidationError
 from .repository import (
@@ -114,6 +115,7 @@ class CatalogService:
         data = self._sanitize_form_payload(data)
         data.update(self._tenant_payload(company_id=company_id, branch_id=branch_id))
         data = self._normalize_foreign_keys(data)
+        self._validate_part_vat(repository, data, company_id=company_id)
         self._assert_unique(repository, data.get("code"), company_id=company_id)
         entity = repository.create(data)
         db.session.commit()
@@ -126,6 +128,7 @@ class CatalogService:
 
         data = self._sanitize_form_payload(data)
         data = self._normalize_foreign_keys(data)
+        self._validate_part_vat(repository, data, company_id=company_id)
 
         code = data.get("code")
         if code and getattr(entity, "code", None) != code:
@@ -462,6 +465,16 @@ class CatalogService:
         existing = repository.get_by_code(code, company_id=company_id)
         if existing is not None:
             raise CatalogValidationError("Kod już istnieje.")
+
+    def _validate_part_vat(self, repository: Any, data: dict[str, Any], *, company_id: int | None) -> None:
+        if repository is not self.parts or "vat_id" not in data:
+            return
+        vat_id = data.get("vat_id")
+        if vat_id is None:
+            raise CatalogValidationError("Stawka VAT jest wymagana.")
+        vat = db.session.get(VatRate, int(vat_id))
+        if vat is None or vat.company_id != company_id or not vat.is_active:
+            raise CatalogValidationError("Nieprawidłowa stawka VAT dla produktu.")
 
     def _normalize_foreign_keys(self, data: dict[str, Any]) -> dict[str, Any]:
         normalized = dict(data)

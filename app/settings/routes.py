@@ -1,13 +1,15 @@
 from __future__ import annotations
 
-from flask import flash, redirect, render_template, request, url_for
+from flask import abort, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
+from app.catalog.forms import VatRateForm
+from app.extensions import db
+from app.models.vat_rate import VatRate
 from app.notifications import NotificationError, NotificationService
 
 from . import bp
 from .forms import NotificationConfigForm, NotificationTemplateForm
-
 
 notification_service = NotificationService()
 
@@ -28,6 +30,54 @@ def _user_id() -> int | None:
 @login_required
 def index():
     return redirect(url_for("settings.notifications"))
+
+
+@bp.route("/vat-rates", methods=["GET", "POST"])
+@login_required
+def vat_rates():
+    company_id = _company_id()
+    if company_id is None:
+        flash("Brak identyfikatora firmy.", "danger")
+        return redirect(url_for("dashboard.index"))
+    form = VatRateForm()
+    edit_id = request.args.get("edit_id", type=int)
+    edited = db.session.get(VatRate, edit_id) if edit_id else None
+    if edited is not None and edited.company_id != company_id:
+        abort(404)
+    if request.method == "GET" and edited is not None:
+        form.code.data = edited.code
+        form.rate.data = edited.rate
+        form.is_default.data = edited.is_default
+        form.is_active.data = edited.is_active
+    if form.validate_on_submit():
+        row = edited or VatRate(company_id=company_id, branch_id=_branch_id())
+        row.code = form.code.data.strip()
+        row.rate = form.rate.data
+        row.is_active = bool(form.is_active.data)
+        row.is_default = bool(form.is_default.data)
+        if row.is_default:
+            VatRate.query.filter_by(company_id=company_id).update({"is_default": False})
+        db.session.add(row)
+        db.session.commit()
+        flash("Stawka VAT została zapisana.", "success")
+        return redirect(url_for("settings.vat_rates"))
+    rates = VatRate.query.filter_by(company_id=company_id).order_by(VatRate.rate.asc(), VatRate.id.asc()).all()
+    return render_template("settings/vat_rates.html", form=form, rates=rates, edited=edited)
+
+
+@bp.route("/vat-rates/<int:vat_rate_id>/toggle", methods=["POST"])
+@login_required
+def vat_rates_toggle(vat_rate_id: int):
+    company_id = _company_id()
+    if company_id is None:
+        abort(404)
+    row = db.session.get(VatRate, vat_rate_id)
+    if row is None or row.company_id != company_id:
+        abort(404)
+    row.is_active = not row.is_active
+    db.session.commit()
+    flash("Status stawki VAT został zmieniony.", "success")
+    return redirect(url_for("settings.vat_rates"))
 
 
 @bp.route("/notifications", methods=["GET", "POST"])

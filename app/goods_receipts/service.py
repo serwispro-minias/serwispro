@@ -113,7 +113,9 @@ class GoodsReceiptService:
             product = db.session.scalar(select(InventoryItem).options(selectinload(InventoryItem.vat)).where(InventoryItem.id == product_id, InventoryItem.company_id == company_id, InventoryItem.is_active.is_(True)))
             if product is None:
                 raise GoodsReceiptValidationError("Nieprawidłowy produkt.")
-            vat_id = self._positive_int(payload.get("vat_id") or product.vat_id, "VAT")
+            if product.vat_id is None:
+                raise GoodsReceiptValidationError("Produkt nie ma przypisanej stawki VAT. Uzupełnij VAT w kartotece produktu.")
+            vat_id = self._positive_int(product.vat_id, "VAT")
             vat = db.session.scalar(select(VatRate).where(VatRate.id == vat_id, VatRate.company_id == company_id, VatRate.is_active.is_(True)))
             if vat is None:
                 raise GoodsReceiptValidationError("Nieprawidłowa stawka VAT.")
