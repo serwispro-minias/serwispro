@@ -11,7 +11,7 @@
 <div class="card mb-3">
     <div class="card-body">
         <h2 class="h5 mb-3">{{ 'Edycja stawki' if edited else 'Nowa stawka' }}</h2>
-        <form method="post" class="row g-3 align-items-end">
+        <form method="post" class="row g-3 align-items-end" data-shortcut-save>
             {{ form.hidden_tag() }}
             <div class="col-md-3">{{ form.code.label(class="form-label") }}{{ form.code(class="form-control") }}</div>
             <div class="col-md-3">{{ form.rate.label(class="form-label") }}{{ form.rate(class="form-control") }}</div>
@@ -19,7 +19,8 @@
                 form.is_default.label(class="form-check-label") }}</div>
             <div class="col-md-2 form-check">{{ form.is_active(class="form-check-input") }} {{
                 form.is_active.label(class="form-check-label") }}</div>
-            <div class="col-md-2">{{ form.submit(class="btn btn-primary w-100") }}</div>
+            <div class="col-md-2">{{ form.submit(class="btn btn-primary w-100", **{"data-shortcut-save-submit": ""}) }}
+            </div>
         </form>
     </div>
 </div>

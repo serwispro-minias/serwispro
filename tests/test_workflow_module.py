@@ -232,6 +232,7 @@ def test_admin_force_transition_writes_history_ip(app):
 
         assert result.forced is True
         assert result.order.status == "CLOSED"
+        assert result.order.terminal_status_entered_at is not None
 
         events = db.session.query(ServiceOrderStatusHistory).filter_by(service_order_id=order.id).all()
         assert len(events) == 1

@@ -14,12 +14,12 @@ if TYPE_CHECKING:
 
 
 class Device(BaseTenantModel):
-    """Represents a customer device registered in the service system."""
+    """Represents a service device, optionally assigned to a customer by an order."""
 
     __tablename__ = "devices"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id"), nullable=False)
+    customer_id: Mapped[int | None] = mapped_column(ForeignKey("customers.id"), nullable=True)
     manufacturer: Mapped[str | None] = mapped_column(String(120), nullable=True)
     model: Mapped[str | None] = mapped_column(String(120), nullable=True)
     serial_number: Mapped[str | None] = mapped_column(String(120), nullable=True)

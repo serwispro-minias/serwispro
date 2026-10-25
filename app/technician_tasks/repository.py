@@ -12,6 +12,7 @@ from app.models.service_task_comment import ServiceTaskComment
 from app.models.service_task_status_history import ServiceTaskStatusHistory
 from app.models.service_task_time_entry import ServiceTaskTimeEntry
 from app.models.user import User
+from app.utils.contextual_search import contextual_search
 
 
 class ServiceTaskRepository:
@@ -251,7 +252,6 @@ class ServiceTaskRepository:
         if assigned_to:
             query = query.where(ServiceTask.assigned_to == assigned_to)
         if query_text:
-            like_pattern = f"%{query_text.strip()}%"
-            query = query.where(or_(ServiceTask.title.ilike(like_pattern), ServiceTask.description.ilike(like_pattern)))
+            query = query.where(contextual_search(ServiceTask.title, ServiceTask.description, query=query_text))
 
         return list(db.session.scalars(query.order_by(ServiceTask.priority.desc(), ServiceTask.planned_finish.asc(), ServiceTask.id.asc())).all())

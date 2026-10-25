@@ -17,117 +17,226 @@
 {% if order %}
 <ul class="nav nav-tabs mb-3" id="order-edit-tabs" role="tablist">
     <li class="nav-item" role="presentation">
-        <button class="nav-link active" id="order-data-tab" data-bs-toggle="tab" data-bs-target="#order-data-pane" type="button" role="tab" aria-controls="order-data-pane" aria-selected="true">
+        <button class="nav-link active" id="order-data-tab" data-bs-toggle="tab" data-bs-target="#order-data-pane"
+            type="button" role="tab" aria-controls="order-data-pane" aria-selected="true">
             Dane zlecenia
         </button>
     </li>
     <li class="nav-item" role="presentation">
-        <button class="nav-link" id="order-timeline-tab" data-bs-toggle="tab" data-bs-target="#order-timeline-pane" type="button" role="tab" aria-controls="order-timeline-pane" aria-selected="false">
+        <button class="nav-link" id="order-timeline-tab" data-bs-toggle="tab" data-bs-target="#order-timeline-pane"
+            type="button" role="tab" aria-controls="order-timeline-pane" aria-selected="false">
             Historia naprawy / Czynności serwisowe
         </button>
     </li>
     <li class="nav-item" role="presentation">
-        <button class="nav-link" id="order-parts-tab" data-bs-toggle="tab" data-bs-target="#order-parts-pane" type="button" role="tab" aria-controls="order-parts-pane" aria-selected="false">
+        <button class="nav-link" id="order-parts-tab" data-bs-toggle="tab" data-bs-target="#order-parts-pane"
+            type="button" role="tab" aria-controls="order-parts-pane" aria-selected="false">
             Zużyte części
         </button>
     </li>
 </ul>
 
 <div class="tab-content" id="order-edit-tabs-content">
-    <div class="tab-pane fade show active" id="order-data-pane" role="tabpanel" aria-labelledby="order-data-tab" tabindex="0">
-{% endif %}
+    <div class="tab-pane fade show active" id="order-data-pane" role="tabpanel" aria-labelledby="order-data-tab"
+        tabindex="0">
+        {% endif %}
 
-<div class="card">
-    <div class="card-body">
-        <form method="post">
-            {{ form.hidden_tag() }}
+        <div class="card">
+            <div class="card-body">
+                <form method="post" id="{{ 'order-edit-form' if order else 'order-create-form' }}" data-shortcut-save>
+                    {{ form.hidden_tag() }}
+                    {% if not order %}<input type="hidden" name="photo_draft_token" id="order-photo-draft-token"
+                        value="{{ photo_draft_token or '' }}">{% endif %}
 
-            <div class="row g-3">
-                <div class="col-md-6">
-                    <div class="d-flex justify-content-between align-items-center gap-2">
-                        {{ form.customer_id.label(class="form-label mb-0") }}
-                        <div class="btn-group btn-group-sm" role="group" aria-label="Akcje klienta">
-                            <button type="button" id="btn-customer-new" class="btn btn-outline-primary">Nowy klient</button>
-                            <button type="button" id="btn-customer-edit" class="btn btn-outline-secondary">Edytuj klienta</button>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="d-flex justify-content-between align-items-center gap-2">
+                                {{ form.customer_id.label(class="form-label mb-0") }}
+                                <div class="btn-group btn-group-sm" role="group" aria-label="Akcje klienta">
+                                    <button type="button" id="btn-customer-new" class="btn btn-outline-primary"
+                                        data-shortcut-insert data-shortcut-insert-target="customer"
+                                        data-shortcut-hint="Nowy klient (Insert)">Nowy klient</button>
+                                    <button type="button" id="btn-customer-edit"
+                                        class="btn btn-outline-secondary">Edytuj klienta</button>
+                                </div>
+                            </div>
+                            <div class="contextual-search-host">
+                                <input type="search" class="form-control" id="order-customer-search"
+                                    value="{{ selected_customer_label }}" autocomplete="off" role="combobox"
+                                    aria-expanded="false" aria-controls="order-customer-results"
+                                    data-keyboard-listbox-input data-live-search-url="{{ url_for('customers.search') }}"
+                                    data-result-limit="15" data-min-length="2">
+                                <div class="list-group contextual-search-list d-none" id="order-customer-results"
+                                    role="listbox"></div>
+                            </div>
+                            <input type="hidden" name="customer_id" id="customer_id"
+                                value="{{ selected_customer_id or '' }}">
+                            {% if form.customer_id.errors %}<div class="form-text text-danger">{{
+                                form.customer_id.errors[0] }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <div class="d-flex justify-content-between align-items-center gap-2">
+                                <label class="form-label mb-0" for="order-device-search">Urządzenie</label>
+                                <div class="btn-group btn-group-sm" role="group" aria-label="Akcje urządzenia">
+                                    <button type="button" id="btn-device-new" class="btn btn-outline-primary"
+                                        data-shortcut-insert data-shortcut-insert-target="device"
+                                        data-shortcut-hint="Nowe urządzenie (Insert)">Nowe urządzenie</button>
+                                    <button type="button" id="btn-device-edit" class="btn btn-outline-secondary">Edytuj
+                                        urządzenie</button>
+                                </div>
+                            </div>
+                            <div class="contextual-search-host">
+                                <input type="search" class="form-control" id="order-device-search"
+                                    value="{{ selected_device_label }}" autocomplete="off" role="combobox"
+                                    aria-expanded="false" aria-controls="order-device-results"
+                                    data-keyboard-listbox-input
+                                    data-live-search-url="{{ url_for('orders.search_order_devices') }}"
+                                    data-result-limit="20" data-min-length="2">
+                                <div class="list-group contextual-search-list d-none" id="order-device-results"
+                                    role="listbox"></div>
+                            </div>
+                            <input type="hidden" name="device_id" id="device_id" value="{{ selected_device_id or '' }}">
+                            {% if form.device_id.errors %}<div class="form-text text-danger">{{ form.device_id.errors[0]
+                                }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-4">
+                            {{ form.order_number.label(class="form-label") }}
+                            {% if order %}{{ form.order_number(class="form-control", readonly=true) }}
+                            {% else %}<div class="form-control-plaintext text-muted">Numer zostanie nadany automatycznie
+                                po zapisaniu.</div>{% endif %}
+                        </div>
+                        <div class="col-md-4">
+                            {{ form.order_type.label(class="form-label") }}
+                            {{ form.order_type(class="form-select") }}
+                        </div>
+                        <div class="col-md-4">
+                            {{ form.intake_serial_number.label(class="form-label") }}
+                            {{ form.intake_serial_number(class="form-control", autocomplete="off") }}
+                            {% if form.intake_serial_number.errors %}<div class="form-text text-danger">{{
+                                form.intake_serial_number.errors[0] }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-4">
+                            {{ form.intake_date.label(class="form-label") }}
+                            {{ form.intake_date(class="form-control") }}
+                        </div>
+                        <div class="col-md-4">
+                            {{ form.status.label(class="form-label") }}
+                            {{ form.status(class="form-select") }}
+                        </div>
+                        <div class="col-md-4">
+                            {{ form.priority.label(class="form-label") }}
+                            {{ form.priority(class="form-select") }}
+                        </div>
+                        <div class="col-md-4">
+                            {{ form.planned_finish_date.label(class="form-label") }}
+                            {{ form.planned_finish_date(class="form-control") }}
+                        </div>
+                        <div class="col-md-6">
+                            {{ form.external_reference.label(class="form-label") }}
+                            {{ form.external_reference(class="form-control") }}
+                        </div>
+                        <div class="col-12">
+                            {{ form.issue_description.label(class="form-label") }}
+                            {{ form.issue_description(class="form-control", rows=4) }}
+                        </div>
+                        <div class="col-12">
+                            {{ form.diagnosis.label(class="form-label") }}
+                            {{ form.diagnosis(class="form-control", rows=4) }}
+                        </div>
+                        <div class="col-12">
+                            {{ form.repair_description.label(class="form-label") }}
+                            {{ form.repair_description(class="form-control", rows=4) }}
+                        </div>
+                        <div class="col-12">
+                            {{ form.customer_notes.label(class="form-label") }}
+                            {{ form.customer_notes(class="form-control", rows=4) }}
+                        </div>
+                        <div class="col-12">
+                            {{ form.technician_notes.label(class="form-label") }}
+                            {{ form.technician_notes(class="form-control", rows=4) }}
                         </div>
                     </div>
-                    {{ form.customer_id(class="form-select", id="customer_id") }}
-                </div>
-                <div class="col-md-6">
-                    <div class="d-flex justify-content-between align-items-center gap-2">
-                        {{ form.device_id.label(class="form-label mb-0") }}
-                        <div class="btn-group btn-group-sm" role="group" aria-label="Akcje urządzenia">
-                            <button type="button" id="btn-device-new" class="btn btn-outline-primary">Nowe urządzenie</button>
-                            <button type="button" id="btn-device-edit" class="btn btn-outline-secondary">Edytuj urządzenie</button>
+
+                    <div class="mt-4">
+                        {{ form.submit(class="btn btn-primary", **{"data-shortcut-save-submit": "",
+                        "data-shortcut-hint": "Zapisz zlecenie (Ctrl + Enter)"}) }}
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <section class="card mt-3" aria-labelledby="order-photos-form-heading">
+            <div class="card-body">
+                <h2 class="h5" id="order-photos-form-heading">Dokumentacja zdjęciowa</h2>
+                {% if order %}
+                <p class="text-muted">Zdjęcia zostaną dodane do tego zlecenia bez ponownego zapisywania jego danych.</p>
+                {% else %}
+                <p class="text-muted">Zdjęcia zostaną przesłane bezpiecznie po zapisaniu zlecenia.</p>
+                {% endif %}
+                {% if can_manage_order_photos %}
+                {% if not order %}
+                <input type="file" id="order-create-photo-files" class="d-none" accept="image/jpeg,image/png,image/webp"
+                    multiple>
+                <button type="button" class="btn btn-outline-primary" id="order-create-add-photo">Dodaj zdjęcie</button>
+                <div id="order-create-photo-preview" class="mt-2 small"></div>
+                <div id="order-create-photo-feedback" class="form-text" role="status" aria-live="polite"></div>
+                {% endif %}
+                {% endif %}
+                {% if order %}
+                {% if can_manage_order_photos %}
+                <input type="file" id="order-edit-photo-files" class="d-none" accept="image/jpeg,image/png,image/webp"
+                    multiple>
+                <button type="button" id="order-edit-add-photo" class="btn btn-outline-primary">Dodaj zdjęcie</button>
+                <div id="order-edit-photo-preview" class="mt-2 small"></div>
+                <div id="order-edit-photo-feedback" class="form-text" role="status" aria-live="polite"></div>
+                <form method="post" id="order-edit-photo-upload-form"
+                    action="{{ url_for('order_photos.upload', order_id=order.id) }}" enctype="multipart/form-data"
+                    class="mt-3">
+                    {{ photo_upload_form.hidden_tag() }}
+                    {{ photo_upload_form.photo_type(type="hidden", value="REPAIR") }}
+                    {{ photo_upload_form.files(id="order-edit-photo-files-upload", class="d-none",
+                    accept="image/jpeg,image/png,image/webp", multiple=true) }}
+                    <div class="form-check mt-2">
+                        {{ photo_upload_form.is_visible_for_customer(class="form-check-input") }}
+                        {{ photo_upload_form.is_visible_for_customer.label(class="form-check-label") }}
+                    </div>
+                    {{ photo_upload_form.submit(class="d-none") }}
+                </form>
+                {% endif %}
+                {% if order_photos %}
+                <div class="row g-2 mt-2">
+                    {% for photo in order_photos %}
+                    <div class="col-6 col-md-3 col-xl-2">
+                        <a href="{{ url_for('order_photos.file', photo_id=photo.id) }}" target="_blank" rel="noopener">
+                            <img src="{{ url_for('order_photos.thumbnail', photo_id=photo.id) }}"
+                                class="img-fluid rounded" alt="{{ photo.title or photo.original_file_name }}">
+                        </a>
+                        <div class="small text-muted">{{ photo_type_labels.get(photo.photo_type, photo.photo_type) }}
                         </div>
+                        {% if can_manage_order_photos %}
+                        <form method="post" action="{{ url_for('order_photos.delete', photo_id=photo.id) }}"
+                            class="mt-1">
+                            {{ photo_upload_form.csrf_token }}
+                            <button type="submit" class="btn btn-sm btn-outline-danger">Usuń zdjęcie</button>
+                        </form>
+                        {% endif %}
                     </div>
-                    {{ form.device_id(class="form-select", id="device_id") }}
-                    <div id="no-customer-devices" class="form-text text-warning {% if has_devices or not selected_customer_id %}d-none{% endif %}">
-                        Klient nie ma jeszcze żadnego urządzenia.
-                        <button type="button" id="btn-add-device-inline" class="btn btn-link btn-sm p-0 align-baseline">Dodaj urządzenie</button>
-                    </div>
+                    {% endfor %}
                 </div>
-                <div class="col-md-4">
-                    {{ form.order_number.label(class="form-label") }}
-                    {{ form.order_number(class="form-control") }}
-                </div>
-                <div class="col-md-4">
-                    {{ form.order_type.label(class="form-label") }}
-                    {{ form.order_type(class="form-select") }}
-                </div>
-                <div class="col-md-4">
-                    {{ form.intake_date.label(class="form-label") }}
-                    {{ form.intake_date(class="form-control") }}
-                </div>
-                <div class="col-md-4">
-                    {{ form.status.label(class="form-label") }}
-                    {{ form.status(class="form-select") }}
-                </div>
-                <div class="col-md-4">
-                    {{ form.priority.label(class="form-label") }}
-                    {{ form.priority(class="form-select") }}
-                </div>
-                <div class="col-md-4">
-                    {{ form.planned_finish_date.label(class="form-label") }}
-                    {{ form.planned_finish_date(class="form-control") }}
-                </div>
-                <div class="col-md-6">
-                    {{ form.external_reference.label(class="form-label") }}
-                    {{ form.external_reference(class="form-control") }}
-                </div>
-                <div class="col-12">
-                    {{ form.issue_description.label(class="form-label") }}
-                    {{ form.issue_description(class="form-control", rows=4) }}
-                </div>
-                <div class="col-12">
-                    {{ form.diagnosis.label(class="form-label") }}
-                    {{ form.diagnosis(class="form-control", rows=4) }}
-                </div>
-                <div class="col-12">
-                    {{ form.repair_description.label(class="form-label") }}
-                    {{ form.repair_description(class="form-control", rows=4) }}
-                </div>
-                <div class="col-12">
-                    {{ form.customer_notes.label(class="form-label") }}
-                    {{ form.customer_notes(class="form-control", rows=4) }}
-                </div>
-                <div class="col-12">
-                    {{ form.technician_notes.label(class="form-label") }}
-                    {{ form.technician_notes(class="form-control", rows=4) }}
-                </div>
+                {% else %}<p class="small text-muted mt-2 mb-0">Brak zdjęć dla tego zlecenia.</p>{% endif %}
+                <a class="btn btn-sm btn-link px-0"
+                    href="{{ url_for('orders.details', order_id=order.id, tab='photos') }}">Otwórz pełną galerię</a>
+                {% endif %}
+                {% if not can_manage_order_photos %}<p class="small text-muted mb-0">Brak uprawnień do dodawania zdjęć.
+                </p>{% endif %}
             </div>
+        </section>
 
-            <div class="mt-4">
-                {{ form.submit(class="btn btn-primary") }}
-            </div>
-        </form>
-    </div>
-</div>
-
-{% if order %}
+        {% if order %}
     </div>
 
-    <div class="tab-pane fade" id="order-timeline-pane" role="tabpanel" aria-labelledby="order-timeline-tab" tabindex="0">
+    <div class="tab-pane fade" id="order-timeline-pane" role="tabpanel" aria-labelledby="order-timeline-tab"
+        tabindex="0">
         <div class="card">
             <div class="card-body">
                 <h2 class="h5 mb-3">Dodaj wpis</h2>
@@ -183,11 +292,13 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="{{ url_for('static', filename='js/order-photo-upload.js') }}" defer></script>
 <script>
     (function () {
         const customerSelect = document.getElementById("customer_id");
+        const customerSearch = document.getElementById("order-customer-search");
         const deviceSelect = document.getElementById("device_id");
-        const noDevicesMessage = document.getElementById("no-customer-devices");
+        const deviceSearch = document.getElementById("order-device-search");
         const customerNewButton = document.getElementById("btn-customer-new");
         const customerEditButton = document.getElementById("btn-customer-edit");
         const deviceNewButton = document.getElementById("btn-device-new");
@@ -201,16 +312,11 @@
         const orderPartsFormContainer = document.getElementById("order-parts-form-container");
         const orderPartsListContainer = document.getElementById("order-parts-list-container");
 
-        if (!customerSelect || !deviceSelect || !noDevicesMessage || !modalElement || !modalContent) {
+        if (!customerSelect || !customerSearch || !deviceSelect || !deviceSearch || !modalElement || !modalContent) {
             return;
         }
 
-        if (!window.bootstrap || !window.bootstrap.Modal) {
-            console.error("Bootstrap Modal is unavailable.");
-            return;
-        }
-
-        const modal = new bootstrap.Modal(modalElement);
+        const modal = window.bootstrap?.Modal ? new bootstrap.Modal(modalElement) : null;
         const customerEditUrlBase = "{{ url_for('orders.modal_edit_customer', customer_id=0) }}".replace("0/edit", "");
         const deviceEditUrlBase = "{{ url_for('orders.modal_edit_device', device_id=0) }}".replace("0/edit", "");
 
@@ -229,7 +335,7 @@
                 </div>
             `;
             modalContent.innerHTML = errorHtml;
-            modal.show();
+            modal?.show();
         }
 
         function selectedCustomerId() {
@@ -251,86 +357,47 @@
             }
         }
 
-        function setNoDevicesVisible(isVisible) {
-            if (isVisible) {
-                noDevicesMessage.classList.remove("d-none");
-            } else {
-                noDevicesMessage.classList.add("d-none");
+        let selectedCustomerLabel = customerSearch.value.trim();
+        let selectedDeviceLabel = deviceSearch.value.trim();
+        customerSearch.addEventListener("input", () => {
+            if (customerSearch.value.trim() !== selectedCustomerLabel) {
+                selectedCustomerLabel = "";
+                customerSelect.value = "";
             }
-        }
-
-        function resetDeviceOptions() {
-            deviceSelect.innerHTML = "";
-            const option = document.createElement("option");
-            option.value = "-1";
-            option.textContent = "Wybierz urządzenie";
-            deviceSelect.appendChild(option);
-        }
-
-        async function loadDevicesForCustomer(customerId, selectedId = null) {
-            resetDeviceOptions();
-
-            if (!customerId || Number(customerId) <= 0) {
-                setNoDevicesVisible(false);
+        });
+        deviceSearch.addEventListener("input", () => {
+            if (deviceSearch.value.trim() !== selectedDeviceLabel) {
+                selectedDeviceLabel = "";
+                deviceSelect.value = "";
                 syncActionButtonsState();
-                return;
             }
+        });
 
-            const response = await fetch(`{{ url_for('orders.devices_by_customer') }}?customer_id=${customerId}`);
-            if (!response.ok) {
-                setNoDevicesVisible(false);
-                syncActionButtonsState();
-                return;
-            }
-
-            const payload = await response.json();
-            const devices = payload.devices || [];
-
-            for (const device of devices) {
-                const option = document.createElement("option");
-                option.value = String(device.id);
-                option.textContent = device.label;
-                deviceSelect.appendChild(option);
-            }
-
-            if (selectedId && Number(selectedId) > 0) {
-                deviceSelect.value = String(selectedId);
-            }
-
-            setNoDevicesVisible(!payload.has_devices);
+        customerSearch.addEventListener("live-search:select", (event) => {
+            const customer = event.detail;
+            customerSelect.value = String(customer.id);
+            customerSearch.value = customer.display || customer.name || customer.label || "";
+            selectedCustomerLabel = customerSearch.value.trim();
             syncActionButtonsState();
-        }
+        });
 
-        async function refreshCustomerOptions(selectedId = null) {
-            const response = await fetch("{{ url_for('orders.customer_options') }}");
-            if (!response.ok) {
-                return;
-            }
-
-            const payload = await response.json();
-            const customers = payload.customers || [];
-
-            customerSelect.innerHTML = "";
-            const placeholder = document.createElement("option");
-            placeholder.value = "-1";
-            placeholder.textContent = "Wybierz klienta";
-            customerSelect.appendChild(placeholder);
-
-            for (const customer of customers) {
-                const option = document.createElement("option");
-                option.value = String(customer.id);
-                option.textContent = customer.label;
-                customerSelect.appendChild(option);
-            }
-
-            if (selectedId && Number(selectedId) > 0) {
-                customerSelect.value = String(selectedId);
-            }
-
+        deviceSearch.addEventListener("live-search:select", (event) => {
+            deviceSelect.value = String(event.detail.id);
+            deviceSearch.value = event.detail.display || event.detail.name || event.detail.label || "";
+            selectedDeviceLabel = deviceSearch.value.trim();
             syncActionButtonsState();
-        }
+        });
+
+        customerSelect.value = "{{ selected_customer_id or '' }}";
+        deviceSelect.value = "{{ selected_device_id or '' }}";
+        selectedCustomerLabel = customerSearch.value.trim();
+        selectedDeviceLabel = deviceSearch.value.trim();
 
         async function openEntityModal(url) {
+            if (!modal) {
+                showError("Okno formularza jest niedostępne. Odśwież stronę i spróbuj ponownie.");
+                return;
+            }
             try {
                 const response = await fetch(url, {
                     headers: {
@@ -343,7 +410,7 @@
                 }
 
                 modalContent.innerHTML = await response.text();
-                modal.show();
+                modal?.show();
             } catch (error) {
                 console.error(error);
                 showError("Nie udało się połączyć z serwerem.");
@@ -353,27 +420,25 @@
         async function handleModalSuccess(payload) {
             if (payload.customer) {
                 const customerId = Number(payload.customer.id);
-                await refreshCustomerOptions(customerId);
-                await loadDevicesForCustomer(customerId, null);
-                modal.hide();
+                customerSelect.value = String(customerId);
+                customerSearch.value = payload.customer.label || "";
+                selectedCustomerLabel = customerSearch.value.trim();
+                modal?.hide();
                 return;
             }
 
             if (payload.device) {
-                const customerId = Number(payload.device.customer_id);
-                await refreshCustomerOptions(customerId);
-                await loadDevicesForCustomer(customerId, Number(payload.device.id));
-                modal.hide();
+                deviceSelect.value = String(payload.device.id);
+                deviceSearch.value = payload.device.label || "";
+                selectedDeviceLabel = deviceSearch.value.trim();
+                deviceSearch.setAttribute("aria-expanded", "false");
+                document.getElementById("order-device-results")?.replaceChildren();
+                syncActionButtonsState();
+                modal?.hide();
             }
         }
 
-        customerSelect.addEventListener("change", function () {
-            loadDevicesForCustomer(customerSelect.value, null);
-        });
-
-        deviceSelect.addEventListener("change", function () {
-            syncActionButtonsState();
-        });
+        deviceSelect.addEventListener("change", syncActionButtonsState);
 
         modalContent.addEventListener("submit", async function (event) {
             const form = event.target;
@@ -434,19 +499,11 @@
         }
 
         function openNewDeviceModal() {
-            const customerId = selectedCustomerId();
-            if (!customerId) {
-                return;
-            }
-            openEntityModal(`{{ url_for('orders.modal_create_device') }}?customer_id=${customerId}`);
+            openEntityModal("{{ url_for('orders.modal_create_device') }}");
         }
 
         if (deviceNewButton) {
             deviceNewButton.addEventListener("click", openNewDeviceModal);
-        }
-
-        if (addDeviceInlineButton) {
-            addDeviceInlineButton.addEventListener("click", openNewDeviceModal);
         }
 
         if (deviceEditButton) {
@@ -460,9 +517,6 @@
         }
 
         syncActionButtonsState();
-        if (selectedCustomerId()) {
-            loadDevicesForCustomer(selectedCustomerId(), selectedDeviceId());
-        }
 
         if (timelineFormContainer && timelineList && timelineEmpty) {
             timelineFormContainer.addEventListener("submit", async function (event) {

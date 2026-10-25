@@ -64,7 +64,6 @@
     <div class="card-body">
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h5 class="card-title mb-0">Urzadzenia klienta</h5>
-            <a class="btn btn-sm btn-primary" href="{{ url_for('devices.create', customer_id=customer.id) }}">Dodaj urzadzenie</a>
         </div>
 
         {% set active_devices = customer.devices | selectattr('is_active') | list %}
@@ -90,7 +89,8 @@
                         <td>{{ device.serial_number or '-' }}</td>
                         <td>{{ device.device_type or '-' }}</td>
                         <td>
-                            <a class="btn btn-sm btn-outline-primary" href="{{ url_for('devices.details', device_id=device.id) }}">Szczegoly</a>
+                            <a class="btn btn-sm btn-outline-primary"
+                                href="{{ url_for('devices.details', device_id=device.id) }}">Szczegoly</a>
                         </td>
                     </tr>
                     {% endfor %}

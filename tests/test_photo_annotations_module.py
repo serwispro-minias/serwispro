@@ -13,13 +13,16 @@ from app.models.branch import Branch
 from app.models.company import Company
 from app.models.customer import Customer
 from app.models.device import Device
-from app.models.setting import Setting
 from app.models.service_order import ServiceOrder
 from app.models.service_order_action import ServiceOrderAction
 from app.models.service_order_photo import ServiceOrderPhoto
 from app.models.service_order_photo_annotation import PhotoAnnotation
 from app.models.service_order_timeline import ServiceOrderTimelineEntry
-from app.order_photos.exceptions import ServiceOrderPhotoNotFoundError, ServiceOrderPhotoPermissionError
+from app.models.setting import Setting
+from app.order_photos.exceptions import (
+    ServiceOrderPhotoNotFoundError,
+    ServiceOrderPhotoPermissionError,
+)
 from app.order_photos.service import ServiceOrderPhotoService
 
 
@@ -107,7 +110,7 @@ def _create_photo(company_id: int, order_id: int, upload_root: Path, *, branch_i
     thumb_dir = service_dir / "thumbnails"
     thumb_dir.mkdir(parents=True, exist_ok=True)
 
-    file_name = "photo_test.jpg"
+    file_name = "photo-test.jpg"
     (service_dir / file_name).write_bytes(_image_bytes())
     (thumb_dir / "photo_test_thumb.webp").write_bytes(_image_bytes(size=(120, 90)))
 

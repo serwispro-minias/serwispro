@@ -2,12 +2,12 @@
 {% block title %}Magazyn - Wydania RW{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="h3 mb-0">Magazyn → Wydania (RW)</h1><a class="btn btn-primary"
-        href="{{ url_for('stock_issues.create') }}">Nowy RW</a>
+    <h1 class="h3 mb-0">Magazyn → Wydania (RW)</h1><a class="btn btn-primary" data-shortcut-insert
+        data-shortcut-hint="Nowy RW (Insert)" href="{{ url_for('stock_issues.create') }}">Nowy RW</a>
 </div>
-<form method="get" class="row g-2 align-items-end mb-3">
+<form method="get" class="row g-2 align-items-end mb-3" data-live-filter data-live-target="#live-results">
     <div class="col-md-2"><label class="form-label">Numer</label><input class="form-control" name="issue_number"
-            value="{{ request.args.get('issue_number', '') }}"></div>
+            value="{{ request.args.get('issue_number', '') }}" data-main-search></div>
     <div class="col-md-2"><label class="form-label">Zlecenie</label><input class="form-control" type="number"
             name="order_id" value="{{ request.args.get('order_id', '') }}"></div>
     <div class="col-md-2"><label class="form-label">Serwisant</label><input class="form-control" type="number"
@@ -23,33 +23,35 @@
         </select></div>
     <div class="col-md-2 d-grid"><button class="btn btn-outline-primary">Filtruj</button></div>
 </form>
-<div class="table-responsive">
-    <table class="table table-striped align-middle">
-        <thead>
-            <tr>
-                <th>Numer</th>
-                <th>Data</th>
-                <th>Zlecenie</th>
-                <th>Magazyn</th>
-                <th>Wystawił</th>
-                <th>Pozycje</th>
-                <th>Status</th>
-                <th>Akcje</th>
-            </tr>
-        </thead>
-        <tbody>{% for issue in issues %}<tr>
-                <td>{{ issue.issue_number }}</td>
-                <td>{{ issue.issue_date }}</td>
-                <td>{{ issue.service_order.order_number if issue.service_order else '-' }}</td>
-                <td>{{ issue.branch.name if issue.branch else '-' }}</td>
-                <td>{{ issue.issuer.login if issue.issuer else '-' }}</td>
-                <td>{{ issue.items|length }}</td>
-                <td>{{ status_labels.get(issue.status, issue.status) }}</td>
-                <td><a class="btn btn-sm btn-outline-primary"
-                        href="{{ url_for('stock_issues.details', issue_id=issue.id) }}">Szczegóły</a></td>
-            </tr>{% else %}<tr>
-                <td colspan="8" class="text-center text-muted py-4">Brak wydań RW.</td>
-            </tr>{% endfor %}</tbody>
-    </table>
+<div id="live-results" data-live-results aria-live="polite">
+    <div class="table-responsive">
+        <table class="table table-striped align-middle">
+            <thead>
+                <tr>
+                    <th>Numer</th>
+                    <th>Data</th>
+                    <th>Zlecenie</th>
+                    <th>Magazyn</th>
+                    <th>Wystawił</th>
+                    <th>Pozycje</th>
+                    <th>Status</th>
+                    <th>Akcje</th>
+                </tr>
+            </thead>
+            <tbody>{% for issue in issues %}<tr>
+                    <td>{{ issue.issue_number }}</td>
+                    <td>{{ issue.issue_date }}</td>
+                    <td>{{ issue.service_order.order_number if issue.service_order else '-' }}</td>
+                    <td>{{ issue.branch.name if issue.branch else '-' }}</td>
+                    <td>{{ issue.issuer.login if issue.issuer else '-' }}</td>
+                    <td>{{ issue.items|length }}</td>
+                    <td>{{ status_labels.get(issue.status, issue.status) }}</td>
+                    <td><a class="btn btn-sm btn-outline-primary"
+                            href="{{ url_for('stock_issues.details', issue_id=issue.id) }}">Szczegóły</a></td>
+                </tr>{% else %}<tr>
+                    <td colspan="8" class="text-center text-muted py-4">Brak wydań RW.</td>
+                </tr>{% endfor %}</tbody>
+        </table>
+    </div>
 </div>
 {% endblock %}

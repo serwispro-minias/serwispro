@@ -7,10 +7,11 @@ from pathlib import Path
 
 from sqlalchemy.exc import OperationalError
 
-from app.order_photos.service import ServiceOrderPhotoService
 from app.models.service_order_action import ServiceOrderAction
 from app.models.service_order_photo import ServiceOrderPhoto
 from app.models.service_order_timeline import ServiceOrderTimelineEntry
+from app.order_photos.exceptions import ServiceOrderPhotoNotFoundError
+from app.order_photos.service import ServiceOrderPhotoService
 
 from .pdf_generator import ProtocolRenderContext, ServiceOrderPdfGenerator
 from .print_repository import ServiceOrderPrintRepository
@@ -44,6 +45,8 @@ class ServiceOrderPrintService:
         upload_root: Path,
         selected_photo_ids: list[int] | None = None,
         photo_render_mode: str = "original",
+        only_customer_visible: bool = False,
+        include_photos: bool = False,
     ) -> ProtocolDocument | None:
         context = self._build_context(
             order_id=order_id,
@@ -52,8 +55,9 @@ class ServiceOrderPrintService:
             upload_root=upload_root,
             title="Protokół przyjęcia sprzętu do serwisu",
             selected_photo_ids=selected_photo_ids,
-            default_photo_types={"RECEPTION", "DAMAGE"},
             photo_render_mode=photo_render_mode,
+            only_customer_visible=only_customer_visible,
+            include_photos=include_photos,
         )
         if context is None:
             return None
@@ -70,6 +74,8 @@ class ServiceOrderPrintService:
         upload_root: Path,
         selected_photo_ids: list[int] | None = None,
         photo_render_mode: str = "original",
+        only_customer_visible: bool = False,
+        include_photos: bool = False,
     ) -> ProtocolDocument | None:
         context = self._build_context(
             order_id=order_id,
@@ -78,8 +84,9 @@ class ServiceOrderPrintService:
             upload_root=upload_root,
             title="Protokół wydania sprzętu z serwisu",
             selected_photo_ids=selected_photo_ids,
-            default_photo_types={"FINAL", "HANDOVER", "REPAIR", "PART"},
             photo_render_mode=photo_render_mode,
+            only_customer_visible=only_customer_visible,
+            include_photos=include_photos,
         )
         if context is None:
             return None
@@ -96,8 +103,9 @@ class ServiceOrderPrintService:
         upload_root: Path,
         title: str,
         selected_photo_ids: list[int] | None,
-        default_photo_types: set[str],
         photo_render_mode: str,
+        only_customer_visible: bool,
+        include_photos: bool,
     ) -> ProtocolRenderContext | None:
         order = self.repository.get_service_order(order_id=order_id, company_id=company_id, branch_id=branch_id)
         if order is None:
@@ -187,6 +195,7 @@ class ServiceOrderPrintService:
         device_rows = [
             ("Producent", order.device.manufacturer or "-"),
             ("Model", order.device.model or "-"),
+            ("Nr seryjny podany przy przyjęciu", order.intake_serial_number or "-"),
             ("Numer seryjny", order.device.serial_number or "-"),
             ("Numer inwentarzowy", order.device.inventory_number or "-"),
         ]
@@ -212,8 +221,9 @@ class ServiceOrderPrintService:
             branch_id=order.branch_id,
             upload_root=upload_root,
             selected_photo_ids=selected_photo_ids,
-            default_photo_types=default_photo_types,
             photo_render_mode=photo_render_mode,
+            only_customer_visible=only_customer_visible,
+            include_photos=include_photos,
         )
 
         return ProtocolRenderContext(
@@ -250,19 +260,29 @@ class ServiceOrderPrintService:
         branch_id: int | None,
         upload_root: Path,
         selected_photo_ids: list[int] | None,
-        default_photo_types: set[str],
         photo_render_mode: str,
+        only_customer_visible: bool,
+        include_photos: bool,
     ) -> list[tuple[bytes | Path, str]]:
+        # A non-empty selected-ID list is itself an explicit gallery opt-in and
+        # remains supported for existing callers. Empty/default requests print no photos.
+        if not include_photos and not selected_photo_ids:
+            return []
         try:
-            rows = self.repository.list_order_photos(order_id=order_id, company_id=company_id, branch_id=branch_id)
+            rows = self.repository.list_order_photos(
+                order_id=order_id,
+                company_id=company_id,
+                branch_id=branch_id,
+                only_customer_visible=only_customer_visible,
+            )
         except OperationalError:
             return []
 
-        if selected_photo_ids:
+        if selected_photo_ids is not None:
             allowed_ids = set(selected_photo_ids)
             rows = [row for row in rows if row.id in allowed_ids]
-        else:
-            rows = [row for row in rows if row.photo_type in default_photo_types]
+        # An explicit include_photos flag with no selected IDs means all photos
+        # for this scoped order; defaults never add photos implicitly.
 
         return [
             entry
@@ -288,11 +308,17 @@ class ServiceOrderPrintService:
         branch_id: int | None,
         photo_render_mode: str,
     ) -> tuple[bytes | Path, str] | None:
-        photos_dir = upload_root / "service_orders" / str(row.service_order_id) / "photos"
-        candidate_paths = [
-            photos_dir / "thumbnails" / f"{Path(row.file_name).stem}_thumb.webp",
-            photos_dir / row.file_name,
-        ]
+        try:
+            original_path, thumbnail_path = self.photo_service.photo_file_paths(
+                upload_root=upload_root,
+                order_id=row.service_order_id,
+                file_name=row.file_name,
+            )
+        except ServiceOrderPhotoNotFoundError:
+            return None
+        # The original image is preferred. The generated thumbnail is only a
+        # resilience fallback if the original has already gone missing.
+        candidate_paths = [original_path, thumbnail_path]
         selected_path = next((path for path in candidate_paths if path.exists() and path.is_file()), None)
         if selected_path is None:
             return None
@@ -304,7 +330,7 @@ class ServiceOrderPrintService:
                 upload_root=upload_root,
                 company_id=company_id,
                 branch_id=branch_id,
-                customer_only=False,
+                customer_only=self.photo_service.is_customer_portal_user(),
             )
             if rendered:
                 source = rendered

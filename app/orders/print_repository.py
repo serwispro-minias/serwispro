@@ -129,6 +129,7 @@ class ServiceOrderPrintRepository:
         order_id: int,
         company_id: int,
         branch_id: int | None,
+        only_customer_visible: bool = False,
     ) -> list[ServiceOrderPhoto]:
         query = (
             select(ServiceOrderPhoto)
@@ -139,4 +140,6 @@ class ServiceOrderPrintRepository:
         )
         if branch_id is not None:
             query = query.where(ServiceOrderPhoto.branch_id == branch_id)
+        if only_customer_visible:
+            query = query.where(ServiceOrderPhoto.is_visible_for_customer.is_(True))
         return list(db.session.scalars(query).all())

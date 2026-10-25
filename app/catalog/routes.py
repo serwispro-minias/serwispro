@@ -377,13 +377,20 @@ def parts_index():
 @login_required
 def parts_search():
     company_id, _, _ = _tenant()
-    rows = service.parts.search(company_id=company_id, query_text=request.args.get("q"), limit=request.args.get("limit", 20, type=int) or 20)
+    if company_id is None:
+        abort(404)
+    query_text = (request.args.get("q") or "").strip()
+    if not query_text or (len(query_text) < 2 and not query_text.isdigit()):
+        return jsonify({"items": []})
+    requested_limit = request.args.get("limit", 20, type=int) or 20
+    rows = service.parts.search(company_id=company_id, query_text=query_text, limit=max(1, min(requested_limit, 100)))
     return jsonify({
         "items": [
             {
                 "id": row.id,
                 "code": row.code,
                 "name": row.name,
+                "url": url_for("catalog.parts_details", part_id=row.id),
                 "barcode": row.barcode,
                 "category": row.category.name if row.category else None,
                 "current_stock": row.current_stock,
@@ -442,7 +449,7 @@ def parts_details(part_id: int):
 @bp.route("/parts/<int:part_id>/edit", methods=["GET", "POST"])
 @login_required
 def parts_edit(part_id: int):
-    company_id, _, _ = _tenant()
+    company_id, branch_id, _ = _tenant()
     try:
         entity = service.get_entity_or_404(service.parts, part_id, company_id=company_id)
     except CatalogNotFoundError:
@@ -457,7 +464,7 @@ def parts_edit(part_id: int):
 
     if form.validate_on_submit():
         try:
-            service.update_entity(service.parts, part_id, form.data, company_id=company_id)
+            service.update_entity(service.parts, part_id, form.data, company_id=company_id, branch_id=branch_id)
             flash("Część została zaktualizowana.", "success")
             return redirect(url_for("catalog.parts_details", part_id=part_id))
         except CatalogValidationError as exc:
@@ -482,6 +489,7 @@ def parts_delete(part_id: int):
 @login_required
 def parts_add_movement(part_id: int):
     company_id, branch_id, user_id = _tenant()
+    _assert_stock_adjustment_permission()
     form = StockMovementForm()
     if not form.validate_on_submit():
         flash("Nie udało się zapisać ruchu magazynowego.", "danger")
@@ -499,6 +507,7 @@ def parts_add_movement(part_id: int):
             user_id=user_id,
             company_id=company_id,
             branch_id=branch_id,
+            actor=current_user,
         )
         flash("Ruch magazynowy został zapisany.", "success")
     except (CatalogValidationError, CatalogNotFoundError) as exc:
@@ -561,7 +570,7 @@ def materials_details(material_id: int):
 @bp.route("/materials/<int:material_id>/edit", methods=["GET", "POST"])
 @login_required
 def materials_edit(material_id: int):
-    company_id, _, _ = _tenant()
+    company_id, branch_id, _ = _tenant()
     try:
         entity = service.get_entity_or_404(service.materials, material_id, company_id=company_id)
     except CatalogNotFoundError:
@@ -578,7 +587,7 @@ def materials_edit(material_id: int):
 
     if form.validate_on_submit():
         try:
-            service.update_entity(service.materials, material_id, form.data, company_id=company_id)
+            service.update_entity(service.materials, material_id, form.data, company_id=company_id, branch_id=branch_id)
             flash("Materiał został zaktualizowany.", "success")
             return redirect(url_for("catalog.materials_details", material_id=material_id))
         except CatalogValidationError as exc:
@@ -603,6 +612,7 @@ def materials_delete(material_id: int):
 @login_required
 def materials_add_movement(material_id: int):
     company_id, branch_id, user_id = _tenant()
+    _assert_stock_adjustment_permission()
     form = StockMovementForm()
     if not form.validate_on_submit():
         flash("Nie udało się zapisać ruchu magazynowego.", "danger")
@@ -620,12 +630,22 @@ def materials_add_movement(material_id: int):
             user_id=user_id,
             company_id=company_id,
             branch_id=branch_id,
+            actor=current_user,
         )
         flash("Ruch magazynowy został zapisany.", "success")
     except (CatalogValidationError, CatalogNotFoundError) as exc:
         flash(str(exc), "danger")
 
     return redirect(url_for("catalog.materials_details", material_id=material_id))
+
+
+def _assert_stock_adjustment_permission():
+    from app.stock_issues.exceptions import StockIssuePermissionError
+    from app.stock_issues.service import stock_issue_service
+    try:
+        stock_issue_service._assert_manage(current_user)
+    except StockIssuePermissionError:
+        abort(403)
 
 
 @bp.route("/services")
@@ -747,6 +767,13 @@ def order_catalog(order_id: int):
 @login_required
 def order_reserve_part(order_id: int):
     company_id, branch_id, user_id = _tenant()
+    from app.orders.item_service import ServiceOrderItemError, ServiceOrderItemService
+    from app.stock_issues.exceptions import StockIssueError
+    from app.stock_issues.service import stock_issue_service
+    try:
+        stock_issue_service._assert_view(current_user)
+    except StockIssueError:
+        abort(403)
     form = PartReservationForm()
     form.part_id.choices = service.part_choices(company_id=company_id)
 
@@ -755,22 +782,17 @@ def order_reserve_part(order_id: int):
         return redirect(url_for("catalog.order_catalog", order_id=order_id))
 
     try:
-        result = service.reserve_part_for_order(
+        item = ServiceOrderItemService().add_item(
             order_id=order_id,
-            part_id=form.part_id.data,
-            quantity=Decimal(form.quantity.data),
+            item_type="PART", item_id=form.part_id.data,
+            quantity_raw=form.quantity.data, unit_price_net_raw=None,
+            discount_percent_raw=None, notes=None, reserve=True,
             user_id=user_id,
             company_id=company_id,
             branch_id=branch_id,
         )
-        if result.demand_created:
-            flash(
-                f"Brak stanu magazynowego. Utworzono zapotrzebowanie #{result.demand_id} na brakującą ilość {result.demand_missing_quantity}.",
-                "warning",
-            )
-        else:
-            flash("Rezerwacja części została zapisana.", "success")
-    except (CatalogNotFoundError, CatalogValidationError) as exc:
+        flash("Pozycja i dostępna rezerwacja zostały zapisane w zleceniu. Braki są widoczne w zapotrzebowaniach.", "success")
+    except (CatalogNotFoundError, CatalogValidationError, ServiceOrderItemError) as exc:
         flash(str(exc), "danger")
 
     return redirect(url_for("catalog.order_catalog", order_id=order_id))
@@ -780,6 +802,13 @@ def order_reserve_part(order_id: int):
 @login_required
 def order_issue_material(order_id: int):
     company_id, branch_id, user_id = _tenant()
+    from app.orders.item_service import ServiceOrderItemError, ServiceOrderItemService
+    from app.stock_issues.exceptions import StockIssueError
+    from app.stock_issues.service import stock_issue_service
+    try:
+        stock_issue_service._assert_manage(current_user)
+    except StockIssueError:
+        abort(403)
     form = MaterialUsageForm()
     form.material_id.choices = service.material_choices(company_id=company_id)
 
@@ -788,16 +817,16 @@ def order_issue_material(order_id: int):
         return redirect(url_for("catalog.order_catalog", order_id=order_id))
 
     try:
-        service.issue_material_to_order(
-            order_id=order_id,
-            material_id=form.material_id.data,
-            quantity=Decimal(form.quantity.data),
-            user_id=user_id,
-            company_id=company_id,
-            branch_id=branch_id,
-        )
-        flash("Zużycie materiału zostało zapisane.", "success")
-    except (CatalogNotFoundError, CatalogValidationError) as exc:
+        item_service = ServiceOrderItemService()
+        item = item_service.add_item(order_id=order_id, item_type="MATERIAL", item_id=form.material_id.data,
+            quantity_raw=form.quantity.data, unit_price_net_raw=None, discount_percent_raw=None,
+            notes=None, reserve=False, user_id=user_id, company_id=company_id, branch_id=branch_id)
+        issue = item_service.mark_used(order_id=order_id, item_id=item.id, quantity_raw=form.quantity.data,
+            company_id=company_id, branch_id=branch_id, user_id=user_id, actor=current_user,
+            expected_version=item.version)
+        flash("Przygotowano roboczy RW materiału. Stan zmieni się dopiero po księgowaniu.", "success")
+        return redirect(url_for("stock_issues.details", issue_id=issue.id))
+    except (CatalogNotFoundError, CatalogValidationError, ServiceOrderItemError) as exc:
         flash(str(exc), "danger")
 
     return redirect(url_for("catalog.order_catalog", order_id=order_id))
@@ -833,23 +862,19 @@ def order_add_service_line(order_id: int):
 @login_required
 def order_auto_issue_materials(order_id: int):
     company_id, branch_id, user_id = _tenant()
+    from app.stock_issues.exceptions import StockIssueError
+    from app.stock_issues.service import stock_issue_service
+    try:
+        stock_issue_service._assert_manage(current_user)
+    except StockIssueError:
+        abort(403)
     form = AutoIssueMaterialsForm()
     if not form.validate_on_submit():
         flash("Nie udało się uruchomić automatycznego odpisania.", "danger")
         return redirect(url_for("catalog.order_catalog", order_id=order_id))
 
-    try:
-        usages = service.apply_auto_issue_materials(
-            order_id=order_id,
-            user_id=user_id,
-            company_id=company_id,
-            branch_id=branch_id,
-        )
-        if usages:
-            flash(f"Automatycznie odpisano {len(usages)} materiał(ów).", "success")
-        else:
-            flash("Brak materiałów do automatycznego odpisania.", "warning")
-    except (CatalogNotFoundError, CatalogValidationError) as exc:
-        flash(str(exc), "danger")
-
-    return redirect(url_for("catalog.order_catalog", order_id=order_id))
+    order = service.stock.get_service_order(order_id, company_id=company_id, branch_id=branch_id)
+    if order is None:
+        abort(404)
+    flash("Materiały rozlicz w zakładce Części i usługi przez jawnie księgowany RW. Automatyczny odpis nie jest wykonywany.", "info")
+    return redirect(url_for("orders.details", order_id=order_id, tab="items"))

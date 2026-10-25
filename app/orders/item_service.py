@@ -1,19 +1,22 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from app.extensions import db
 from app.models.catalog_material import CatalogMaterial
 from app.models.catalog_part import CatalogPart
 from app.models.catalog_stock_movement import CatalogStockMovement
-from app.models.service_order_item import SERVICE_ORDER_ITEM_TYPE_CHOICES, SERVICE_ORDER_ITEM_TYPE_LABELS, ServiceOrderItem
+from app.models.service_order_item import (
+    SERVICE_ORDER_ITEM_TYPE_CHOICES,
+    SERVICE_ORDER_ITEM_TYPE_LABELS,
+    ServiceOrderItem,
+)
 
 from .item_repository import ResolvedCatalogItem, ServiceOrderItemRepository
-
 
 THREE_DP = Decimal("0.001")
 TWO_DP = Decimal("0.01")
@@ -64,8 +67,8 @@ class ServiceOrderItemService:
             result.append(self._serialize_item(item, resolved))
         return result
 
-    def search_catalog_items(self, *, query_text: str | None, company_id: int) -> list[dict[str, Any]]:
-        results = self.repository.search_catalog_items(query_text=query_text, company_id=company_id)
+    def search_catalog_items(self, *, query_text: str | None, company_id: int, branch_id: int | None = None) -> list[dict[str, Any]]:
+        results = self.repository.search_catalog_items(query_text=query_text, company_id=company_id, branch_id=branch_id)
         return [
             {
                 "item_type": item.item_type,
@@ -76,6 +79,7 @@ class ServiceOrderItemService:
                 "unit_price_net": f"{item.unit_price_net:.2f}",
                 "vat_rate": f"{item.vat_rate:.2f}",
                 "current_stock": f"{item.current_stock:.3f}" if item.current_stock is not None else None,
+                "available_stock": None if item.current_stock is None else str(max(Decimal("0"), item.current_stock - self._reserved(item.item_type, item.item_id, company_id))),
                 "source_label": item.source_label,
             }
             for item in results
@@ -94,6 +98,7 @@ class ServiceOrderItemService:
         unit_price_net_raw: Any | None,
         discount_percent_raw: Any | None,
         notes: str | None,
+        reserve: bool = True,
     ) -> ServiceOrderItem:
         order = self.repository.get_order(order_id=order_id, company_id=company_id, branch_id=branch_id)
         if order is None:
@@ -110,6 +115,18 @@ class ServiceOrderItemService:
         quantity = self._to_decimal(quantity_raw, places=3)
         if quantity <= Decimal("0"):
             raise ServiceOrderItemValidationError("Ilość musi być większa od zera.")
+        if normalized_type == "PART" and quantity != quantity.to_integral_value():
+            raise ServiceOrderItemValidationError("Ilość części musi być całkowita.")
+        reserved_quantity = Decimal("0")
+        if normalized_type in {"PART", "MATERIAL"}:
+            product = self._lock_product(normalized_type, resolved.item_id, company_id)
+            if order.branch_id is not None and product.branch_id not in {None, order.branch_id}:
+                raise ServiceOrderItemValidationError("Produkt należy do innego oddziału.")
+            from app.inventory.reservation_service import reserved_stock
+            available = max(Decimal("0"), Decimal(product.current_stock) - reserved_stock(
+                item_type=normalized_type, item_id=resolved.item_id, company_id=company_id))
+            if reserve:
+                reserved_quantity = min(quantity, available)
 
         unit_price_net = self._to_decimal(unit_price_net_raw, places=2, default=resolved.unit_price_net)
         if unit_price_net < Decimal("0"):
@@ -134,7 +151,7 @@ class ServiceOrderItemService:
                 "item_type": normalized_type,
                 "item_id": resolved.item_id,
                 "quantity": quantity,
-                "reserved_quantity": quantity if normalized_type in {"PART", "MATERIAL"} else Decimal("0"),
+                "reserved_quantity": reserved_quantity,
                 "used_quantity": Decimal("0"),
                 "returned_quantity": Decimal("0"),
                 "unit_price_net": unit_price_net,
@@ -149,9 +166,11 @@ class ServiceOrderItemService:
             }
             item = self.repository.create_item(payload)
         else:
+            self._assert_no_pending_issue(existing)
+            self._claim_item(existing, existing.version)
             existing.quantity = Decimal(existing.quantity) + quantity
             if normalized_type in {"PART", "MATERIAL"}:
-                existing.reserved_quantity = Decimal(existing.reserved_quantity) + quantity
+                existing.reserved_quantity = Decimal(existing.reserved_quantity) + reserved_quantity
             existing.unit_price_net = unit_price_net
             existing.discount_percent = discount_percent
             existing.vat_rate = vat_rate
@@ -161,6 +180,23 @@ class ServiceOrderItemService:
             existing.updated_by = user_id
             item = self.repository.update_item(existing, {})
 
+        if normalized_type == "PART":
+            if reserved_quantity > 0:
+                from app.models.service_order_part_reservation import ServiceOrderPartReservation
+                db.session.add(ServiceOrderPartReservation(
+                    service_order_id=order.id, part_id=resolved.item_id, quantity=reserved_quantity,
+                    status="RESERVED", company_id=company_id, branch_id=order.branch_id,
+                    created_by=user_id, updated_by=user_id,
+                ))
+            if quantity > available:
+                from app.part_demands.service import PartDemandService
+                shortage = PartDemandService().create_or_update_from_shortage(
+                    order_id=order.id, part_id=resolved.item_id,
+                    requested_quantity=quantity, available_quantity=available,
+                    company_id=company_id, branch_id=order.branch_id, actor_id=user_id,
+                    service_order_item_id=item.id, commit=False,
+                )
+                shortage.demand.reserved_quantity += reserved_quantity
         db.session.commit()
         return item
 
@@ -173,32 +209,47 @@ class ServiceOrderItemService:
         company_id: int,
         branch_id: int | None,
         user_id: int | None,
-    ) -> ServiceOrderItem:
+        actor=None,
+        expected_version: int | None = None,
+    ):
         item = self._get_order_item(order_id=order_id, item_id=item_id, company_id=company_id, branch_id=branch_id)
         if item.item_type == "SERVICE":
             raise ServiceOrderItemValidationError("Usługi nie posiadają ruchów magazynowych.")
-
         quantity = self._to_decimal(quantity_raw, places=3)
         if quantity <= Decimal("0"):
             raise ServiceOrderItemValidationError("Ilość zużycia musi być większa od zera.")
-
-        if Decimal(item.reserved_quantity) < quantity:
-            raise ServiceOrderItemValidationError("Brak wystarczającej ilości zarezerwowanej do zużycia.")
-
-        self._create_usage_movement(
-            item=item,
-            quantity=quantity,
-            user_id=user_id,
-            company_id=company_id,
-            branch_id=branch_id,
-            movement_type="SERVICE_USAGE",
-        )
-        item.reserved_quantity = Decimal(item.reserved_quantity) - quantity
-        item.used_quantity = Decimal(item.used_quantity) + quantity
-        item.updated_by = user_id
-        db.session.add(item)
-        db.session.commit()
-        return item
+        from app.models.stock_issue import StockIssue
+        from app.models.stock_issue_item import StockIssueItem
+        from app.stock_issues.exceptions import StockIssueError
+        from app.stock_issues.service import stock_issue_service
+        if actor is None:
+            raise ServiceOrderItemValidationError("Brak użytkownika rozliczającego.")
+        try:
+            stock_issue_service._assert_manage(actor)
+            # Lock/claim the current version before searching for an existing draft.
+            self._claim_item(item, expected_version)
+            pending = db.session.scalar(select(StockIssue).join(StockIssueItem).where(
+                StockIssueItem.service_order_item_id == item.id,
+                StockIssue.status == "DRAFT", StockIssue.company_id == company_id,
+                StockIssue.is_active.is_(True),
+            ))
+            if pending:
+                db.session.rollback()
+                return pending
+            payload = {"quantity": quantity, "service_order_item_id": item.id,
+                       "settlement_version": item.version}
+            payload["inventory_item_id" if item.item_type == "PART" else "material_id"] = item.item_id
+            return stock_issue_service.create_issue(
+                items=[payload], company_id=company_id, branch_id=item.branch_id,
+                actor=actor, service_order_id=order_id,
+                notes="Rozliczenie rzeczywistego zużycia; pozostała rezerwacja zostanie zwolniona przy księgowaniu.",
+            )
+        except StockIssueError as exc:
+            db.session.rollback()
+            raise ServiceOrderItemValidationError(str(exc)) from exc
+        except Exception:
+            db.session.rollback()
+            raise
 
     def return_item(
         self,
@@ -209,6 +260,8 @@ class ServiceOrderItemService:
         company_id: int,
         branch_id: int | None,
         user_id: int | None,
+        expected_version: int | None = None,
+        reserve: bool = False,
     ) -> ServiceOrderItem:
         item = self._get_order_item(order_id=order_id, item_id=item_id, company_id=company_id, branch_id=branch_id)
         if item.item_type == "SERVICE":
@@ -218,23 +271,118 @@ class ServiceOrderItemService:
         if quantity <= Decimal("0"):
             raise ServiceOrderItemValidationError("Ilość zwrotu musi być większa od zera.")
 
+        self._claim_item(item, expected_version)
+        self._assert_no_pending_issue(item)
+        product = self._lock_product(item.item_type, item.item_id, company_id)
+        if item.branch_id is not None and product.branch_id not in {None, item.branch_id}:
+            db.session.rollback()
+            raise ServiceOrderItemValidationError("Produkt należy do innego oddziału.")
+        from app.inventory.reservation_service import reserved_stock
+        if reserve:
+            available = max(Decimal("0"), Decimal(product.current_stock) - reserved_stock(item_type=item.item_type, item_id=item.item_id, company_id=company_id))
+            if quantity > available:
+                db.session.rollback()
+                raise ServiceOrderItemValidationError(f"Niewystarczająca dostępność: {available}.")
+            if item.item_type == "PART" and quantity != quantity.to_integral_value():
+                db.session.rollback()
+                raise ServiceOrderItemValidationError("Ilość części musi być całkowita.")
+            item.reserved_quantity += quantity
+            if item.item_type == "PART":
+                from app.models.service_order_part_reservation import ServiceOrderPartReservation
+                db.session.add(ServiceOrderPartReservation(service_order_id=order_id, part_id=item.item_id,
+                    quantity=quantity, status="RESERVED", company_id=company_id, branch_id=item.branch_id,
+                    created_by=user_id, updated_by=user_id))
+            item.quantity = max(Decimal(item.quantity), Decimal(item.used_quantity) + Decimal(item.returned_quantity) + Decimal(item.reserved_quantity))
+            item.updated_by = user_id
+            self._sync_demand(item, user_id)
+            db.session.commit()
+            return item
         if Decimal(item.reserved_quantity) < quantity:
+            db.session.rollback()
             raise ServiceOrderItemValidationError("Brak wystarczającej ilości zarezerwowanej do zwrotu.")
-
-        self._create_usage_movement(
-            item=item,
-            quantity=quantity,
-            user_id=user_id,
-            company_id=company_id,
-            branch_id=branch_id,
-            movement_type="RETURN",
-        )
+        if item.item_type == "PART":
+            self.release_part_holds(item, quantity, user_id)
+        db.session.add(CatalogStockMovement(
+            item_type=item.item_type, part_id=item.item_id if item.item_type == "PART" else None,
+            material_id=item.item_id if item.item_type == "MATERIAL" else None,
+            service_order_id=order_id, movement_type="RELEASE", quantity=quantity,
+            stock_before=product.current_stock, stock_after=product.current_stock,
+            reference_type="SERVICE_ORDER_ITEM", reference_id=str(item.id),
+            note="Zwolnienie niewykorzystanej rezerwacji", user_id=user_id,
+            company_id=company_id, branch_id=item.branch_id,
+        ))
         item.reserved_quantity = Decimal(item.reserved_quantity) - quantity
         item.returned_quantity = Decimal(item.returned_quantity) + quantity
         item.updated_by = user_id
+        self._sync_demand(item, user_id)
         db.session.add(item)
         db.session.commit()
         return item
+
+    def _lock_product(self, item_type, item_id, company_id):
+        model = CatalogPart if item_type == "PART" else CatalogMaterial
+        product = db.session.scalar(select(model).where(model.id == item_id, model.company_id == company_id,
+            model.is_active.is_(True)).with_for_update().execution_options(populate_existing=True))
+        if product is None:
+            raise ServiceOrderItemNotFoundError("Nie znaleziono produktu.")
+        return product
+
+    def _sync_demand(self, item, user_id):
+        from app.models.part_demand import PartDemand
+        rows = db.session.scalars(select(PartDemand).where(
+            PartDemand.service_order_item_id == item.id,
+            PartDemand.company_id == item.company_id, PartDemand.is_active.is_(True),
+            PartDemand.status != "CANCELLED")).all()
+        for demand in rows:
+            demand.reserved_quantity = item.reserved_quantity
+            demand.missing_quantity = max(Decimal("0"), Decimal(demand.requested_quantity) - Decimal(item.used_quantity) - Decimal(item.returned_quantity) - Decimal(item.reserved_quantity))
+            demand.updated_by = user_id
+
+    def _claim_item(self, item, expected_version):
+        version = int(expected_version) if expected_version is not None else item.version
+        result = db.session.execute(update(ServiceOrderItem).where(
+            ServiceOrderItem.id == item.id, ServiceOrderItem.version == version,
+        ).values(version=ServiceOrderItem.version + 1).execution_options(synchronize_session=False))
+        if result.rowcount != 1:
+            db.session.rollback()
+            raise ServiceOrderItemValidationError("Pozycja została zmieniona. Odśwież zlecenie.")
+        db.session.refresh(item)
+
+    def _assert_no_pending_issue(self, item):
+        from app.models.stock_issue import StockIssue
+        from app.models.stock_issue_item import StockIssueItem
+        pending = db.session.scalar(select(StockIssue.id).join(StockIssueItem).where(
+            StockIssueItem.service_order_item_id == item.id, StockIssue.status == "DRAFT"))
+        if pending:
+            db.session.rollback()
+            raise ServiceOrderItemValidationError("Najpierw rozlicz istniejący roboczy RW.")
+
+    @staticmethod
+    def release_part_holds(item, quantity, user_id):
+        from sqlalchemy import inspect
+
+        from app.models.inventory_reservation import InventoryReservation
+        from app.models.service_order_part_reservation import ServiceOrderPartReservation
+
+        # Release mirror legacy holds in both existing tables, not twice from stock.
+        for model, column in ((ServiceOrderPartReservation, ServiceOrderPartReservation.part_id),
+                              (InventoryReservation, InventoryReservation.inventory_item_id)):
+            if not inspect(db.session.connection()).has_table(model.__tablename__):
+                continue
+            left = Decimal(quantity)
+            rows = db.session.scalars(select(model).where(model.service_order_id == item.service_order_id,
+                column == item.item_id, model.company_id == item.company_id,
+                model.status == "RESERVED", model.is_active.is_(True)).order_by(model.id).with_for_update()).all()
+            for row in rows:
+                take = min(left, Decimal(row.quantity))
+                row.quantity -= take
+                left -= take
+                row.updated_by = user_id
+                if row.quantity == 0:
+                    row.status = "RELEASED"
+                    row.is_active = False
+                if left <= 0:
+                    break
 
     def compute_totals(self, items: list[dict[str, Any]]) -> OrderItemTotals:
         parts_net = Decimal("0")
@@ -269,15 +417,35 @@ class ServiceOrderItemService:
         return item
 
     def _get_order_item(self, *, order_id: int, item_id: int, company_id: int, branch_id: int | None) -> ServiceOrderItem:
+        if self.repository.get_order(order_id=order_id, company_id=company_id, branch_id=branch_id) is None:
+            raise ServiceOrderItemNotFoundError("Nie znaleziono zlecenia.")
         item = self.repository.get_item(item_id=item_id, company_id=company_id, branch_id=branch_id)
         if item is None or item.service_order_id != order_id:
             raise ServiceOrderItemNotFoundError("Nie znaleziono pozycji zlecenia.")
         return item
 
     def _serialize_item(self, item: ServiceOrderItem, resolved: ResolvedCatalogItem | None) -> dict[str, Any]:
+        from sqlalchemy import inspect
+
+        from app.models.stock_issue import StockIssue
+        from app.models.stock_issue_item import StockIssueItem
+        issues = []
+        if inspect(db.session.connection()).has_table(StockIssue.__tablename__):
+            issues = db.session.scalars(select(StockIssue).join(StockIssueItem).where(
+                StockIssueItem.service_order_item_id == item.id, StockIssue.company_id == item.company_id,
+                StockIssue.is_active.is_(True)).order_by(StockIssue.id)).all()
+        held = self._reserved(item.item_type, item.item_id, item.company_id) if item.item_type != "SERVICE" else Decimal("0")
+        available = None if resolved is None or resolved.current_stock is None else max(Decimal("0"), resolved.current_stock - held)
+        waiting = max(Decimal("0"), Decimal(item.quantity) - Decimal(item.used_quantity) - Decimal(item.returned_quantity) - Decimal(item.reserved_quantity))
         vat_amount = self._line_vat(Decimal(item.total_net), Decimal(item.vat_rate))
         gross_amount = (Decimal(item.total_net) + vat_amount).quantize(TWO_DP, rounding=ROUND_HALF_UP)
         return {
+            "version": item.version,
+            "waiting_quantity": str(waiting),
+            "stock_reserved": str(held),
+            "available_stock": None if available is None else str(available),
+            "issues": [{"id": rw.id, "number": rw.issue_number, "status": rw.status} for rw in issues],
+            "settlement_status": "RW roboczy" if any(rw.status == "DRAFT" for rw in issues) else ("Rozliczono" if item.used_quantity else ("Oczekuje / bez rezerwacji" if waiting else "Zarezerwowano")),
             "id": item.id,
             "service_order_id": item.service_order_id,
             "item_type": item.item_type,
@@ -405,6 +573,15 @@ class ServiceOrderItemService:
             if default is not None:
                 return default
             return Decimal("0")
-        if isinstance(value, Decimal):
-            return value.quantize(Decimal("0." + "0" * (places - 1) + "1"), rounding=ROUND_HALF_UP) if places else value
-        return Decimal(str(value))
+        try:
+            amount = Decimal(str(value))
+            if not amount.is_finite() or amount != amount.quantize(Decimal("1").scaleb(-places)):
+                raise ValueError()
+            return amount
+        except Exception:
+            raise ServiceOrderItemValidationError("Nieprawidłowa liczba lub zbyt duża dokładność.") from None
+
+    @staticmethod
+    def _reserved(item_type, item_id, company_id):
+        from app.inventory.reservation_service import reserved_stock
+        return reserved_stock(item_type=item_type, item_id=item_id, company_id=company_id)

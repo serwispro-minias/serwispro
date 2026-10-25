@@ -1,4 +1,5 @@
-<form method="post" action="{{ url_for('orders.add_order_part_usage', order_id=order.id) }}" class="js-order-part-form">
+<form method="post" action="{{ url_for('orders.add_order_part_usage', order_id=order.id) }}" class="js-order-part-form"
+    data-shortcut-save>
     {{ part_usage_form.hidden_tag() }}
     <div class="row g-3">
         <div class="col-md-6">
@@ -23,7 +24,7 @@
             {% endif %}
         </div>
     </div>
-    <div class="mt-3">{{ part_usage_form.submit(class="btn btn-primary") }}</div>
+    <div class="mt-3">{{ part_usage_form.submit(class="btn btn-primary", **{"data-shortcut-save-submit": ""}) }}</div>
 </form>
 
 <script type="application/json" id="order-part-price-map">{{ part_price_map | tojson }}</script>

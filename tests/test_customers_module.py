@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from app.extensions import db
+from app.models.company import Company
 from app.models.customer import Customer, CustomerTypeEnum
 
 
@@ -162,6 +163,53 @@ def test_search_customers(auth_client, app, company_id):
     assert "Alpha Serwis" in body
     assert "Beta Serwis" not in body
     assert "Q=Alpha" in body
+
+
+def test_search_customers_matches_tokens_and_nip(auth_client, app, company_id):
+    with app.app_context():
+        customer = _create_customer(
+            company_id=company_id,
+            full_name="Minias Adam",
+            email="minias@example.com",
+            phone="666123456",
+        )
+        customer.nip = "123-456-78-90"
+        db.session.commit()
+
+    for query in ("minias", "adam", "nias ada", "123-456"):
+        response = auth_client.get(f"/customers/?q={query.replace(' ', '%20')}")
+        assert response.status_code == 200
+        assert "Minias Adam" in response.get_data(as_text=True)
+
+    missing = auth_client.get("/customers/?q=nieistniejacy")
+    assert "Minias Adam" not in missing.get_data(as_text=True)
+
+
+def test_customer_suggestions_are_bounded_and_company_scoped(auth_client, app, company_id):
+    with app.app_context():
+        _create_customer(
+            company_id=company_id,
+            full_name="Minias Adam",
+            email="suggestion@example.com",
+            phone="123456789",
+        )
+        foreign_company = Company(name="Other Company", prefix="OTH")
+        db.session.add(foreign_company)
+        db.session.flush()
+        _create_customer(
+            company_id=foreign_company.id,
+            full_name="Minias Adam Foreign",
+            email="foreign@example.com",
+            phone="987654321",
+        )
+
+    assert auth_client.get("/customers/search?q=M").get_json() == {"items": []}
+    response = auth_client.get("/customers/search?q=min%20ada&limit=100")
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert len(payload["items"]) == 1
+    assert payload["items"][0]["name"] == "Minias Adam"
+    assert payload["items"][0]["url"].endswith("/customers/1")
 
 
 def test_customers_pagination(auth_client, app, company_id):

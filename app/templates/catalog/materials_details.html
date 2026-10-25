@@ -17,30 +17,41 @@
 <div class="card mb-3">
     <div class="card-body">
         <div class="row g-3">
-            <div class="col-md-3"><strong>Stan:</strong> {{ '%.3f'|format(entity.current_stock) }} {{ entity.unit }}</div>
-            <div class="col-md-3"><strong>Minimum:</strong> {{ '%.3f'|format(entity.minimum_stock) }} {{ entity.unit }}</div>
+            <div class="col-md-3"><strong>Stan:</strong> {{ '%.3f'|format(entity.current_stock) }} {{ entity.unit }}
+            </div>
+            <div class="col-md-3"><strong>Minimum:</strong> {{ '%.3f'|format(entity.minimum_stock) }} {{ entity.unit }}
+            </div>
             <div class="col-md-3"><strong>Cena zakupu:</strong> {{ '%.2f'|format(entity.purchase_price_net) }} PLN</div>
-            <div class="col-md-3"><strong>Auto-issue:</strong> {{ 'Tak' if entity.auto_issue_on_order else 'Nie' }}</div>
+            <div class="col-md-3"><strong>Auto-issue:</strong> {{ 'Tak' if entity.auto_issue_on_order else 'Nie' }}
+            </div>
             <div class="col-md-3"><strong>Domyślne zużycie:</strong> {{ '%.3f'|format(entity.default_usage_qty) }}</div>
             <div class="col-md-3"><strong>VAT:</strong> {{ '%.2f'|format(entity.vat_rate) }}%</div>
             <div class="col-md-3"><strong>Lokalizacja:</strong> {{ entity.location or '-' }}</div>
-            <div class="col-md-3"><strong>Kategoria:</strong> {{ entity.category.name if entity.category else '-' }}</div>
+            <div class="col-md-3"><strong>Kategoria:</strong> {{ entity.category.name if entity.category else '-' }}
+            </div>
         </div>
     </div>
 </div>
 
 <div class="card mb-3">
     <div class="card-body">
-        <h2 class="h5 mb-3">Dodaj ruch magazynowy</h2>
+        <h2 class="h5 mb-3">Jawna korekta stanu magazynowego</h2>
+        <p class="text-muted">Tylko dla magazyniera. Wpisz stan docelowy, numer dokumentu i uzasadnienie. Zużycie
+            rozlicz przez RW; rezerwacje i zwolnienia przez zlecenie.</p>
         <form method="post" action="{{ url_for('catalog.materials_add_movement', material_id=entity.id) }}">
             {{ movement_form.hidden_tag() }}
             <div class="row g-3">
-                <div class="col-md-3">{{ movement_form.movement_type.label(class="form-label") }}{{ movement_form.movement_type(class="form-select") }}</div>
-                <div class="col-md-2">{{ movement_form.quantity.label(class="form-label") }}{{ movement_form.quantity(class="form-control") }}</div>
-                <div class="col-md-3">{{ movement_form.reference_type.label(class="form-label") }}{{ movement_form.reference_type(class="form-control") }}</div>
-                <div class="col-md-2">{{ movement_form.reference_id.label(class="form-label") }}{{ movement_form.reference_id(class="form-control") }}</div>
+                <div class="col-md-3">{{ movement_form.movement_type.label(class="form-label") }}{{
+                    movement_form.movement_type(class="form-select") }}</div>
+                <div class="col-md-2">{{ movement_form.quantity.label(class="form-label") }}{{
+                    movement_form.quantity(class="form-control") }}</div>
+                <div class="col-md-3">{{ movement_form.reference_type.label(class="form-label") }}{{
+                    movement_form.reference_type(class="form-control") }}</div>
+                <div class="col-md-2">{{ movement_form.reference_id.label(class="form-label") }}{{
+                    movement_form.reference_id(class="form-control") }}</div>
                 <div class="col-md-2">{{ movement_form.submit(class="btn btn-primary mt-4") }}</div>
-                <div class="col-12">{{ movement_form.note.label(class="form-label") }}{{ movement_form.note(class="form-control", rows=2) }}</div>
+                <div class="col-12">{{ movement_form.note.label(class="form-label") }}{{
+                    movement_form.note(class="form-control", rows=2) }}</div>
             </div>
         </form>
     </div>
@@ -52,7 +63,15 @@
         {% if entity.usages %}
         <div class="table-responsive">
             <table class="table table-sm table-striped align-middle mb-0">
-                <thead><tr><th>Zlecenie</th><th>Ilość</th><th>Wartość netto</th><th>VAT</th><th>Brutto</th></tr></thead>
+                <thead>
+                    <tr>
+                        <th>Zlecenie</th>
+                        <th>Ilość</th>
+                        <th>Wartość netto</th>
+                        <th>VAT</th>
+                        <th>Brutto</th>
+                    </tr>
+                </thead>
                 <tbody>
                     {% for row in entity.usages %}
                     <tr>
@@ -78,7 +97,16 @@
         {% if entity.movements %}
         <div class="table-responsive">
             <table class="table table-sm table-striped align-middle mb-0">
-                <thead><tr><th>Data</th><th>Typ</th><th>Ilość</th><th>Stan przed</th><th>Stan po</th><th>Referencja</th></tr></thead>
+                <thead>
+                    <tr>
+                        <th>Data</th>
+                        <th>Typ</th>
+                        <th>Ilość</th>
+                        <th>Stan przed</th>
+                        <th>Stan po</th>
+                        <th>Referencja</th>
+                    </tr>
+                </thead>
                 <tbody>
                     {% for row in entity.movements %}
                     <tr>
@@ -96,7 +124,8 @@
         {% else %}
         <p class="text-muted mb-0">Brak historii ruchów.</p>
         {% endif %}
-        <form class="mt-3" method="post" action="{{ url_for('catalog.materials_delete', material_id=entity.id) }}" onsubmit="return confirm('Usunąć materiał?');">
+        <form class="mt-3" method="post" action="{{ url_for('catalog.materials_delete', material_id=entity.id) }}"
+            onsubmit="return confirm('Usunąć materiał?');">
             <button type="submit" class="btn btn-outline-danger">Usuń</button>
         </form>
     </div>

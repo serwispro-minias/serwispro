@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import date, datetime
 
 import pytest
@@ -10,11 +11,13 @@ from app.extensions import db
 from app.models.branch import Branch
 from app.models.customer import Customer
 from app.models.device import Device
+from app.models.purchase_request import PurchaseRequest
 from app.models.service_estimate import ServiceEstimate
 from app.models.service_estimate_item import ServiceEstimateItem
 from app.models.service_order import ServiceOrder
 from app.models.service_order_action import ServiceOrderAction
-from app.models.purchase_request import PurchaseRequest
+from app.models.service_order_number_counter import ServiceOrderNumberCounter
+from app.models.service_order_status_history import ServiceOrderStatusHistory
 from app.models.user import User
 
 
@@ -27,6 +30,8 @@ def device_history_schema(app):
                 Device.__table__,
                 ServiceOrder.__table__,
                 ServiceOrderAction.__table__,
+                ServiceOrderStatusHistory.__table__,
+                ServiceOrderNumberCounter.__table__,
                 ServiceEstimate.__table__,
                 ServiceEstimateItem.__table__,
                 PurchaseRequest.__table__,
@@ -41,6 +46,8 @@ def device_history_schema(app):
             bind=db.engine,
             tables=[
                 ServiceOrderAction.__table__,
+                ServiceOrderStatusHistory.__table__,
+                ServiceOrderNumberCounter.__table__,
                 ServiceOrder.__table__,
                 Device.__table__,
                 ServiceEstimateItem.__table__,
@@ -325,5 +332,124 @@ def test_order_details_contains_device_history_link(auth_client, app, company_id
 
     assert response.status_code == 200
     body = response.get_data(as_text=True)
-    assert "Historia tego urządzenia" in body
+    assert "Historia tego urządzenia" in " ".join(body.split())
     assert f"/devices/{device_id}?tab=history" in body
+
+
+def test_create_order_auto_numbers_assigns_device_and_queues_one_time_print_prompt(auth_client, app, company_id, device_history_schema, monkeypatch):
+    with app.app_context():
+        customer_id, device_id = _create_customer_and_device(company_id=company_id, serial="SN-NEW-ORDER")
+        device = db.session.get(Device, device_id)
+        assert device is not None
+        device.customer_id = None
+        db.session.commit()
+
+    from app.orders import routes as orders_routes
+
+    monkeypatch.setattr(orders_routes, "_ensure_workflow_seed", lambda **kwargs: False)
+    monkeypatch.setattr(orders_routes.service, "get_status_history", lambda order_id, company_id: [])
+    monkeypatch.setattr(orders_routes.notification_service, "list_messages_for_order", lambda order_id, company_id, branch_id: [])
+
+    response = auth_client.post(
+        "/orders/new",
+        data={
+            "customer_id": str(customer_id),
+            "device_id": str(device_id),
+            "intake_serial_number": "INTAKE-SERIAL-42",
+            "order_number": "FORGED-MANUAL-NUMBER",
+            "order_type": "STANDARD",
+            "intake_date": "2026-10-24",
+            "status": "RECEIVED",
+            "priority": "NORMAL",
+            "issue_description": "Test order creation",
+        },
+        follow_redirects=False,
+    )
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/orders/1")
+    with auth_client.session_transaction() as session:
+        assert session["order_print_prompts"] == [1]
+
+    with app.app_context():
+        created = db.session.get(ServiceOrder, 1)
+        assigned = db.session.get(Device, device_id)
+        assert created is not None
+        assert created.order_number == "ZL/2026/000001"
+        assert created.order_number != "FORGED-MANUAL-NUMBER"
+        assert created.intake_serial_number == "INTAKE-SERIAL-42"
+        assert assigned is not None and assigned.customer_id is None
+        assert assigned.serial_number == "SN-NEW-ORDER"
+
+    details = auth_client.get("/orders/1")
+    body = details.get_data(as_text=True)
+    assert "Drukować dokument przyjęcia?" in body
+    assert "INTAKE-SERIAL-42" in body
+    assert 'data-print-intake-action="print"' in body
+    assert 'data-action-url="/orders/1/print/intake?mode=inline"' in body
+    assert 'data-print-intake-action="print-photos"' in body
+    assert 'data-action-url="/orders/1/print/intake?mode=inline&amp;include_photos=1"' in body
+    assert 'data-print-intake-action="skip"' in body
+    assert 'data-action-url="/orders/"' in body
+    refreshed = auth_client.get("/orders/1")
+    assert "Drukować dokument przyjęcia?" not in refreshed.get_data(as_text=True)
+
+
+def test_invalid_new_order_preserves_date_and_optional_blank_serial(auth_client, app, company_id, device_history_schema, monkeypatch):
+    with app.app_context():
+        customer_id, device_id = _create_customer_and_device(company_id=company_id, serial="SN-INVALID-ORDER")
+        device = db.session.get(Device, device_id)
+        device.customer_id = None
+        db.session.commit()
+    from app.orders import routes as orders_routes
+    monkeypatch.setattr(orders_routes, "_ensure_workflow_seed", lambda **kwargs: False)
+
+    response = auth_client.post("/orders/new", data={
+        "customer_id": str(customer_id),
+        "device_id": str(device_id),
+        "intake_serial_number": "",
+        "intake_date": "2026-09-17",
+    })
+    assert response.status_code == 200
+    body = response.get_data(as_text=True)
+    assert 'name="intake_serial_number"' in body
+    assert re.search(r'<input(?=[^>]*\bid="intake_serial_number")(?=[^>]*\bvalue="")[^>]*>', body)
+    assert re.search(r'<input(?=[^>]*\bid="intake_date")(?=[^>]*\bvalue="2026-09-17")[^>]*>', body)
+    with auth_client.session_transaction() as session:
+        assert "order_print_prompts" not in session
+    with app.app_context():
+        assert db.session.get(Device, device_id).customer_id is None
+
+
+def test_new_order_print_prompt_is_one_time_and_uses_existing_intake_route(auth_client, app, company_id, device_history_schema, monkeypatch):
+    with app.app_context():
+        customer_id, device_id = _create_customer_and_device(company_id=company_id, serial="SN-PRINT-PROMPT")
+        order_id = _create_order(
+            company_id=company_id,
+            customer_id=customer_id,
+            device_id=device_id,
+            order_number="SO-PRINT-PROMPT",
+            status="RECEIVED",
+            intake_date=date(2026, 10, 24),
+            issue_description="Test print prompt",
+            repair_description="Test",
+        )
+        db.session.commit()
+
+    from app.orders import routes as orders_routes
+
+    monkeypatch.setattr(orders_routes.service, "get_status_history", lambda order_id, company_id: [])
+    monkeypatch.setattr(orders_routes.notification_service, "list_messages_for_order", lambda order_id, company_id, branch_id: [])
+    with auth_client.session_transaction() as session:
+        session["order_print_prompts"] = [order_id]
+
+    first = auth_client.get(f"/orders/{order_id}")
+    body = first.get_data(as_text=True)
+    assert "Drukować dokument przyjęcia?" in body
+    assert 'data-print-intake-action="print"' in body
+    assert f'data-action-url="/orders/{order_id}/print/intake?mode=inline"' in body
+    assert 'data-print-intake-action="print-photos"' in body
+    assert 'data-print-intake-action="skip"' in body
+    assert 'data-action-url="/orders/"' in body
+
+    refreshed = auth_client.get(f"/orders/{order_id}")
+    assert "Drukować dokument przyjęcia?" not in refreshed.get_data(as_text=True)

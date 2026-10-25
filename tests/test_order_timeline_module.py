@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import re
 from datetime import date
 
 import pytest
@@ -13,7 +14,10 @@ from app.models.inventory_part import InventoryPart
 from app.models.inventory_stock_operation import InventoryStockOperation
 from app.models.service_order import ServiceOrder
 from app.models.service_order_part_usage import ServiceOrderPartUsage
-from app.models.service_order_timeline import ServiceOrderTimelineAttachment, ServiceOrderTimelineEntry
+from app.models.service_order_timeline import (
+    ServiceOrderTimelineAttachment,
+    ServiceOrderTimelineEntry,
+)
 
 
 @pytest.fixture()
@@ -77,7 +81,7 @@ def _create_service_order(company_id: int, branch_id: int | None = None) -> int:
         order_number="SO-TIMELINE-1",
         status="RECEIVED",
         priority="NORMAL",
-        intake_date=date.today(),
+        intake_date=date(2024, 2, 3),
         issue_description="Initial issue",
         company_id=company_id,
         branch_id=branch_id,
@@ -95,6 +99,7 @@ def test_order_edit_contains_timeline_tab(auth_client, app, company_id, order_ti
     assert response.status_code == 200
     body = response.get_data(as_text=True)
     assert "Historia naprawy / Czynności serwisowe" in body
+    assert re.search(r'<input(?=[^>]*\bid="intake_date")(?=[^>]*\bvalue="2024-02-03")[^>]*>', body)
 
 
 def test_add_timeline_entry_with_attachment_ajax(auth_client, app, company_id, order_timeline_schema, tmp_path):

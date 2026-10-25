@@ -7,15 +7,15 @@ import math
 from typing import Any
 
 from sqlalchemy import func, or_, select
-from sqlalchemy.sql import Select
 from sqlalchemy.orm import selectinload
+from sqlalchemy.sql import Select
 
 from app.extensions import db
 from app.models.customer import Customer
 from app.models.device import Device
 from app.models.service_order import ServiceOrder
 from app.models.service_order_status_history import ServiceOrderStatusHistory
-
+from app.utils.contextual_search import contextual_search
 
 logger = logging.getLogger(__name__)
 
@@ -59,26 +59,17 @@ class ServiceOrderRepository:
         if normalized_device_serial_number:
             filters.append(Device.serial_number.ilike(f"%{normalized_device_serial_number}%"))
         if normalized_query:
-            term = f"%{normalized_query}%"
-            filters.append(
-                or_(
-                    ServiceOrder.order_number.ilike(term),
-                    ServiceOrder.external_reference.ilike(term),
-                    ServiceOrder.issue_description.ilike(term),
-                    ServiceOrder.diagnosis.ilike(term),
-                    ServiceOrder.repair_description.ilike(term),
-                    ServiceOrder.technician_notes.ilike(term),
-                    ServiceOrder.customer_notes.ilike(term),
-                    Customer.full_name.ilike(term),
-                    Customer.short_name.ilike(term),
-                    Customer.first_name.ilike(term),
-                    Customer.last_name.ilike(term),
-                    Device.manufacturer.ilike(term),
-                    Device.model.ilike(term),
-                    Device.serial_number.ilike(term),
-                    Device.inventory_number.ilike(term),
-                )
+            search_clause = contextual_search(
+                ServiceOrder.order_number, ServiceOrder.external_reference,
+                ServiceOrder.issue_description, ServiceOrder.diagnosis,
+                ServiceOrder.repair_description, ServiceOrder.technician_notes,
+                ServiceOrder.customer_notes, Customer.full_name,
+                Customer.short_name, Customer.first_name, Customer.last_name,
+                Device.manufacturer, Device.model, Device.serial_number,
+                Device.inventory_number, query=normalized_query,
             )
+            if search_clause is not None:
+                filters.append(search_clause)
         return filters
 
     def _apply_sorting(self, query: Select[Any], *, sort_by: str, sort_dir: str) -> Select[Any]:

@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Nowe zamówienie{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3">Nowe zamówienie z katalogu</h1>
+    <a class="btn btn-outline-secondary" href="{{ url_for('purchase_orders.index') }}">Powrót</a>
+</div>
+<form method="post" id="purchase-order-form" data-shortcut-save>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="row g-3 mb-3">
+        <div class="col-md-4"><label class="form-label" for="supplier_id">Dostawca</label>
+            <select class="form-select" id="supplier_id" name="supplier_id" required>
+                <option value="">Wybierz dostawcę</option>{% for supplier in suppliers %}
+                <option value="{{ supplier.id }}">{{ supplier.code }} | {{ supplier.name }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3"><label class="form-label" for="order_date">Data zamówienia</label>
+            <input class="form-control" id="order_date" type="date" name="order_date" value="{{ today }}" required>
+        </div>
+        <div class="col-md-3"><label class="form-label" for="expected_delivery_date">Przewidywana dostawa</label>
+            <input class="form-control" id="expected_delivery_date" type="date" name="expected_delivery_date">
+        </div>
+        <div class="col-md-2 d-flex align-items-end"><button class="btn btn-outline-primary w-100" type="button"
+                id="add-product">+ Dodaj produkt</button></div>
+    </div>
+    <div class="border rounded p-3 mb-3 d-none" id="product-selector" data-search-picker data-trigger-id="add-product">
+        <label class="form-label" for="product-search">Szukaj części</label>
+        <input class="form-control" id="product-search" autocomplete="off" placeholder="Kod, nazwa, EAN..."
+            role="combobox" aria-expanded="false" aria-controls="product-results" data-keyboard-listbox-input
+            data-live-search-url="{{ url_for('catalog.parts_search') }}" data-result-limit="20" data-min-length="1">
+        <div class="list-group mt-2" id="product-results" role="listbox"></div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-striped align-middle" id="order-items">
+            <thead>
+                <tr>
+                    <th>Produkt</th>
+                    <th>Stan</th>
+                    <th>Ilość</th>
+                    <th>Cena netto / szt.</th>
+                    <th>Wartość netto</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+    <div class="text-muted mb-3" id="empty-items">Dodaj produkt z katalogu, aby rozpocząć zamówienie.</div>
+    <div class="mb-3"><label class="form-label" for="notes">Uwagi</label><textarea class="form-control" id="notes"
+            name="notes" rows="3"></textarea></div>
+    <button class="btn btn-primary" type="submit" data-shortcut-save-submit>Utwórz zamówienie</button>
+</form>
+<script>
+    (() => {
+        const selector = document.getElementById('product-selector');
+        const search = document.getElementById('product-search');
+        const tbody = document.querySelector('#order-items tbody');
+        const empty = document.getElementById('empty-items');
+        const renumber = () => {
+            tbody.querySelectorAll('tr').forEach((row, index) => {
+                row.querySelectorAll('[data-field]').forEach(input => input.name = `items-${index}-${input.dataset.field}`);
+            });
+            empty.classList.toggle('d-none', tbody.children.length > 0);
+        };
+        const addProduct = product => {
+            if (tbody.querySelector(`tr[data-product-id="${product.id}"]`)) return;
+            const row = document.createElement('tr');
+            row.dataset.productId = product.id;
+            row.innerHTML = '<td></td><td></td><td><input class="form-control" type="number" min="1" step="1" value="1" data-field="quantity_ordered" required></td><td><input class="form-control" type="number" min="0" step="0.01" data-field="unit_price_net" required></td><td class="line-total">0.00</td><td><input type="hidden" data-field="part_id"><button class="btn btn-sm btn-outline-danger" type="button">Usuń</button></td>';
+            row.cells[0].textContent = `${product.code} | ${product.name}`;
+            row.cells[1].textContent = String(product.current_stock ?? 0);
+            row.querySelector('[data-field="part_id"]').value = product.id;
+            row.querySelector('[data-field="unit_price_net"]').value = product.purchase_price_net || '0.00';
+            const recalc = () => row.querySelector('.line-total').textContent = (Number(row.querySelector('[data-field="quantity_ordered"]').value || 0) * Number(row.querySelector('[data-field="unit_price_net"]').value || 0)).toFixed(2);
+            row.querySelectorAll('input[type="number"]').forEach(input => input.addEventListener('input', recalc));
+            row.querySelector('button').addEventListener('click', () => { row.remove(); renumber(); });
+            tbody.appendChild(row);
+            renumber();
+            recalc();
+        };
+        search.addEventListener('live-search:select', event => {
+            addProduct(event.detail);
+            selector.classList.add('d-none');
+            search.value = '';
+        });
+        document.getElementById('add-product').addEventListener('click', () => {
+            selector.classList.remove('d-none');
+            search.focus();
+        });
+        document.getElementById('purchase-order-form').addEventListener('submit', event => {
+            if (!tbody.children.length) {
+                event.preventDefault();
+                empty.classList.remove('d-none');
+                empty.classList.add('text-danger');
+            }
+        });
+    })();
+</script>
+{% endblock %}

@@ -93,6 +93,9 @@ def post(issue_id):
 def issue_order(service_order_id):
     company_id = _company_id()
     if company_id is None: abort(404)
+    form = StockIssuePostForm()
+    if not form.validate_on_submit():
+        abort(400)
     quantities = {}
     for key, value in request.form.items():
         if key.startswith("reservation_") and value:

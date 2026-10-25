@@ -4,7 +4,7 @@ from datetime import date
 
 from flask import abort, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import selectinload
 
 from app.extensions import db
@@ -101,10 +101,19 @@ def create(purchase_order_id: int):
     company_id = _company_id()
     if company_id is None:
         abort(404)
-    order = db.session.scalar(select(PurchaseOrder).options(selectinload(PurchaseOrder.items)).where(PurchaseOrder.id == purchase_order_id, PurchaseOrder.company_id == company_id, PurchaseOrder.is_active.is_(True)))
+    try:
+        goods_receipt_service._assert_view(current_user)
+    except GoodsReceiptError:
+        abort(403)
+    order_query = select(PurchaseOrder).options(selectinload(PurchaseOrder.items)).where(PurchaseOrder.id == purchase_order_id, PurchaseOrder.company_id == company_id, PurchaseOrder.is_active.is_(True))
+    role_names = {(role.name or "").strip().lower() for role in getattr(current_user, "roles", [])}
+    if _branch_id() is not None and "administrator" not in role_names:
+        order_query = order_query.where(or_(PurchaseOrder.branch_id == _branch_id(), PurchaseOrder.branch_id.is_(None)))
+    order = db.session.scalar(order_query)
     if order is None:
         abort(404)
-    if request.method == "POST":
+    form = GoodsReceiptAcceptForm()
+    if form.validate_on_submit():
         items = []
         for item in order.items:
             quantity = request.form.get(f"quantity_{item.id}")

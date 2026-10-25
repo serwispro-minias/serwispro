@@ -8,52 +8,76 @@
         <h1 class="h3">Katalog części</h1>
         <small class="text-muted">Pozycji: {{ parts["total"] }}</small>
     </div>
-    <a class="btn btn-primary" href="{{ url_for('catalog.parts_create') }}">Nowa część</a>
+    <a class="btn btn-primary" href="{{ url_for('catalog.parts_create') }}" data-shortcut-insert
+        data-shortcut-hint="Dodaj produkt (Insert)">Nowa część</a>
 </div>
 
-<form method="get" class="mb-3 row g-2 align-items-end">
+<form method="get" class="mb-3 row g-2 align-items-end" data-live-filter data-live-target="#live-results">
     <div class="col-md-5">
-        {{ search_form.q(class="form-control", placeholder="Szukaj po kodzie lub nazwie") }}
+        {{ search_form.q(class="form-control", placeholder="Szukaj po kodzie, nazwie lub EAN", **{"data-main-search":
+        "", "role": "combobox", "aria-expanded": "false", "aria-controls": "product-suggestions",
+        "data-keyboard-listbox-input": "", "data-live-search-url": url_for('catalog.parts_search'), "data-result-limit":
+        "20", "data-min-length": "2", "data-navigate-on-select": ""}) }}
+        <div class="list-group contextual-search-list d-none" id="product-suggestions" role="listbox"></div>
     </div>
-    <div class="col-md-3"><label class="form-label" for="category_id">Kategoria</label><select class="form-select" id="category_id" name="category_id">{% for value, label in category_choices %}<option value="{{ value if value else '' }}" {% if selected_category_id == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
-    <div class="col-md-2"><label class="form-label" for="sort_by">Sortuj</label><select class="form-select" id="sort_by" name="sort_by"><option value="name" {% if sort_by == 'name' %}selected{% endif %}>Nazwa</option><option value="code" {% if sort_by == 'code' %}selected{% endif %}>Kod</option><option value="current_stock" {% if sort_by == 'current_stock' %}selected{% endif %}>Stan</option><option value="sale_price_net" {% if sort_by == 'sale_price_net' %}selected{% endif %}>Cena</option></select></div>
-    <div class="col-md-1"><label class="form-label" for="sort_dir">Kierunek</label><select class="form-select" id="sort_dir" name="sort_dir"><option value="asc" {% if sort_dir == 'asc' %}selected{% endif %}>A-Z</option><option value="desc" {% if sort_dir == 'desc' %}selected{% endif %}>Z-A</option></select></div>
+    <div class="col-md-3"><label class="form-label" for="category_id">Kategoria</label><select class="form-select"
+            id="category_id" name="category_id">{% for value, label in category_choices %}<option
+                value="{{ value if value else '' }}" {% if selected_category_id==value %}selected{% endif %}>{{ label }}
+            </option>{% endfor %}</select></div>
+    <div class="col-md-2"><label class="form-label" for="sort_by">Sortuj</label><select class="form-select" id="sort_by"
+            name="sort_by">
+            <option value="name" {% if sort_by=='name' %}selected{% endif %}>Nazwa</option>
+            <option value="code" {% if sort_by=='code' %}selected{% endif %}>Kod</option>
+            <option value="current_stock" {% if sort_by=='current_stock' %}selected{% endif %}>Stan</option>
+            <option value="sale_price_net" {% if sort_by=='sale_price_net' %}selected{% endif %}>Cena</option>
+        </select></div>
+    <div class="col-md-1"><label class="form-label" for="sort_dir">Kierunek</label><select class="form-select"
+            id="sort_dir" name="sort_dir">
+            <option value="asc" {% if sort_dir=='asc' %}selected{% endif %}>A-Z</option>
+            <option value="desc" {% if sort_dir=='desc' %}selected{% endif %}>Z-A</option>
+        </select></div>
     <div class="col-md-1 d-grid"><button class="btn btn-secondary" type="submit">Szukaj</button></div>
 </form>
 
-{% if parts["items"] %}
-<div class="table-responsive">
-    <table class="table table-striped table-hover align-middle">
-        <thead>
-            <tr>
-                <th>Kod</th>
-                <th>Nazwa</th>
-                <th>Kategoria</th>
-                <th>Stan</th>
-                <th>Cena netto</th>
-                <th>Akcje</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for item in parts["items"] %}
-            <tr>
-                <td>{{ item.code }}</td>
-                <td>{{ item.name }}</td>
-                <td>{{ item.category.name if item.category else '-' }}</td>
-                <td>{{ item.current_stock }} szt.</td>
-                <td>{{ '%.2f'|format(item.sale_price_net) }} PLN</td>
-                <td>
-                    <div class="btn-group btn-group-sm">
-                        <a class="btn btn-outline-primary" href="{{ url_for('catalog.parts_details', part_id=item.id) }}">Karta</a>
-                        <a class="btn btn-outline-secondary" href="{{ url_for('catalog.parts_edit', part_id=item.id) }}">Edytuj</a>
-                    </div>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+<div id="live-results" data-live-results aria-live="polite">
+    {% if parts["items"] %}
+    <div class="table-responsive">
+        <table class="table table-striped table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>Kod</th>
+                    <th>Nazwa</th>
+                    <th>Kategoria</th>
+                    <th>Stan</th>
+                    <th>Cena netto</th>
+                    <th>Akcje</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in parts["items"] %}
+                <tr>
+                    <td>{{ item.code }}</td>
+                    <td>{{ item.name }}</td>
+                    <td>{{ item.category.name if item.category else '-' }}</td>
+                    <td>{{ item.current_stock }} szt.</td>
+                    <td>{{ '%.2f'|format(item.sale_price_net) }} PLN</td>
+                    <td>
+                        <div class="btn-group btn-group-sm">
+                            <a class="btn btn-outline-primary"
+                                href="{{ url_for('catalog.parts_details', part_id=item.id) }}">Karta</a>
+                            <a class="btn btn-outline-secondary"
+                                href="{{ url_for('catalog.parts_edit', part_id=item.id) }}">Edytuj</a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="card">
+        <div class="card-body">Brak części.</div>
+    </div>
+    {% endif %}
 </div>
-{% else %}
-<div class="card"><div class="card-body">Brak części.</div></div>
-{% endif %}
 {% endblock %}

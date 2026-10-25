@@ -12,6 +12,7 @@ from app.models.branch import Branch
 from app.models.catalog_part import CatalogPart
 from app.models.part_demand import PartDemand, PartDemandStatusEnum
 from app.models.service_order import ServiceOrder
+from app.utils.contextual_search import contextual_search
 
 
 @dataclass(slots=True)
@@ -68,16 +69,8 @@ class PartDemandRepository:
         if expected_date_to:
             query = query.where(PartDemand.expected_date <= expected_date_to)
         if query_text:
-            like_pattern = f"%{query_text.strip()}%"
             query = query.join(PartDemand.service_order).join(PartDemand.inventory_item)
-            query = query.where(
-                or_(
-                    ServiceOrder.order_number.ilike(like_pattern),
-                    CatalogPart.code.ilike(like_pattern),
-                    CatalogPart.name.ilike(like_pattern),
-                    PartDemand.notes.ilike(like_pattern),
-                )
-            )
+            query = query.where(contextual_search(ServiceOrder.order_number, CatalogPart.code, CatalogPart.name, PartDemand.notes, query=query_text))
 
         return list(db.session.scalars(query.order_by(PartDemand.created_at.desc(), PartDemand.id.desc())).all())
 

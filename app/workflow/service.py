@@ -11,6 +11,7 @@ from app.models.workflow_status import WorkflowStatus
 from app.models.workflow_transition import WorkflowTransition
 from app.notifications import CHANNEL_EMAIL, CHANNEL_SMS, NotificationError, NotificationService
 from app.service_orders.repository import ServiceOrderRepository
+from app.service_orders.status_retention import update_terminal_status_entry_time
 
 from .exceptions import WorkflowNotFoundError, WorkflowPermissionError, WorkflowValidationError
 from .repository import WorkflowRepository
@@ -199,8 +200,9 @@ class WorkflowService:
         previous = order.status
         order.status = target_status_code
         order.updated_by = getattr(actor, "id", None)
+        update_terminal_status_entry_time(order, old_status=previous, new_status=target_status_code)
         if target_status_code in {"ISSUED", "CLOSED"} and order.finished_at is None:
-            order.finished_at = datetime.now(timezone.utc)
+            order.finished_at = datetime.now(timezone.utc).replace(tzinfo=None)
 
         db.session.add(order)
         db.session.flush()

@@ -129,6 +129,9 @@ def test_manual_rw_draft_posts_once_without_service_order(app, stock_issue_schem
     with app.app_context():
         company_id = int(app.config["TEST_COMPANY_ID"])
         _, part, _, _ = data(company_id)
+        # A manual unrelated issue cannot spend stock held for another order.
+        db.session.query(ServiceOrderPartReservation).update({"status": "RELEASED", "is_active": False})
+        db.session.commit()
         service = StockIssueService()
         issue = service.create_issue(items=[{"inventory_item_id": part.id, "quantity": 2}], company_id=company_id, branch_id=None, actor=actor())
         assert issue.service_order_id is None
@@ -170,5 +173,9 @@ def test_rw_create_form_route_renders(auth_client, stock_issue_schema):
     assert response.status_code == 200
     assert b"Nowe RW" in response.data
     assert b"+ Dodaj asortyment" in response.data
+    assert b"data-shortcut-save" in response.data
+    assert b"data-shortcut-save-submit" in response.data
+    assert b"data-shortcut-insert" in response.data
+    assert b"Alt + D" not in response.data
     assert code not in response.data
 

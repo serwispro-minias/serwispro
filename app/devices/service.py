@@ -22,10 +22,12 @@ class DeviceService:
     def __init__(self, repository: DeviceRepository) -> None:
         self.repository = repository
 
-    def get_device(self, device_id: int, company_id: int | None = None) -> Device | None:
+    def get_device(self, device_id: int, company_id: int | None = None, *, allow_assigned: bool = True) -> Device | None:
         """Return one active device by id."""
-
-        return self.repository.get_by_id(device_id, company_id=company_id)
+        device = self.repository.get_by_id(device_id, company_id=company_id)
+        if device is not None and device.customer_id is not None and not allow_assigned:
+            return None
+        return device
 
     def list_devices(
         self,
@@ -33,10 +35,11 @@ class DeviceService:
         page: int = 1,
         per_page: int = 20,
         company_id: int | None = None,
+        unassigned_only: bool = True,
     ) -> dict[str, Any]:
         """Return paginated list of active devices."""
 
-        return self.repository.paginate(page=page, per_page=per_page, company_id=company_id)
+        return self.repository.paginate(page=page, per_page=per_page, company_id=company_id, unassigned_only=unassigned_only)
 
     def search_devices(
         self,
@@ -45,31 +48,33 @@ class DeviceService:
         page: int = 1,
         per_page: int = 20,
         company_id: int | None = None,
+        unassigned_only: bool = True,
     ) -> dict[str, Any]:
         """Search active devices with pagination."""
 
         if not query or not query.strip():
-            return self.list_devices(page=page, per_page=per_page, company_id=company_id)
+            return self.list_devices(page=page, per_page=per_page, company_id=company_id, unassigned_only=unassigned_only)
 
         return self.repository.search(
             query=query,
             page=page,
             per_page=per_page,
             company_id=company_id,
+            unassigned_only=unassigned_only,
         )
 
-    def create_device(self, data: dict[str, Any], company_id: int | None) -> Device:
-        """Create a device and commit transaction."""
+    def create_device(
+        self,
+        data: dict[str, Any],
+        company_id: int | None,
+    ) -> Device:
+        """Create a device catalog record with only catalog attributes."""
 
         if company_id is None:
             raise DeviceValidationError("Brak identyfikatora firmy.")
 
         payload = self._filter_payload(data)
-        if payload.get("customer_id") is None:
-            raise DeviceValidationError("Wybierz klienta.")
-
         payload["company_id"] = company_id
-        self._validate_customer_scope(payload["customer_id"], company_id)
 
         device = self.repository.create(payload)
         db.session.commit()
@@ -80,17 +85,18 @@ class DeviceService:
         device_id: int,
         data: dict[str, Any],
         company_id: int | None,
+        *,
+        allow_assigned: bool = False,
     ) -> Device:
         """Update a device and commit transaction."""
-
-        payload = self._filter_payload(data)
-        if payload.get("customer_id") is None:
-            raise DeviceValidationError("Wybierz klienta.")
 
         if company_id is None:
             raise DeviceValidationError("Brak identyfikatora firmy.")
 
-        self._validate_customer_scope(payload["customer_id"], company_id)
+        existing = self.repository.get_by_id(device_id, company_id=company_id)
+        if existing is None:
+            raise DeviceNotFoundError(f"Urzadzenie o id {device_id} nie istnieje.")
+        payload = self._filter_payload(data)
         device = self.repository.update(device_id, payload, company_id=company_id)
         if device is None:
             raise DeviceNotFoundError(f"Urzadzenie o id {device_id} nie istnieje.")
@@ -104,6 +110,8 @@ class DeviceService:
         device = self.repository.get_by_id(device_id, company_id=company_id)
         if device is None:
             raise DeviceNotFoundError(f"Urzadzenie o id {device_id} nie istnieje.")
+        if device.customer_id is not None:
+            raise DeviceValidationError("Urządzenie przypisane do klienta nie może być usunięte z kartoteki nieprzypisanych urządzeń.")
 
         self.repository.soft_delete(device_id, company_id=company_id)
         db.session.commit()
@@ -197,46 +205,17 @@ class DeviceService:
             "technician_map": technician_map,
         }
 
-    def _validate_customer_scope(self, customer_id: int, company_id: int) -> None:
-        customer = db.session.scalar(
-            select(Customer)
-            .where(Customer.id == customer_id)
-            .where(Customer.company_id == company_id)
-            .where(Customer.is_active.is_(True))
-        )
-        if customer is None:
-            raise DeviceValidationError("Wybrany klient nie istnieje lub jest nieaktywny.")
-
     def _filter_payload(self, data: dict[str, Any]) -> dict[str, Any]:
         allowed_keys = {
-            "customer_id",
             "manufacturer",
             "model",
-            "serial_number",
-            "inventory_number",
             "device_type",
-            "purchase_date",
-            "warranty_until",
-            "password",
-            "condition_description",
-            "accessories",
-            "notes",
             "company_id",
         }
 
         payload = {key: value for key, value in data.items() if key in allowed_keys}
 
-        for key in [
-            "manufacturer",
-            "model",
-            "serial_number",
-            "inventory_number",
-            "device_type",
-            "password",
-            "condition_description",
-            "accessories",
-            "notes",
-        ]:
+        for key in ["manufacturer", "model", "device_type"]:
             value = payload.get(key)
             if isinstance(value, str):
                 payload[key] = value.strip() or None

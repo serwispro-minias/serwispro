@@ -25,7 +25,8 @@
                     </tr>
                 </thead>
                 <tbody>{% for item in issue.items %}<tr>
-                        <td>{{ item.inventory_item.code }} | {{ item.inventory_item.name }}</td>
+                        {% set product = item.material if item.material_id else item.inventory_item %}
+                        <td>{{ product.code }} | {{ product.name }}</td>
                         <td>{{ item.quantity_issued }}</td>
                         <td>{{ item.demand.id if item.demand else '-' }}</td>
                         <td>{{ item.reservation_id or '-' }}</td>

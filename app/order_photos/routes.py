@@ -2,15 +2,35 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from flask import abort, current_app, flash, redirect, render_template, request, send_file, url_for
+from flask import (
+    abort,
+    current_app,
+    flash,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    send_file,
+    url_for,
+)
 from flask_login import current_user, login_required
 from sqlalchemy.exc import OperationalError
 
 from . import bp
-from .exceptions import ServiceOrderPhotoNotFoundError, ServiceOrderPhotoPermissionError, ServiceOrderPhotoValidationError
-from .forms import PhotoAnnotationCreateForm, PhotoAnnotationDeleteForm, PhotoAnnotationUpdateForm, ServiceOrderPhotoDeleteForm, ServiceOrderPhotoFilterForm, ServiceOrderPhotoUploadForm
-from .service import ServiceOrderPhotoService
-
+from .exceptions import (
+    ServiceOrderPhotoNotFoundError,
+    ServiceOrderPhotoPermissionError,
+    ServiceOrderPhotoValidationError,
+)
+from .forms import (
+    PhotoAnnotationCreateForm,
+    PhotoAnnotationDeleteForm,
+    PhotoAnnotationUpdateForm,
+    ServiceOrderPhotoDeleteForm,
+    ServiceOrderPhotoFilterForm,
+    ServiceOrderPhotoUploadForm,
+)
+from .service import MAX_UPLOAD_REQUEST_BYTES, ServiceOrderPhotoService
 
 service = ServiceOrderPhotoService()
 
@@ -24,11 +44,7 @@ def _branch_id() -> int | None:
 
 
 def _is_customer_portal_role() -> bool:
-    try:
-        role_names = {(role.name or "").strip().lower() for role in getattr(current_user, "roles", [])}
-    except OperationalError:
-        return False
-    return "klient" in role_names or "customer" in role_names
+    return service.is_customer_portal_user()
 
 
 def _upload_root() -> Path:
@@ -41,6 +57,8 @@ def _upload_root() -> Path:
 def _filter_form(order_id: int, *, company_id: int, branch_id: int | None) -> ServiceOrderPhotoFilterForm:
     form = ServiceOrderPhotoFilterForm(request.args, meta={"csrf": False})
     form.photo_type.choices = [("", "Wszystkie")] + service.get_type_choices()
+    if "photo_type" not in request.args:
+        form.photo_type.data = ""
     form.author_id.choices = service.author_choices(order_id=order_id, company_id=company_id, branch_id=branch_id)
     form.author_id.data = request.args.get("author_id", type=int, default=-1)
     return form
@@ -62,6 +80,7 @@ def gallery(order_id: int):
         date_from=filter_form.date_from.data,
         date_to=filter_form.date_to.data,
         author_id=filter_form.author_id.data,
+        only_customer_visible=_is_customer_portal_role(),
     )
 
     return render_template(
@@ -72,6 +91,7 @@ def gallery(order_id: int):
         annotation_type_choices=service.get_annotation_type_choices(),
         annotation_priority_choices=service.get_annotation_priority_choices(),
         upload_form=ServiceOrderPhotoUploadForm(),
+        can_manage_photos=service.can_manage_photos(),
         filter_form=filter_form,
         delete_form=ServiceOrderPhotoDeleteForm(),
         annotation_create_form=PhotoAnnotationCreateForm(),
@@ -86,9 +106,17 @@ def upload(order_id: int):
     company_id = _company_id()
     if company_id is None:
         abort(404)
+    is_xhr = request.headers.get("X-Requested-With") == "XMLHttpRequest"
+    if request.content_length and request.content_length > MAX_UPLOAD_REQUEST_BYTES:
+        if is_xhr:
+            return jsonify({"ok": False, "message": "Łączny rozmiar przesyłanych zdjęć jest zbyt duży."}), 413
+        flash("Łączny rozmiar przesyłanych zdjęć jest zbyt duży.", "danger")
+        return redirect(url_for("orders.details", order_id=order_id, tab="photos"))
 
     form = ServiceOrderPhotoUploadForm()
     if not form.validate_on_submit():
+        if is_xhr:
+            return jsonify({"ok": False, "message": "Nie udało się przesłać zdjęć. Sprawdź etap i wybrane pliki."}), 400
         flash("Nie udało się przesłać zdjęć.", "danger")
         return redirect(url_for("orders.details", order_id=order_id, tab="photos"))
 
@@ -114,12 +142,20 @@ def upload(order_id: int):
             upload_root=_upload_root(),
         )
     except ServiceOrderPhotoNotFoundError:
+        if is_xhr:
+            return jsonify({"ok": False, "message": "Nie znaleziono zlecenia."}), 404
         abort(404)
     except ServiceOrderPhotoPermissionError as exc:
+        if is_xhr:
+            return jsonify({"ok": False, "message": str(exc)}), 403
         flash(str(exc), "danger")
     except ServiceOrderPhotoValidationError as exc:
+        if is_xhr:
+            return jsonify({"ok": False, "message": str(exc)}), 400
         flash(str(exc), "danger")
     else:
+        if is_xhr:
+            return jsonify({"ok": True, "message": "Zdjęcia zostały zapisane."})
         flash("Zdjęcia zostały zapisane.", "success")
 
     return redirect(url_for("orders.details", order_id=order_id, tab="photos"))
@@ -162,18 +198,21 @@ def file(photo_id: int):
         abort(404)
 
     try:
-        row = service.get_photo(photo_id=photo_id, company_id=company_id, branch_id=_branch_id())
+        row = service.get_photo(photo_id=photo_id, company_id=company_id, branch_id=_branch_id(), for_customer=_is_customer_portal_role())
         full_path = service.resolve_original_path(upload_root=_upload_root(), photo=row)
     except (ServiceOrderPhotoNotFoundError, ServiceOrderPhotoPermissionError):
         abort(404)
 
     as_attachment = request.args.get("download", "0") == "1"
-    return send_file(
+    response = send_file(
         full_path,
         mimetype=row.mime_type,
         as_attachment=as_attachment,
         download_name=row.original_file_name,
     )
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Cache-Control"] = "private, no-store"
+    return response
 
 
 @bp.route("/<int:photo_id>/thumbnail")
@@ -184,13 +223,16 @@ def thumbnail(photo_id: int):
         abort(404)
 
     try:
-        row = service.get_photo(photo_id=photo_id, company_id=company_id, branch_id=_branch_id())
+        row = service.get_photo(photo_id=photo_id, company_id=company_id, branch_id=_branch_id(), for_customer=_is_customer_portal_role())
         full_path = service.resolve_thumbnail_path(upload_root=_upload_root(), photo=row)
     except (ServiceOrderPhotoNotFoundError, ServiceOrderPhotoPermissionError):
         abort(404)
 
     mimetype = "image/webp" if full_path.suffix.lower() == ".webp" else row.mime_type
-    return send_file(full_path, mimetype=mimetype, as_attachment=False)
+    response = send_file(full_path, mimetype=mimetype, as_attachment=False)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Cache-Control"] = "private, no-store"
+    return response
 
 
 @bp.route("/<int:photo_id>/annotations", methods=["GET"])

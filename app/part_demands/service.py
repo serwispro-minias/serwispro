@@ -16,7 +16,11 @@ from app.models.part_demand import (
 )
 from app.models.service_order import SERVICE_ORDER_PRIORITY_LABELS
 
-from .exceptions import PartDemandNotFoundError, PartDemandPermissionError, PartDemandValidationError
+from .exceptions import (
+    PartDemandNotFoundError,
+    PartDemandPermissionError,
+    PartDemandValidationError,
+)
 from .repository import PartDemandGroupedRow, PartDemandRepository
 
 
@@ -166,6 +170,7 @@ class PartDemandService:
         branch_id: int | None,
         actor_id: int | None,
         service_order_item_id: int | None = None,
+        commit: bool = True,
     ) -> ReserveShortageResult:
         if requested_quantity <= Decimal("0"):
             raise PartDemandValidationError("Ilość zapotrzebowania musi być większa od zera.")
@@ -191,7 +196,8 @@ class PartDemandService:
                 "updated_by": actor_id,
             }
             updated = self.repository.update(existing, payload)
-            db.session.commit()
+            if commit:
+                db.session.commit()
             return ReserveShortageResult(demand=updated, missing_quantity=missing)
 
         priority = self._map_order_priority(order.priority)
@@ -213,7 +219,8 @@ class PartDemandService:
                 "updated_by": actor_id,
             }
         )
-        db.session.commit()
+        if commit:
+            db.session.commit()
         return ReserveShortageResult(demand=row, missing_quantity=missing)
 
     def fulfill_demand(
@@ -230,6 +237,8 @@ class PartDemandService:
 
         if reserve_quantity <= Decimal("0"):
             raise PartDemandValidationError("Ilość przypisania musi być większa od zera.")
+        if reserve_quantity > Decimal(demand.missing_quantity):
+            raise PartDemandValidationError("Ilość przypisania przekracza brakującą ilość.")
 
         if demand.status in {PartDemandStatusEnum.DELIVERED.value, PartDemandStatusEnum.CANCELLED.value}:
             raise PartDemandValidationError("To zapotrzebowanie jest już zamknięte.")
@@ -237,16 +246,24 @@ class PartDemandService:
         # Local import avoids circular dependency with catalog module.
         from app.catalog.service import CatalogService
 
-        CatalogService().reserve_part_for_order(
+        result = CatalogService().reserve_part_for_order(
             order_id=demand.service_order_id,
             part_id=demand.inventory_item_id,
             quantity=reserve_quantity,
             user_id=getattr(actor, "id", None),
             company_id=company_id,
             branch_id=demand.branch_id,
+            create_shortage=False,
         )
 
-        total_reserved = Decimal(demand.reserved_quantity) + reserve_quantity
+        actual_reserved = Decimal(result.reservation.quantity) if result.reservation is not None else Decimal("0")
+        if demand.service_order_item_id and actual_reserved:
+            from app.models.service_order_item import ServiceOrderItem
+            item = db.session.get(ServiceOrderItem, demand.service_order_item_id)
+            if item is not None and item.company_id == company_id and item.service_order_id == demand.service_order_id:
+                item.reserved_quantity += actual_reserved
+                item.version += 1
+        total_reserved = Decimal(demand.reserved_quantity) + actual_reserved
         missing = max(Decimal("0"), Decimal(demand.requested_quantity) - total_reserved)
         status = PartDemandStatusEnum.DELIVERED.value if missing == Decimal("0") else PartDemandStatusEnum.ORDERED.value
 

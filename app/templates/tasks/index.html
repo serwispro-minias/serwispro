@@ -10,11 +10,11 @@
     </div>
 </div>
 
-<form method="get" class="card card-body mb-3">
+<form method="get" class="card card-body mb-3" data-live-filter data-live-target="#live-results">
     <div class="row g-3 align-items-end">
         <div class="col-md-3">
             {{ filter_form.q.label(class="form-label") }}
-            {{ filter_form.q(class="form-control") }}
+            {{ filter_form.q(class="form-control", **{"data-main-search": ""}) }}
         </div>
         <div class="col-md-3">
             {{ filter_form.status.label(class="form-label") }}
@@ -35,58 +35,86 @@
 </form>
 
 <div class="row g-3 mb-3">
-    <div class="col-md-2 col-6"><div class="border rounded p-3 bg-light"><div class="text-muted small">Moje</div><div class="fw-semibold">{{ dashboard.my_tasks|length }}</div></div></div>
-    <div class="col-md-2 col-6"><div class="border rounded p-3 bg-light"><div class="text-muted small">Zespołu</div><div class="fw-semibold">{{ dashboard.team_tasks|length }}</div></div></div>
-    <div class="col-md-2 col-6"><div class="border rounded p-3 bg-light"><div class="text-muted small">Zaległe</div><div class="fw-semibold text-danger">{{ dashboard.overdue_tasks|length }}</div></div></div>
-    <div class="col-md-2 col-6"><div class="border rounded p-3 bg-light"><div class="text-muted small">Na dziś</div><div class="fw-semibold">{{ dashboard.today_tasks|length }}</div></div></div>
-    <div class="col-md-2 col-6"><div class="border rounded p-3 bg-light"><div class="text-muted small">Na jutro</div><div class="fw-semibold">{{ dashboard.tomorrow_tasks|length }}</div></div></div>
+    <div class="col-md-2 col-6">
+        <div class="border rounded p-3 bg-light">
+            <div class="text-muted small">Moje</div>
+            <div class="fw-semibold">{{ dashboard.my_tasks|length }}</div>
+        </div>
+    </div>
+    <div class="col-md-2 col-6">
+        <div class="border rounded p-3 bg-light">
+            <div class="text-muted small">Zespołu</div>
+            <div class="fw-semibold">{{ dashboard.team_tasks|length }}</div>
+        </div>
+    </div>
+    <div class="col-md-2 col-6">
+        <div class="border rounded p-3 bg-light">
+            <div class="text-muted small">Zaległe</div>
+            <div class="fw-semibold text-danger">{{ dashboard.overdue_tasks|length }}</div>
+        </div>
+    </div>
+    <div class="col-md-2 col-6">
+        <div class="border rounded p-3 bg-light">
+            <div class="text-muted small">Na dziś</div>
+            <div class="fw-semibold">{{ dashboard.today_tasks|length }}</div>
+        </div>
+    </div>
+    <div class="col-md-2 col-6">
+        <div class="border rounded p-3 bg-light">
+            <div class="text-muted small">Na jutro</div>
+            <div class="fw-semibold">{{ dashboard.tomorrow_tasks|length }}</div>
+        </div>
+    </div>
 </div>
 
 <div class="card mb-3">
     <div class="card-body">
         <h5 class="card-title">Wyniki</h5>
-        {% if tasks %}
-        <div class="table-responsive">
-            <table class="table table-sm table-striped align-middle mb-0">
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>Zadanie</th>
-                        <th>Typ</th>
-                        <th>Status</th>
-                        <th>Priorytet</th>
-                        <th>Technik</th>
-                        <th>Planowany koniec</th>
-                        <th>Postęp</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for task in tasks %}
-                    <tr>
-                        <td>{{ task.id }}</td>
-                        <td>{{ task.title }}</td>
-                        <td>{{ type_labels.get(task.task_type, task.task_type) }}</td>
-                        <td>{{ status_labels.get(task.status, task.status) }}</td>
-                        <td>{{ priority_labels.get(task.priority, task.priority) }}</td>
-                        <td>
-                            {% if task.assignee %}
-                            {{ task.assignee.first_name or '' }} {{ task.assignee.last_name or '' }}
-                            {% else %}
-                            -
-                            {% endif %}
-                        </td>
-                        <td>{{ task.planned_finish or '-' }}</td>
-                        <td>{{ task.completion_percent }}%</td>
-                        <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="{{ url_for('technician_tasks.details', task_id=task.id) }}">Szczegóły</a></td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <div id="live-results" data-live-results aria-live="polite">
+            {% if tasks %}
+            <div class="table-responsive">
+                <table class="table table-sm table-striped align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Zadanie</th>
+                            <th>Typ</th>
+                            <th>Status</th>
+                            <th>Priorytet</th>
+                            <th>Technik</th>
+                            <th>Planowany koniec</th>
+                            <th>Postęp</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for task in tasks %}
+                        <tr>
+                            <td>{{ task.id }}</td>
+                            <td>{{ task.title }}</td>
+                            <td>{{ type_labels.get(task.task_type, task.task_type) }}</td>
+                            <td>{{ status_labels.get(task.status, task.status) }}</td>
+                            <td>{{ priority_labels.get(task.priority, task.priority) }}</td>
+                            <td>
+                                {% if task.assignee %}
+                                {{ task.assignee.first_name or '' }} {{ task.assignee.last_name or '' }}
+                                {% else %}
+                                -
+                                {% endif %}
+                            </td>
+                            <td>{{ task.planned_finish or '-' }}</td>
+                            <td>{{ task.completion_percent }}%</td>
+                            <td class="text-end"><a class="btn btn-sm btn-outline-primary"
+                                    href="{{ url_for('technician_tasks.details', task_id=task.id) }}">Szczegóły</a></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted mb-0">Brak zadań spełniających kryteria.</p>
+            {% endif %}
         </div>
-        {% else %}
-        <p class="text-muted mb-0">Brak zadań spełniających kryteria.</p>
-        {% endif %}
     </div>
 </div>
 

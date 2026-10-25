@@ -26,13 +26,18 @@ class StockIssueItem(BaseModel):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     stock_issue_id: Mapped[int] = mapped_column(ForeignKey("stock_issues.id"), nullable=False)
-    inventory_item_id: Mapped[int] = mapped_column(ForeignKey("inventory_items.id"), nullable=False)
+    inventory_item_id: Mapped[int | None] = mapped_column(ForeignKey("inventory_items.id"), nullable=True)
+    material_id: Mapped[int | None] = mapped_column(ForeignKey("catalog_materials.id"), nullable=True)
+    service_order_item_id: Mapped[int | None] = mapped_column(ForeignKey("service_order_items.id"), nullable=True)
+    settlement_version: Mapped[int | None] = mapped_column(nullable=True)
     part_demand_id: Mapped[int | None] = mapped_column(ForeignKey("part_demands.id"), nullable=True)
     reservation_id: Mapped[int | None] = mapped_column(ForeignKey("service_order_part_reservations.id"), nullable=True)
-    quantity_issued: Mapped[int] = mapped_column(nullable=False)
+    quantity_issued: Mapped[Decimal] = mapped_column(Numeric(12, 3), nullable=False)
 
     stock_issue: Mapped["StockIssue"] = relationship("StockIssue", back_populates="items", lazy="select")
     inventory_item: Mapped["InventoryItem"] = relationship("InventoryItem", lazy="select")
+    material = relationship("CatalogMaterial", lazy="select")
+    order_item = relationship("ServiceOrderItem", lazy="select")
     demand: Mapped["PartDemand | None"] = relationship("PartDemand", lazy="select")
     reservation: Mapped["ServiceOrderPartReservation"] = relationship("ServiceOrderPartReservation", lazy="select")
 

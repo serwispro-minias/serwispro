@@ -1,13 +1,23 @@
 from __future__ import annotations
 
 from flask_wtf import FlaskForm
-from wtforms import BooleanField, DateField, DecimalField, HiddenField, IntegerField, MultipleFileField, SelectField, StringField, SubmitField, TextAreaField
+from wtforms import (
+    BooleanField,
+    DateField,
+    DecimalField,
+    HiddenField,
+    IntegerField,
+    MultipleFileField,
+    SelectField,
+    StringField,
+    SubmitField,
+    TextAreaField,
+)
 from wtforms.validators import DataRequired, Length, NumberRange, Optional
 
-from app.notifications.constants import CHANNEL_CHOICES
 from app.models.service_order_action import SERVICE_ORDER_ACTION_TYPE_CHOICES
 from app.models.service_order_timeline import SERVICE_ORDER_TIMELINE_TYPE_CHOICES
-
+from app.notifications.constants import CHANNEL_CHOICES
 
 ORDER_TYPE_CHOICES: list[tuple[str, str]] = [
     ("STANDARD", "Naprawa standardowa"),
@@ -16,9 +26,10 @@ ORDER_TYPE_CHOICES: list[tuple[str, str]] = [
 
 
 class OrderForm(FlaskForm):
-    customer_id = SelectField("Klient", coerce=int, validators=[DataRequired()])
-    device_id = SelectField("Urządzenie", coerce=int, validators=[DataRequired()])
-    order_number = StringField("Numer zlecenia", validators=[DataRequired(), Length(max=50)])
+    customer_id = SelectField("Klient", coerce=int, choices=[], validate_choice=False, validators=[DataRequired()])
+    device_id = SelectField("Urządzenie", coerce=int, choices=[], validate_choice=False, validators=[DataRequired()])
+    intake_serial_number = StringField("Nr seryjny", validators=[Optional(), Length(max=120)])
+    order_number = StringField("Numer zlecenia", validators=[Optional(), Length(max=50)])
     order_type = SelectField("Typ zlecenia", validators=[DataRequired()])
     intake_date = DateField("Data przyjęcia", validators=[DataRequired()], format="%Y-%m-%d")
     planned_finish_date = DateField("Termin realizacji", validators=[Optional()], format="%Y-%m-%d")
@@ -67,6 +78,7 @@ class OrderPartUsageForm(FlaskForm):
 
 
 class OrderItemForm(FlaskForm):
+    allocation_mode = SelectField("Sposób przypisania", choices=[("reserve", "Zarezerwuj dostępne"), ("direct", "Bez rezerwacji — rozlicz później")], default="reserve", validators=[Optional()])
     item_type = SelectField("Typ pozycji", validators=[DataRequired()])
     item_id = HiddenField("Wybrany element", validators=[DataRequired()])
     search_query = StringField("Szukaj", validators=[Optional(), Length(max=255)])
@@ -78,10 +90,17 @@ class OrderItemForm(FlaskForm):
 
 
 class OrderItemMovementForm(FlaskForm):
+    version = HiddenField("Wersja", validators=[DataRequired()])
+    operation = SelectField("Operacja", choices=[("release", "Zwolnij"), ("reserve", "Zarezerwuj")], default="release", validators=[Optional()])
     item_id = HiddenField("Pozycja", validators=[DataRequired()])
     quantity = DecimalField("Ilość", validators=[DataRequired(), NumberRange(min=0.001)], places=3)
     submit_use = SubmitField("Zużyj")
     submit_return = SubmitField("Zwróć")
+
+
+class ReadinessReserveForm(FlaskForm):
+    """Use the same Flask-WTF CSRF validation as other order mutations."""
+    submit = SubmitField("Zarezerwuj dostępne")
 
 
 class OrderNotificationForm(FlaskForm):

@@ -14,11 +14,6 @@ from .service import DeviceService
 service = DeviceService(DeviceRepository())
 
 
-def _set_customer_choices(form: DeviceForm, company_id: int | None) -> None:
-    choices = service.get_customer_choices(company_id)
-    form.customer_id.choices = choices
-
-
 @bp.route("/", methods=["GET"])
 @login_required
 def index():
@@ -34,12 +29,14 @@ def index():
             page=page,
             per_page=per_page,
             company_id=current_user.company_id,
+            unassigned_only=False,
         )
     else:
         devices = service.list_devices(
             page=page,
             per_page=per_page,
             company_id=current_user.company_id,
+            unassigned_only=False,
         )
 
     return render_template("devices/index.html", devices=devices, q=query)
@@ -51,13 +48,6 @@ def create():
     """Create a new device."""
 
     form = DeviceForm()
-    _set_customer_choices(form, current_user.company_id)
-
-    preselected_customer_id = request.args.get("customer_id", type=int)
-    if request.method == "GET" and preselected_customer_id is not None:
-        valid_customer_ids = {item[0] for item in form.customer_id.choices}
-        if preselected_customer_id in valid_customer_ids:
-            form.customer_id.data = preselected_customer_id
 
     if form.validate_on_submit():
         try:
@@ -79,13 +69,11 @@ def edit(device_id: int):
     if device is None:
         flash("Nie znaleziono urzadzenia.", "danger")
         return redirect(url_for("devices.index"))
-
     form = DeviceForm(obj=device)
-    _set_customer_choices(form, current_user.company_id)
 
     if form.validate_on_submit():
         try:
-            service.update_device(device_id, form.data, company_id=current_user.company_id)
+            service.update_device(device_id, form.data, company_id=current_user.company_id, allow_assigned=True)
             flash("Dane urzadzenia zostaly zaktualizowane.", "success")
             return redirect(url_for("devices.details", device_id=device_id))
         except DeviceValidationError as exc:
@@ -139,5 +127,7 @@ def delete(device_id: int):
         flash("Urzadzenie zostalo usuniete.", "success")
     except DeviceNotFoundError:
         flash("Nie znaleziono urzadzenia.", "danger")
+    except DeviceValidationError as exc:
+        flash(str(exc), "warning")
 
     return redirect(url_for("devices.index"))

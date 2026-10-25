@@ -13,9 +13,9 @@ from app.models.service_order import (
 
 from .exceptions import ServiceOrderValidationError
 
-
 _TEXT_FIELDS = (
     "order_number",
+    "intake_serial_number",
     "status",
     "priority",
     "issue_description",
@@ -62,6 +62,13 @@ class ServiceOrderValidator:
             raise ServiceOrderValidationError("Numer zlecenia jest wymagany.")
         if len(order_number) > 50:
             raise ServiceOrderValidationError("Numer zlecenia może mieć maksymalnie 50 znaków.")
+
+        intake_serial_number = data.get("intake_serial_number")
+        if intake_serial_number is not None:
+            if not isinstance(intake_serial_number, str):
+                raise ServiceOrderValidationError("Numer seryjny musi być tekstem.")
+            if len(intake_serial_number) > 120:
+                raise ServiceOrderValidationError("Numer seryjny może mieć maksymalnie 120 znaków.")
 
         status = data.get("status")
         if status not in _ALLOWED_STATUS:

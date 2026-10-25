@@ -5,11 +5,13 @@ from flask_login import current_user, login_required
 
 from app.catalog.forms import VatRateForm
 from app.extensions import db
+from app.models.company import Company
 from app.models.vat_rate import VatRate
 from app.notifications import NotificationError, NotificationService
 
 from . import bp
-from .forms import NotificationConfigForm, NotificationTemplateForm
+from .access import has_company_admin_role
+from .forms import NotificationConfigForm, NotificationTemplateForm, ServiceOrderNumberingForm
 
 notification_service = NotificationService()
 
@@ -24,6 +26,36 @@ def _branch_id() -> int | None:
 
 def _user_id() -> int | None:
     return getattr(current_user, "id", None)
+
+
+def _require_company_admin(company_id: int) -> None:
+    if not has_company_admin_role(current_user, company_id):
+        abort(403)
+
+
+@bp.route("/order-numbering", methods=["GET", "POST"])
+@login_required
+def order_numbering():
+    company_id = _company_id()
+    if company_id is None:
+        abort(404)
+    _require_company_admin(company_id)
+    company = db.session.get(Company, company_id)
+    if company is None:
+        abort(404)
+    form = ServiceOrderNumberingForm()
+    if request.method == "GET":
+        form.prefix.data = company.service_order_prefix
+        form.include_year.data = company.service_order_include_year
+        form.digits.data = company.service_order_number_digits
+    if form.validate_on_submit():
+        company.service_order_prefix = form.prefix.data.strip()
+        company.service_order_include_year = bool(form.include_year.data)
+        company.service_order_number_digits = form.digits.data
+        db.session.commit()
+        flash("Numeracja zleceń została zapisana. Wcześniejsze numery nie uległy zmianie.", "success")
+        return redirect(url_for("settings.order_numbering"))
+    return render_template("settings/order_numbering.html", form=form)
 
 
 @bp.route("/")

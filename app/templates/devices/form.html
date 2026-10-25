@@ -16,18 +16,10 @@
 
 <div class="card">
     <div class="card-body">
-        <form method="post">
+        <form method="post" data-shortcut-save>
             {{ form.hidden_tag() }}
 
             <div class="row gy-3">
-                <div class="col-md-6">
-                    {{ form.customer_id.label(class="form-label") }}
-                    {{ form.customer_id(class="form-select") }}
-                    {% if form.customer_id.errors %}
-                    <div class="form-text text-danger">{{ form.customer_id.errors[0] }}</div>
-                    {% endif %}
-                </div>
-
                 <div class="col-md-6">
                     {{ form.device_type.label(class="form-label") }}
                     {{ form.device_type(class="form-control") }}
@@ -42,50 +34,10 @@
                     {{ form.model.label(class="form-label") }}
                     {{ form.model(class="form-control") }}
                 </div>
-
-                <div class="col-md-6">
-                    {{ form.serial_number.label(class="form-label") }}
-                    {{ form.serial_number(class="form-control") }}
-                </div>
-
-                <div class="col-md-6">
-                    {{ form.inventory_number.label(class="form-label") }}
-                    {{ form.inventory_number(class="form-control") }}
-                </div>
-
-                <div class="col-md-6">
-                    {{ form.purchase_date.label(class="form-label") }}
-                    {{ form.purchase_date(class="form-control") }}
-                </div>
-
-                <div class="col-md-6">
-                    {{ form.warranty_until.label(class="form-label") }}
-                    {{ form.warranty_until(class="form-control") }}
-                </div>
-
-                <div class="col-md-6">
-                    {{ form.password.label(class="form-label") }}
-                    {{ form.password(class="form-control") }}
-                </div>
-
-                <div class="col-12">
-                    {{ form.condition_description.label(class="form-label") }}
-                    {{ form.condition_description(class="form-control", rows=3) }}
-                </div>
-
-                <div class="col-12">
-                    {{ form.accessories.label(class="form-label") }}
-                    {{ form.accessories(class="form-control", rows=3) }}
-                </div>
-
-                <div class="col-12">
-                    {{ form.notes.label(class="form-label") }}
-                    {{ form.notes(class="form-control", rows=4) }}
-                </div>
             </div>
 
             <div class="mt-4">
-                {{ form.submit(class="btn btn-primary") }}
+                {{ form.submit(class="btn btn-primary", **{"data-shortcut-save-submit": ""}) }}
             </div>
         </form>
     </div>

@@ -113,6 +113,9 @@ class CatalogService:
 
     def create_entity(self, repository: Any, data: dict[str, Any], *, company_id: int | None, branch_id: int | None) -> Any:
         data = self._sanitize_form_payload(data)
+        if repository is self.parts or repository is self.materials:
+            if _safe_decimal(data.get("current_stock")) != 0:
+                raise CatalogValidationError("Nowy produkt musi mieć stan 0. Przyjęcie wykonaj dokumentem magazynowym.")
         data.update(self._tenant_payload(company_id=company_id, branch_id=branch_id))
         data = self._normalize_foreign_keys(data)
         self._validate_part_vat(repository, data, company_id=company_id)
@@ -121,12 +124,18 @@ class CatalogService:
         db.session.commit()
         return entity
 
-    def update_entity(self, repository: Any, entity_id: int, data: dict[str, Any], *, company_id: int | None) -> Any:
+    def update_entity(self, repository: Any, entity_id: int, data: dict[str, Any], *, company_id: int | None, branch_id: int | None = None) -> Any:
         entity = repository.get(entity_id, company_id=company_id)
         if entity is None:
             raise CatalogNotFoundError("Nie znaleziono rekordu.")
 
         data = self._sanitize_form_payload(data)
+        if repository is self.parts or repository is self.materials:
+            if branch_id is not None and entity.branch_id not in {None, branch_id}:
+                raise CatalogValidationError("Produkt niedostępny w bieżącym oddziale.")
+            if "current_stock" in data and _safe_decimal(data["current_stock"]) != Decimal(entity.current_stock):
+                raise CatalogValidationError("Edycja kartoteki nie zmienia stanu. Użyj jawnej korekty lub dokumentu magazynowego.")
+            data.pop("current_stock", None)
         data = self._normalize_foreign_keys(data)
         self._validate_part_vat(repository, data, company_id=company_id)
 
@@ -168,64 +177,62 @@ class CatalogService:
         user_id: int | None,
         company_id: int | None,
         branch_id: int | None,
+        actor=None,
     ) -> CatalogStockMovement:
-        if quantity <= Decimal("0"):
-            raise CatalogValidationError("Ilość musi być większa od zera.")
+        from sqlalchemy import or_, select
 
-        tenant = self._tenant_payload(company_id=company_id, branch_id=branch_id)
+        from app.stock_issues.exceptions import StockIssuePermissionError
+        from app.stock_issues.service import stock_issue_service
 
-        if entity_type == "part":
-            part = self.parts.get(entity_id, company_id=company_id)
-            if part is None:
-                raise CatalogNotFoundError("Nie znaleziono części.")
-
-            if movement_type in {"ISSUE", "RESERVATION", "SALE", "AUTO_ISSUE"} and Decimal(part.current_stock) < quantity:
-                raise CatalogValidationError("Brak wystarczającego stanu magazynowego części.")
-
-            stock_before, stock_after = self.stock.update_part_stock(part, quantity=quantity, movement_type=movement_type)
-            movement = self.stock.create_movement(
-                {
-                    **tenant,
-                    "item_type": "PART",
-                    "part_id": part.id,
-                    "movement_type": movement_type,
-                    "quantity": quantity,
-                    "stock_before": stock_before,
-                    "stock_after": stock_after,
-                    "reference_type": reference_type,
-                    "reference_id": reference_id,
-                    "note": note,
-                    "user_id": user_id,
-                }
-            )
+        try:
+            stock_issue_service._assert_manage(actor)
+            if company_id is None or getattr(actor, "company_id", None) != company_id or getattr(actor, "branch_id", None) != branch_id:
+                raise CatalogValidationError("Nieprawidłowy zakres firmy lub oddziału użytkownika.")
+            if movement_type != "ADJUSTMENT":
+                raise CatalogValidationError("Katalog dopuszcza wyłącznie jawną korektę. Wydanie wykonaj przez RW, rezerwację i zwolnienie przez zlecenie, przyjęcie przez PZ lub bilans otwarcia.")
+            if entity_type not in {"part", "material"}:
+                raise CatalogValidationError("Nieprawidłowy typ produktu.")
+            try:
+                quantity = Decimal(str(quantity))
+            except Exception:
+                raise CatalogValidationError("Nieprawidłowy stan po korekcie.") from None
+            if not quantity.is_finite() or quantity < 0 or quantity != quantity.quantize(Decimal("0.001")):
+                raise CatalogValidationError("Stan po korekcie musi być nieujemny, do 3 miejsc po przecinku.")
+            if entity_type == "part" and quantity != quantity.to_integral_value():
+                raise CatalogValidationError("Stan części musi być całkowity.")
+            if not (note or "").strip() or not (reference_id or "").strip():
+                raise CatalogValidationError("Korekta wymaga uzasadnienia i numeru dokumentu.")
+            model = CatalogPart if entity_type == "part" else CatalogMaterial
+            query = select(model).where(model.id == entity_id, model.company_id == company_id, model.is_active.is_(True))
+            if branch_id is not None:
+                query = query.where(or_(model.branch_id == branch_id, model.branch_id.is_(None)))
+            product = db.session.scalar(query.with_for_update().execution_options(populate_existing=True))
+            if product is None:
+                raise CatalogNotFoundError("Produkt niedostępny w bieżącej firmie i oddziale.")
+            from app.inventory.reservation_service import reserved_stock
+            held = reserved_stock(item_type="PART" if entity_type == "part" else "MATERIAL", item_id=product.id, company_id=company_id)
+            if quantity < held:
+                raise CatalogValidationError("Korekta nie może obniżyć stanu poniżej aktywnych rezerwacji. Najpierw uzgodnij rezerwacje.")
+            updater = self.stock.update_part_stock if entity_type == "part" else self.stock.update_material_stock
+            before, after = updater(product, quantity=quantity, movement_type="ADJUSTMENT")
+            movement = self.stock.create_movement({
+                **self._tenant_payload(company_id=company_id, branch_id=branch_id),
+                "item_type": "PART" if entity_type == "part" else "MATERIAL",
+                "part_id" if entity_type == "part" else "material_id": product.id,
+                "movement_type": "ADJUSTMENT", "quantity": quantity,
+                "stock_before": before, "stock_after": after,
+                "reference_type": "ADJUSTMENT", "reference_id": reference_id.strip(),
+                "note": note.strip(), "user_id": getattr(actor, "id", None),
+                "created_by": getattr(actor, "id", None), "updated_by": getattr(actor, "id", None),
+            })
             db.session.commit()
             return movement
-
-        material = self.materials.get(entity_id, company_id=company_id)
-        if material is None:
-            raise CatalogNotFoundError("Nie znaleziono materiału.")
-
-        if movement_type in {"ISSUE", "AUTO_ISSUE"} and Decimal(material.current_stock) < quantity:
-            raise CatalogValidationError("Brak wystarczającego stanu magazynowego materiału.")
-
-        stock_before, stock_after = self.stock.update_material_stock(material, quantity=quantity, movement_type=movement_type)
-        movement = self.stock.create_movement(
-            {
-                **tenant,
-                "item_type": "MATERIAL",
-                "material_id": material.id,
-                "movement_type": movement_type,
-                "quantity": quantity,
-                "stock_before": stock_before,
-                "stock_after": stock_after,
-                "reference_type": reference_type,
-                "reference_id": reference_id,
-                "note": note,
-                "user_id": user_id,
-            }
-        )
-        db.session.commit()
-        return movement
+        except StockIssuePermissionError as exc:
+            db.session.rollback()
+            raise CatalogValidationError(str(exc)) from exc
+        except Exception:
+            db.session.rollback()
+            raise
 
     def reserve_part_for_order(
         self,
@@ -236,9 +243,13 @@ class CatalogService:
         user_id: int | None,
         company_id: int | None,
         branch_id: int | None,
+        create_shortage: bool = True,
+        commit: bool = True,
     ) -> ReservePartForOrderResult:
-        if quantity <= Decimal("0"):
+        if not quantity.is_finite() or quantity <= Decimal("0"):
             raise CatalogValidationError("Ilość rezerwacji musi być większa od zera.")
+        if quantity != quantity.to_integral_value():
+            raise CatalogValidationError("Ilość części musi być całkowita.")
 
         order = self.stock.get_service_order(order_id, company_id=company_id, branch_id=branch_id)
         if order is None:
@@ -247,12 +258,21 @@ class CatalogService:
         part = self.parts.get(part_id, company_id=company_id)
         if part is None:
             raise CatalogNotFoundError("Nie znaleziono części.")
+        if order.branch_id is not None and part.branch_id not in {None, order.branch_id}:
+            raise CatalogValidationError("Produkt należy do innego oddziału.")
 
-        current_stock = Decimal(part.current_stock)
+        from sqlalchemy import select
+
+        from app.inventory.reservation_service import reserved_stock
+        from app.models.catalog_part import InventoryItem
+        part = db.session.scalar(select(InventoryItem).where(InventoryItem.id == part.id).with_for_update().execution_options(populate_existing=True))
+        current_stock = max(Decimal("0"), Decimal(part.current_stock) - reserved_stock(item_type="PART", item_id=part.id, company_id=company_id))
         reserved_quantity = min(quantity, current_stock)
         missing_quantity = max(Decimal("0"), quantity - reserved_quantity)
 
         if current_stock <= Decimal("0"):
+            if not create_shortage:
+                return ReservePartForOrderResult(reservation=None, demand_id=None, demand_missing_quantity=quantity)
             if company_id is None:
                 raise CatalogValidationError("Brak kontekstu firmy dla zapotrzebowania na część.")
             from app.part_demands.service import PartDemandService
@@ -265,6 +285,7 @@ class CatalogService:
                 company_id=company_id,
                 branch_id=branch_id,
                 actor_id=user_id,
+                commit=commit,
             )
             return ReservePartForOrderResult(
                 reservation=None,
@@ -272,18 +293,14 @@ class CatalogService:
                 demand_missing_quantity=demand_result.missing_quantity,
             )
 
-        movement = self.add_stock_movement(
-            entity_type="part",
-            entity_id=part.id,
-            movement_type="RESERVATION",
-            quantity=reserved_quantity,
-            reference_type="SERVICE_ORDER",
-            reference_id=str(order.id),
-            note="Rezerwacja części dla zlecenia",
-            user_id=user_id,
-            company_id=company_id,
-            branch_id=branch_id,
-        )
+        movement = self.stock.create_movement({
+            **self._tenant_payload(company_id=company_id, branch_id=branch_id),
+            "item_type": "PART", "part_id": part.id, "movement_type": "RESERVATION",
+            "quantity": reserved_quantity, "stock_before": part.current_stock,
+            "stock_after": part.current_stock, "service_order_id": order.id,
+            "reference_type": "SERVICE_ORDER", "reference_id": str(order.id),
+            "note": "Rezerwacja bez zmiany stanu fizycznego", "user_id": user_id,
+        })
 
         reservation = self.stock.reserve_part(
             {
@@ -295,20 +312,7 @@ class CatalogService:
             }
         )
 
-        inventory_reservation = InventoryReservation()
-        inventory_reservation.inventory_item_id = part.id
-        inventory_reservation.service_order_id = order.id
-        inventory_reservation.quantity = reserved_quantity
-        inventory_reservation.reserved_by = user_id
-        inventory_reservation.status = InventoryReservationStatusEnum.RESERVED.value
-        if company_id is not None:
-            inventory_reservation.company_id = company_id
-        inventory_reservation.branch_id = branch_id
-        inventory_reservation.created_by = user_id
-        inventory_reservation.updated_by = user_id
-        db.session.add(inventory_reservation)
-
-        if missing_quantity > Decimal("0") and company_id is not None:
+        if missing_quantity > Decimal("0") and company_id is not None and create_shortage:
             from app.part_demands.service import PartDemandService
 
             demand_result = PartDemandService().create_or_update_from_shortage(
@@ -319,12 +323,14 @@ class CatalogService:
                 company_id=company_id,
                 branch_id=branch_id,
                 actor_id=user_id,
+                commit=False,
             )
             db.session.flush()
             _ = demand_result
 
         _ = movement
-        db.session.commit()
+        if commit:
+            db.session.commit()
         return ReservePartForOrderResult(
             reservation=reservation,
             demand_id=None if missing_quantity <= Decimal("0") else self._last_demand_id_for_order(order_id=order.id, company_id=company_id, branch_id=branch_id),

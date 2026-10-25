@@ -7,7 +7,7 @@
             order.supplier.name }}</small>
     </div><a class="btn btn-outline-secondary" href="{{ url_for('goods_receipts.index') }}">Powrót</a>
 </div>
-<form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<form method="post" data-shortcut-save><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="table-responsive">
         <table class="table table-striped align-middle">
             <thead>
@@ -38,6 +38,6 @@
                     <td><input class="form-control" name="notes_{{ item.id }}"></td>
                 </tr>{% endfor %}</tbody>
         </table>
-    </div><button class="btn btn-primary" type="submit">Utwórz PZ</button>
+    </div><button class="btn btn-primary" type="submit" data-shortcut-save-submit>Utwórz PZ</button>
 </form>
 {% endblock %}

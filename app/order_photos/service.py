@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import math
 import re
 from datetime import date, datetime, time, timezone
@@ -17,19 +18,35 @@ from werkzeug.utils import secure_filename
 
 from app.extensions import db
 from app.models.service_order import ServiceOrder
-from app.models.service_order_photo_annotation import PHOTO_ANNOTATION_PRIORITY_CHOICES, PHOTO_ANNOTATION_TYPE_CHOICES, PhotoAnnotation
-from app.models.service_order_photo import SERVICE_ORDER_PHOTO_TYPE_CHOICES, SERVICE_ORDER_PHOTO_TYPE_LABELS, ServiceOrderPhoto
+from app.models.service_order_photo import (
+    SERVICE_ORDER_PHOTO_TYPE_CHOICES,
+    SERVICE_ORDER_PHOTO_TYPE_LABELS,
+    ServiceOrderPhoto,
+)
+from app.models.service_order_photo_annotation import (
+    PHOTO_ANNOTATION_PRIORITY_CHOICES,
+    PHOTO_ANNOTATION_TYPE_CHOICES,
+    PhotoAnnotation,
+)
 
-from .exceptions import ServiceOrderPhotoNotFoundError, ServiceOrderPhotoPermissionError, ServiceOrderPhotoValidationError
+from .exceptions import (
+    ServiceOrderPhotoNotFoundError,
+    ServiceOrderPhotoPermissionError,
+    ServiceOrderPhotoValidationError,
+)
 from .repository import ServiceOrderPhotoRepository
-
 
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 ALLOWED_MIME = {"image/jpeg", "image/png", "image/webp"}
 MAX_UPLOAD_SIZE_BYTES = 10 * 1024 * 1024
+MAX_UPLOAD_FILES = 10
+MAX_UPLOAD_REQUEST_BYTES = MAX_UPLOAD_FILES * MAX_UPLOAD_SIZE_BYTES + 1024 * 1024
+MAX_IMAGE_PIXELS = 40_000_000
 THUMBNAIL_MAX_SIZE = (480, 480)
 IMAGE_MAX_SIZE = (2200, 2200)
 COLOR_HEX_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
+SAFE_FILE_RE = re.compile(r"^[A-Za-z0-9_.-]{1,255}$")
+logger = logging.getLogger(__name__)
 
 
 class ServiceOrderPhotoService:
@@ -61,6 +78,7 @@ class ServiceOrderPhotoService:
         date_from: date | None,
         date_to: date | None,
         author_id: int | None,
+        only_customer_visible: bool = False,
     ) -> list[ServiceOrderPhoto]:
         order = self._get_scoped_order(order_id=order_id, company_id=company_id, branch_id=branch_id)
         date_from_dt = datetime.combine(date_from, time.min) if date_from else None
@@ -73,7 +91,11 @@ class ServiceOrderPhotoService:
             date_from=date_from_dt,
             date_to=date_to_dt,
             author_id=(None if author_id in (None, -1) else author_id),
+            only_customer_visible=only_customer_visible,
         )
+
+    def can_manage_photos(self) -> bool:
+        return bool(self._role_names().intersection({"technik", "operator", "kierownik", "administrator"}))
 
     def upload_photos(
         self,
@@ -111,53 +133,59 @@ class ServiceOrderPhotoService:
         created_rows: list[ServiceOrderPhoto] = []
         base_sort_order = 0 if (main_photo_index is not None and main_photo_index >= 0) else (sort_order or 100)
 
-        for index, prepared_file in enumerate(prepared):
-            ext = prepared_file["extension"]
-            file_name = f"{uuid4().hex}{ext}"
-            full_path = photos_dir / file_name
-            thumb_path = thumbs_dir / f"{Path(file_name).stem}_thumb.webp"
+        created_paths: list[Path] = []
+        try:
+            for index, prepared_file in enumerate(prepared):
+                ext = str(prepared_file["extension"])
+                file_name = f"{uuid4().hex}{ext}"
+                full_path, thumb_path = self.photo_file_paths(upload_root=upload_root, order_id=order.id, file_name=file_name)
 
-            image = prepared_file["image"]
-            image = ImageOps.exif_transpose(image)
-            image = image.convert("RGB")
-            image.thumbnail(IMAGE_MAX_SIZE)
+                image = ImageOps.exif_transpose(prepared_file["image"])
+                image = image.convert("RGB")
+                image.thumbnail(IMAGE_MAX_SIZE)
 
-            self._save_image(image=image, target=full_path, extension=ext)
+                self._save_image(image=image, target=full_path, extension=ext)
+                created_paths.append(full_path)
+                thumb = image.copy()
+                thumb.thumbnail(THUMBNAIL_MAX_SIZE)
+                thumb.save(thumb_path, format="WEBP", quality=82, method=6)
+                created_paths.append(thumb_path)
 
-            thumb = image.copy()
-            thumb.thumbnail(THUMBNAIL_MAX_SIZE)
-            thumb.save(thumb_path, format="WEBP", quality=82, method=6)
+                width, height = image.size
+                taken_at_value = datetime.combine(taken_at, time.min) if taken_at else datetime.now(timezone.utc)
+                effective_sort = base_sort_order + index
+                if main_photo_index is not None and index == main_photo_index:
+                    effective_sort = 0
 
-            width, height = image.size
-            taken_at_value = datetime.combine(taken_at, time.min) if taken_at else datetime.now(timezone.utc)
-            effective_sort = base_sort_order + index
-            if main_photo_index is not None and index == main_photo_index:
-                effective_sort = 0
+                row = self.repository.create_photo(
+                    {
+                        "service_order_id": order.id,
+                        "photo_type": normalized_type,
+                        "title": (title or "").strip() or None,
+                        "description": (description or "").strip() or None,
+                        "file_name": file_name,
+                        "original_file_name": prepared_file["original_name"],
+                        "mime_type": prepared_file["mime_type"],
+                        "file_size": int(full_path.stat().st_size),
+                        "width": int(width),
+                        "height": int(height),
+                        "taken_at": taken_at_value,
+                        "sort_order": int(effective_sort),
+                        "is_visible_for_customer": bool(is_visible_for_customer),
+                        "company_id": company_id,
+                        "branch_id": order.branch_id,
+                        "created_by": user_id,
+                        "updated_by": user_id,
+                    }
+                )
+                created_rows.append(row)
 
-            row = self.repository.create_photo(
-                {
-                    "service_order_id": order.id,
-                    "photo_type": normalized_type,
-                    "title": (title or "").strip() or None,
-                    "description": (description or "").strip() or None,
-                    "file_name": file_name,
-                    "original_file_name": prepared_file["original_name"],
-                    "mime_type": prepared_file["mime_type"],
-                    "file_size": int(full_path.stat().st_size),
-                    "width": int(width),
-                    "height": int(height),
-                    "taken_at": taken_at_value,
-                    "sort_order": int(effective_sort),
-                    "is_visible_for_customer": bool(is_visible_for_customer),
-                    "company_id": company_id,
-                    "branch_id": order.branch_id,
-                    "created_by": user_id,
-                    "updated_by": user_id,
-                }
-            )
-            created_rows.append(row)
-
-        db.session.commit()
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            for path in created_paths:
+                path.unlink(missing_ok=True)
+            raise
         return created_rows
 
     def delete_photo(self, *, photo_id: int, company_id: int, branch_id: int | None, upload_root: Path) -> ServiceOrderPhoto:
@@ -165,19 +193,25 @@ class ServiceOrderPhotoService:
         row = self._get_scoped_photo(photo_id=photo_id, company_id=company_id, branch_id=branch_id)
 
         original_path, thumb_path = self.photo_file_paths(upload_root=upload_root, order_id=row.service_order_id, file_name=row.file_name)
-        if original_path.exists() and original_path.is_file():
-            original_path.unlink(missing_ok=True)
-        if thumb_path.exists() and thumb_path.is_file():
-            thumb_path.unlink(missing_ok=True)
-
         row.is_active = False
         row.deleted_at = datetime.now(timezone.utc)
         self.repository.save(row)
         db.session.commit()
+        # Commit soft deletion before unlinking: failed DB commits must not leave an
+        # active metadata row pointing to missing content. Files left by an OS-level
+        # unlink error remain private and cannot be fetched through scoped routes.
+        for path in (original_path, thumb_path):
+            try:
+                path.unlink(missing_ok=True)
+            except OSError:
+                logger.exception("Could not remove private service-order photo file %s", path)
         return row
 
-    def get_photo(self, *, photo_id: int, company_id: int, branch_id: int | None) -> ServiceOrderPhoto:
-        return self._get_scoped_photo(photo_id=photo_id, company_id=company_id, branch_id=branch_id)
+    def get_photo(self, *, photo_id: int, company_id: int, branch_id: int | None, for_customer: bool = False) -> ServiceOrderPhoto:
+        row = self._get_scoped_photo(photo_id=photo_id, company_id=company_id, branch_id=branch_id)
+        if for_customer and not row.is_visible_for_customer:
+            raise ServiceOrderPhotoNotFoundError("Nie znaleziono zdjęcia.")
+        return row
 
     def list_annotations(
         self,
@@ -188,6 +222,8 @@ class ServiceOrderPhotoService:
         for_customer: bool,
     ) -> list[PhotoAnnotation]:
         photo = self._get_scoped_photo(photo_id=photo_id, company_id=company_id, branch_id=branch_id)
+        if for_customer and not photo.is_visible_for_customer:
+            raise ServiceOrderPhotoNotFoundError("Nie znaleziono zdjęcia.")
         return self.repository.list_annotations(
             photo_id=photo.id,
             company_id=company_id,
@@ -339,28 +375,44 @@ class ServiceOrderPhotoService:
         return [row for row in rows if row.photo_type in default_types]
 
     def photo_file_paths(self, *, upload_root: Path, order_id: int, file_name: str) -> tuple[Path, Path]:
-        photos_dir = upload_root / "service_orders" / str(order_id) / "photos"
-        original = photos_dir / file_name
-        thumb = photos_dir / "thumbnails" / f"{Path(file_name).stem}_thumb.webp"
+        if (
+            not SAFE_FILE_RE.fullmatch(file_name)
+            or file_name in {".", ".."}
+            or "/" in file_name
+            or "\\" in file_name
+        ):
+            raise ServiceOrderPhotoNotFoundError("Nie znaleziono zdjęcia.")
+        root = upload_root.resolve()
+        photos_dir = (root / "service_orders" / str(order_id) / "photos").resolve()
+        original = (photos_dir / file_name).resolve()
+        thumb = (photos_dir / "thumbnails" / f"{Path(file_name).stem}_thumb.webp").resolve()
+        try:
+            photos_dir.relative_to(root)
+            original.relative_to(photos_dir)
+            thumb.relative_to(photos_dir)
+        except ValueError as exc:
+            raise ServiceOrderPhotoNotFoundError("Nie znaleziono zdjęcia.") from exc
         return original, thumb
 
     def resolve_original_path(self, *, upload_root: Path, photo: ServiceOrderPhoto) -> Path:
         original, _ = self.photo_file_paths(upload_root=upload_root, order_id=photo.service_order_id, file_name=photo.file_name)
-        if not original.exists() or not original.is_file():
+        if not original.exists() or not original.is_file() or original.is_symlink():
             raise ServiceOrderPhotoNotFoundError("Plik zdjęcia nie istnieje.")
         return original
 
     def resolve_thumbnail_path(self, *, upload_root: Path, photo: ServiceOrderPhoto) -> Path:
         original, thumb = self.photo_file_paths(upload_root=upload_root, order_id=photo.service_order_id, file_name=photo.file_name)
-        if thumb.exists() and thumb.is_file():
+        if thumb.exists() and thumb.is_file() and not thumb.is_symlink():
             return thumb
-        if not original.exists() or not original.is_file():
+        if not original.exists() or not original.is_file() or original.is_symlink():
             raise ServiceOrderPhotoNotFoundError("Miniatura i oryginał nie istnieją.")
         return original
 
     def _prepare_files(self, files: Iterable[FileStorage]) -> list[dict[str, object]]:
         prepared: list[dict[str, object]] = []
-        for item in files:
+        for index, item in enumerate(files):
+            if index >= MAX_UPLOAD_FILES:
+                raise ServiceOrderPhotoValidationError(f"Można dodać maksymalnie {MAX_UPLOAD_FILES} zdjęć jednocześnie.")
             if item is None:
                 continue
             original_name = secure_filename((item.filename or "").strip())
@@ -371,8 +423,7 @@ class ServiceOrderPhotoService:
             if extension not in ALLOWED_EXTENSIONS:
                 raise ServiceOrderPhotoValidationError("Dozwolone formaty: jpg, jpeg, png, webp.")
 
-            raw = item.read()
-            item.stream.seek(0)
+            raw = item.stream.read(MAX_UPLOAD_SIZE_BYTES + 1)
             if not raw:
                 continue
             if len(raw) > MAX_UPLOAD_SIZE_BYTES:
@@ -380,9 +431,15 @@ class ServiceOrderPhotoService:
 
             try:
                 image = Image.open(BytesIO(raw))
+                detected_format = (image.format or "").upper()
+                if detected_format not in {"JPEG", "PNG", "WEBP"}:
+                    raise ServiceOrderPhotoValidationError("Dozwolone formaty: jpg, jpeg, png, webp.")
+                width, height = image.size
+                if width <= 0 or height <= 0 or width * height > MAX_IMAGE_PIXELS:
+                    raise ServiceOrderPhotoValidationError("Wymiary zdjęcia przekraczają dozwolony limit.")
                 image.verify()
                 image = Image.open(BytesIO(raw))
-            except UnidentifiedImageError as exc:
+            except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError) as exc:
                 raise ServiceOrderPhotoValidationError("Plik nie jest poprawnym obrazem.") from exc
 
             detected_mime = Image.MIME.get(image.format or "", "").lower()
@@ -444,22 +501,38 @@ class ServiceOrderPhotoService:
         from flask_login import current_user
 
         try:
-            return {(role.name or "").strip().lower() for role in getattr(current_user, "roles", [])}
+            company_id = getattr(current_user, "company_id", None)
+            return {
+                (role.name or "").strip().lower()
+                for role in getattr(current_user, "roles", [])
+                if company_id is not None and role.company_id == company_id
+            }
         except OperationalError:
             return set()
 
+    def is_customer_portal_user(self) -> bool:
+        from flask_login import current_user
+
+        try:
+            company_id = getattr(current_user, "company_id", None)
+            names = {
+                (role.name or "").strip().lower()
+                for role in getattr(current_user, "roles", [])
+                if company_id is not None and role.company_id == company_id
+            }
+        except OperationalError:
+            # If role data cannot be resolved, do not expose customer-private media.
+            return True
+        return bool(names.intersection({"klient", "customer"}))
+
     def _ensure_add_permission(self) -> None:
         names = self._role_names()
-        if not names:
-            return
         if names.intersection({"technik", "operator", "kierownik", "administrator"}):
             return
         raise ServiceOrderPhotoPermissionError("Brak uprawnień do dodawania zdjęć.")
 
     def _ensure_delete_permission(self) -> None:
         names = self._role_names()
-        if not names:
-            return
         if names.intersection({"operator", "administrator"}):
             return
         raise ServiceOrderPhotoPermissionError("Brak uprawnień do usuwania zdjęć.")
@@ -473,16 +546,12 @@ class ServiceOrderPhotoService:
 
     def _ensure_annotation_write_permission(self) -> None:
         names = self._role_names()
-        if not names:
-            return
         if names.intersection({"technik", "operator", "kierownik", "administrator"}):
             return
         raise ServiceOrderPhotoPermissionError("Brak uprawnień do edycji oznaczeń.")
 
     def _ensure_annotation_delete_permission(self) -> None:
         names = self._role_names()
-        if not names:
-            return
         if names.intersection({"operator", "administrator"}):
             return
         raise ServiceOrderPhotoPermissionError("Brak uprawnień do usuwania oznaczeń.")

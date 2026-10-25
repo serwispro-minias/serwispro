@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 
 from app.extensions import db
 from app.models.customer import Customer
@@ -21,9 +21,10 @@ from app.models.service_order import (
 from app.models.service_order_status_history import ServiceOrderStatusHistory
 
 from .exceptions import ServiceOrderNotFoundError, ServiceOrderValidationError
+from .numbering import allocate_service_order_number
 from .repository import ServiceOrderRepository
+from .status_retention import update_terminal_status_entry_time
 from .validators import ServiceOrderValidator
-
 
 logger = logging.getLogger(__name__)
 
@@ -97,24 +98,37 @@ class ServiceOrderService:
         if company_id is None:
             raise ServiceOrderValidationError("Brak identyfikatora firmy.")
 
-        normalized = self.validator.normalize(data)
-        payload = self._filter_payload(normalized)
-        payload["company_id"] = company_id
-        payload["branch_id"] = branch_id
-        self.validator.validate_create(payload)
-        self._validate_customer_device(payload["customer_id"], payload["device_id"], company_id)
+        try:
+            normalized = self.validator.normalize(data)
+            payload = self._filter_payload(normalized)
+            payload["company_id"] = company_id
+            payload["branch_id"] = branch_id
+            payload["order_number"] = allocate_service_order_number(company_id)
+            if payload.get("status"):
+                retention_order = ServiceOrder()
+                update_terminal_status_entry_time(
+                    retention_order,
+                    old_status=None,
+                    new_status=payload["status"],
+                )
+                payload["terminal_status_entered_at"] = retention_order.terminal_status_entered_at
+            self.validator.validate_create(payload)
+            self._validate_customer_device(payload["customer_id"], payload["device_id"], company_id)
 
-        service_order = self.repository.create(payload)
-        self.repository.create_status_history(
-            service_order_id=service_order.id,
-            old_status=None,
-            new_status=service_order.status,
-            changed_by=payload.get("created_by"),
-            ip_address=None,
-            note="Utworzenie zlecenia",
-        )
-        db.session.commit()
-        return service_order
+            service_order = self.repository.create(payload)
+            self.repository.create_status_history(
+                service_order_id=service_order.id,
+                old_status=None,
+                new_status=service_order.status,
+                changed_by=payload.get("created_by"),
+                ip_address=None,
+                note="Utworzenie zlecenia",
+            )
+            db.session.commit()
+            return service_order
+        except Exception:
+            db.session.rollback()
+            raise
 
     def update_service_order(
         self,
@@ -129,37 +143,48 @@ class ServiceOrderService:
         if company_id is None:
             raise ServiceOrderValidationError("Brak identyfikatora firmy.")
 
-        normalized = self.validator.normalize(data)
-        payload = self._filter_payload(normalized)
-        payload["company_id"] = company_id
-        payload["branch_id"] = branch_id
-        self.validator.validate_update(order_id, payload)
-        self._validate_customer_device(payload["customer_id"], payload["device_id"], company_id)
-
-        existing = self.repository.get_by_id(order_id, company_id=company_id)
-        if existing is None:
-            raise ServiceOrderNotFoundError(f"Zlecenie o id {order_id} nie istnieje.")
-
-        old_status = existing.status
-        new_status = payload.get("status", old_status)
-        self._validate_status_transition(old_status, new_status)
-
-        service_order = self.repository.update(order_id, payload, company_id=company_id)
-        if service_order is None:
-            raise ServiceOrderNotFoundError(f"Zlecenie o id {order_id} nie istnieje.")
-
-        if old_status != new_status:
-            self.repository.create_status_history(
-                service_order_id=service_order.id,
-                old_status=old_status,
-                new_status=new_status,
-                changed_by=payload.get("updated_by") or payload.get("created_by"),
-                ip_address=None,
-                note=payload.get("technician_notes"),
+        try:
+            normalized = self.validator.normalize(data)
+            payload = self._filter_payload(normalized)
+            payload["company_id"] = company_id
+            payload["branch_id"] = branch_id
+            existing = self.repository.get_by_id(order_id, company_id=company_id)
+            if existing is None:
+                raise ServiceOrderNotFoundError(f"Zlecenie o id {order_id} nie istnieje.")
+            payload["order_number"] = existing.order_number
+            self.validator.validate_update(order_id, payload)
+            old_status = existing.status
+            new_status = payload.get("status", old_status)
+            self._validate_status_transition(old_status, new_status)
+            retention_order = ServiceOrder(terminal_status_entered_at=existing.terminal_status_entered_at)
+            update_terminal_status_entry_time(retention_order, old_status=old_status, new_status=new_status)
+            payload["terminal_status_entered_at"] = retention_order.terminal_status_entered_at
+            self._validate_customer_device(
+                payload["customer_id"],
+                payload["device_id"],
+                company_id,
+                current_device_id=existing.device_id,
             )
 
-        db.session.commit()
-        return service_order
+            service_order = self.repository.update(order_id, payload, company_id=company_id)
+            if service_order is None:
+                raise ServiceOrderNotFoundError(f"Zlecenie o id {order_id} nie istnieje.")
+
+            if old_status != new_status:
+                self.repository.create_status_history(
+                    service_order_id=service_order.id,
+                    old_status=old_status,
+                    new_status=new_status,
+                    changed_by=payload.get("updated_by") or payload.get("created_by"),
+                    ip_address=None,
+                    note=payload.get("technician_notes"),
+                )
+
+            db.session.commit()
+            return service_order
+        except Exception:
+            db.session.rollback()
+            raise
 
     def delete_service_order(self, order_id: int, *, company_id: int | None) -> None:
         """Soft delete a service order."""
@@ -193,37 +218,6 @@ class ServiceOrderService:
                 or f"Klient #{customer.id}"
             )
             choices.append((customer.id, label))
-        return choices
-
-    def get_device_choices(self, company_id: int | None, customer_id: int | None) -> list[tuple[int, str]]:
-        """Return select-field choices for active devices belonging to a customer."""
-
-        if company_id is None or customer_id is None:
-            return []
-
-        devices = db.session.scalars(
-            select(Device)
-            .where(Device.company_id == company_id)
-            .where(Device.customer_id == customer_id)
-            .where(Device.is_active.is_(True))
-            .order_by(
-                func.coalesce(Device.manufacturer, "").asc(),
-                func.coalesce(Device.model, "").asc(),
-                Device.id.asc(),
-            )
-        ).all()
-
-        choices: list[tuple[int, str]] = []
-        for device in devices:
-            label_parts = [
-                device.manufacturer or "-",
-                device.model or "-",
-                device.serial_number or "-",
-            ]
-            label = " / ".join(label_parts)
-            if device.inventory_number:
-                label = f"{label} | INV: {device.inventory_number}"
-            choices.append((device.id, label))
         return choices
 
     def get_status_choices(self) -> list[tuple[str, str]]:
@@ -273,6 +267,7 @@ class ServiceOrderService:
             raise ServiceOrderValidationError("Nowy status jest taki sam jak aktualny.")
 
         service_order.status = new_status
+        update_terminal_status_entry_time(service_order, old_status=old_status, new_status=new_status)
         db.session.add(service_order)
         db.session.flush()
 
@@ -288,11 +283,26 @@ class ServiceOrderService:
         return service_order
 
     def has_customer_devices(self, company_id: int | None, customer_id: int | None) -> bool:
-        """Return True when selected customer has at least one active device."""
+        """Return True when the company has any active unassigned devices available to order."""
 
-        return len(self.get_device_choices(company_id, customer_id)) > 0
+        if company_id is None or customer_id is None:
+            return False
+        return db.session.scalar(
+            select(Device.id)
+            .where(Device.company_id == company_id)
+            .where(Device.is_active.is_(True))
+            .where(Device.customer_id.is_(None))
+            .limit(1)
+        ) is not None
 
-    def _validate_customer_device(self, customer_id: int, device_id: int, company_id: int) -> None:
+    def _validate_customer_device(
+        self,
+        customer_id: int,
+        device_id: int,
+        company_id: int,
+        *,
+        current_device_id: int | None = None,
+    ) -> None:
         customer = db.session.scalar(
             select(Customer)
             .where(Customer.id == customer_id)
@@ -306,11 +316,10 @@ class ServiceOrderService:
             select(Device)
             .where(Device.id == device_id)
             .where(Device.company_id == company_id)
-            .where(Device.customer_id == customer_id)
             .where(Device.is_active.is_(True))
         )
         if device is None:
-            raise ServiceOrderValidationError("Wybrane urządzenie nie należy do wskazanego klienta.")
+            raise ServiceOrderValidationError("Wybrane urządzenie nie należy do wskazanej firmy.")
 
     def _validate_status_transition(self, old_status: str, new_status: str) -> None:
         """Validate whether a status transition is allowed."""
@@ -325,12 +334,14 @@ class ServiceOrderService:
         allowed_keys = {
             "customer_id",
             "device_id",
+            "intake_serial_number",
             "order_number",
             "status",
             "priority",
             "intake_date",
             "planned_finish_date",
             "finished_at",
+            "terminal_status_entered_at",
             "warranty_repair",
             "issue_description",
             "diagnosis",

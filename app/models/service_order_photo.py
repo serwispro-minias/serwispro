@@ -15,11 +15,11 @@ if TYPE_CHECKING:
 
 
 SERVICE_ORDER_PHOTO_TYPE_CHOICES: list[tuple[str, str]] = [
-    ("RECEPTION", "Przyjęcie sprzętu"),
+    ("RECEPTION", "Przyjęcie urządzenia"),
     ("DAMAGE", "Uszkodzenia"),
-    ("REPAIR", "Przebieg naprawy"),
+    ("REPAIR", "W trakcie naprawy"),
     ("PART", "Wymienione części"),
-    ("FINAL", "Stan po naprawie"),
+    ("FINAL", "Po naprawie"),
     ("HANDOVER", "Wydanie sprzętu"),
     ("OTHER", "Inne"),
 ]

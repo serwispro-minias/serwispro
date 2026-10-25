@@ -1,8 +1,16 @@
 from __future__ import annotations
 
 from flask_wtf import FlaskForm
-from wtforms import BooleanField, HiddenField, SelectField, StringField, SubmitField, TextAreaField
-from wtforms.validators import DataRequired, Email, Length, Optional
+from wtforms import (
+    BooleanField,
+    HiddenField,
+    IntegerField,
+    SelectField,
+    StringField,
+    SubmitField,
+    TextAreaField,
+)
+from wtforms.validators import DataRequired, Email, Length, NumberRange, Optional, Regexp
 
 from app.notifications.constants import CHANNEL_CHOICES, NOTIFICATION_EVENT_CHOICES
 
@@ -37,3 +45,13 @@ class NotificationTemplateForm(FlaskForm):
     is_enabled = BooleanField("Aktywny")
 
     submit = SubmitField("Zapisz szablon")
+
+
+class ServiceOrderNumberingForm(FlaskForm):
+    prefix = StringField(
+        "Prefiks",
+        validators=[DataRequired(), Length(min=1, max=20), Regexp(r"^[A-Za-z0-9-]+$")],
+    )
+    include_year = BooleanField("Uwzględniaj rok w numerze")
+    digits = IntegerField("Liczba cyfr numeru kolejnego", validators=[DataRequired(), NumberRange(min=3, max=10)])
+    submit = SubmitField("Zapisz numerację zleceń")

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import selectinload
@@ -14,8 +14,13 @@ from app.models.purchase_order import PurchaseOrder, PurchaseOrderStatusEnum
 from app.models.purchase_order_demand_link import PurchaseOrderDemandLink
 from app.models.purchase_order_history import PurchaseOrderHistory
 from app.models.purchase_order_item import PurchaseOrderItem
+from app.utils.contextual_search import contextual_search
 
-from .exceptions import PurchaseOrderNotFoundError, PurchaseOrderPermissionError, PurchaseOrderValidationError
+from .exceptions import (
+    PurchaseOrderNotFoundError,
+    PurchaseOrderPermissionError,
+    PurchaseOrderValidationError,
+)
 
 
 class PurchaseOrderService:
@@ -42,7 +47,9 @@ class PurchaseOrderService:
         if date_to:
             query = query.where(PurchaseOrder.order_date <= date_to)
         if po_number:
-            query = query.where(PurchaseOrder.po_number.ilike(f"%{po_number.strip()}%"))
+            query = query.join(PurchaseOrder.supplier).where(
+                contextual_search(PurchaseOrder.po_number, CatalogSupplier.code, CatalogSupplier.name, CatalogSupplier.tax_id, query=po_number)
+            )
         if created_by:
             query = query.where(PurchaseOrder.created_by == created_by)
         if part_id:
@@ -103,6 +110,111 @@ class PurchaseOrderService:
         db.session.commit()
         return po
 
+    def create_order(self, *, items: list[dict], supplier_id: int, company_id: int, branch_id: int | None, actor, order_date: date | None = None, expected_delivery_date: date | None = None, notes: str | None = None) -> PurchaseOrder:
+        """Create a draft purchase order from explicitly selected catalog items."""
+        self._assert_manage(actor)
+        if not items:
+            raise PurchaseOrderValidationError("Dodaj co najmniej jedną pozycję do zamówienia.")
+        supplier = db.session.scalar(
+            select(CatalogSupplier).where(
+                CatalogSupplier.id == supplier_id,
+                CatalogSupplier.company_id == company_id,
+                CatalogSupplier.is_active.is_(True),
+            )
+        )
+        if supplier is None:
+            raise PurchaseOrderValidationError("Nie znaleziono aktywnego dostawcy.")
+
+        po = PurchaseOrder(
+            po_number=self._next_number(company_id),
+            supplier_id=supplier.id,
+            status=PurchaseOrderStatusEnum.DRAFT.value,
+            order_date=order_date or date.today(),
+            expected_delivery_date=expected_delivery_date,
+            notes=(notes or "").strip() or None,
+            company_id=company_id,
+            branch_id=branch_id,
+            created_by=getattr(actor, "id", None),
+            updated_by=getattr(actor, "id", None),
+        )
+        db.session.add(po)
+        db.session.flush()
+        seen: set[int] = set()
+        try:
+            for payload in items:
+                try:
+                    part_id = int(payload.get("part_id"))
+                except (TypeError, ValueError):
+                    raise PurchaseOrderValidationError("Wybierz prawidłowy produkt z katalogu.") from None
+                if part_id <= 0 or part_id in seen:
+                    raise PurchaseOrderValidationError("Produkt jest nieprawidłowy lub został dodany więcej niż raz.")
+                seen.add(part_id)
+                part = db.session.scalar(
+                    select(CatalogPart)
+                    .options(selectinload(CatalogPart.vat))
+                    .where(
+                        CatalogPart.id == part_id,
+                        CatalogPart.company_id == company_id,
+                        CatalogPart.is_active.is_(True),
+                    )
+                )
+                if part is None or part.vat is None or not part.vat.is_active:
+                    raise PurchaseOrderValidationError("Nie znaleziono aktywnego produktu lub jego stawki VAT.")
+                quantity = self._positive_decimal(payload.get("quantity_ordered"), "ilość zamawiana")
+                if quantity != quantity.to_integral_value():
+                    raise PurchaseOrderValidationError("Ilość zamawiana musi być liczbą całkowitą, tak jak stan magazynowy i ilość PZ.")
+                price = self._non_negative_decimal(payload.get("unit_price_net", part.purchase_price_net), "cena zakupu netto")
+                vat_rate = Decimal(part.vat.rate)
+                total_net = (quantity * price).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                total_vat = (total_net * vat_rate / Decimal("100")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                total_gross = total_net + total_vat
+                db.session.add(PurchaseOrderItem(
+                    purchase_order_id=po.id,
+                    part_id=part.id,
+                    code_snapshot=part.code,
+                    manufacturer_snapshot=None,
+                    quantity_ordered=quantity,
+                    quantity_received=Decimal("0"),
+                    unit="szt.",
+                    unit_price_net=price,
+                    vat_rate=vat_rate,
+                    total_net=total_net,
+                    total_vat=total_vat,
+                    total_gross=total_gross,
+                    expected_delivery_date=expected_delivery_date,
+                    created_by=getattr(actor, "id", None),
+                    updated_by=getattr(actor, "id", None),
+                ))
+                po.total_net += total_net
+                po.total_vat += total_vat
+                po.total_gross += total_gross
+            self._history(po, "CREATED", None, po.status, "Utworzono zamówienie z katalogu", actor)
+            db.session.commit()
+            return po
+        except Exception:
+            db.session.rollback()
+            raise
+
+    @staticmethod
+    def _positive_decimal(value, label: str) -> Decimal:
+        try:
+            amount = Decimal(str(value))
+        except Exception:
+            raise PurchaseOrderValidationError(f"Nieprawidłowa wartość pola: {label}.") from None
+        if not amount.is_finite() or amount <= 0:
+            raise PurchaseOrderValidationError(f"Pole {label} musi być większe od zera.")
+        return amount
+
+    @staticmethod
+    def _non_negative_decimal(value, label: str) -> Decimal:
+        try:
+            amount = Decimal(str(value))
+        except Exception:
+            raise PurchaseOrderValidationError(f"Nieprawidłowa wartość pola: {label}.") from None
+        if not amount.is_finite() or amount < 0:
+            raise PurchaseOrderValidationError(f"Pole {label} nie może być ujemne.")
+        return amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
     def update_order(self, *, order_id: int, supplier_id: int, order_date: date, expected_delivery_date: date | None, notes: str | None, company_id: int, branch_id: int | None, actor) -> PurchaseOrder:
         self._assert_manage(actor)
         po = self.get_order(order_id=order_id, company_id=company_id, branch_id=branch_id, actor=actor)
@@ -124,6 +236,8 @@ class PurchaseOrderService:
         normalized = str(status or "").upper()
         if normalized not in {value for value, _ in [(item.value, item.name) for item in PurchaseOrderStatusEnum]}:
             raise PurchaseOrderValidationError("Nieprawidłowy status zamówienia.")
+        if normalized in {PurchaseOrderStatusEnum.PARTIAL.value, PurchaseOrderStatusEnum.COMPLETED.value}:
+            raise PurchaseOrderValidationError("Status realizacji jest wyliczany na podstawie zaksięgowanych dokumentów PZ.")
         po = self.get_order(order_id=order_id, company_id=company_id, branch_id=branch_id, actor=actor)
         if normalized != po.status and normalized not in self._STATUS_TRANSITIONS.get(po.status, set()):
             raise PurchaseOrderValidationError(f"Niedozwolona zmiana statusu: {po.status} -> {normalized}.")
@@ -137,6 +251,13 @@ class PurchaseOrderService:
         self._history(po, "STATUS_CHANGED", old, normalized, f"Zmieniono status: {old} -> {normalized}", actor)
         db.session.commit()
         return po
+
+    def get_suppliers(self, *, company_id: int) -> list[CatalogSupplier]:
+        return list(db.session.scalars(
+            select(CatalogSupplier)
+            .where(CatalogSupplier.company_id == company_id, CatalogSupplier.is_active.is_(True))
+            .order_by(CatalogSupplier.name.asc(), CatalogSupplier.id.asc())
+        ).all())
 
     def _next_number(self, company_id: int) -> str:
         year = date.today().year

@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import io
 from datetime import date
+from uuid import uuid4
 
 import pytest
 from pypdf import PdfReader
@@ -12,7 +13,11 @@ from app.models.customer import Customer
 from app.models.device import Device
 from app.models.service_order import ServiceOrder
 from app.models.service_order_action import ServiceOrderAction
-from app.models.service_order_timeline import ServiceOrderTimelineAttachment, ServiceOrderTimelineEntry
+from app.models.service_order_photo import ServiceOrderPhoto
+from app.models.service_order_timeline import (
+    ServiceOrderTimelineAttachment,
+    ServiceOrderTimelineEntry,
+)
 from app.models.setting import Setting
 
 
@@ -26,6 +31,7 @@ def order_protocol_schema(app):
                 Device.__table__,
                 ServiceOrder.__table__,
                 ServiceOrderAction.__table__,
+                ServiceOrderPhoto.__table__,
                 ServiceOrderTimelineEntry.__table__,
                 ServiceOrderTimelineAttachment.__table__,
             ],
@@ -41,6 +47,7 @@ def order_protocol_schema(app):
                 ServiceOrderTimelineAttachment.__table__,
                 ServiceOrderTimelineEntry.__table__,
                 ServiceOrderAction.__table__,
+                ServiceOrderPhoto.__table__,
                 ServiceOrder.__table__,
                 Device.__table__,
                 Setting.__table__,
@@ -48,7 +55,7 @@ def order_protocol_schema(app):
         )
 
 
-def _create_protocol_order(company_id: int, *, long_text: bool = False) -> int:
+def _create_protocol_order(company_id: int, *, long_text: bool = False, intake_serial_number: str | None = None) -> int:
     customer = Customer(
         customer_type="PERSON",
         full_name="Zażółć Gęślą Jaźń",
@@ -82,7 +89,8 @@ def _create_protocol_order(company_id: int, *, long_text: bool = False) -> int:
     service_order = ServiceOrder(
         customer_id=customer.id,
         device_id=device.id,
-        order_number="SO-PDF-1",
+        intake_serial_number=intake_serial_number,
+        order_number=f"SO-PDF-{uuid4().hex[:10]}",
         status="RECEIVED",
         priority="NORMAL",
         intake_date=date(2026, 8, 3),
@@ -167,9 +175,37 @@ def _extract_text(pdf_bytes: bytes) -> tuple[int, str]:
     return len(reader.pages), text
 
 
+def _attach_protocol_photo(*, company_id: int, order_id: int, upload_root, title: str, file_name: str | None = None) -> int:
+    from PIL import Image
+
+    stored_name = file_name or f"{uuid4().hex}.jpg"
+    directory = upload_root / "service_orders" / str(order_id) / "photos"
+    directory.mkdir(parents=True, exist_ok=True)
+    image_path = directory / stored_name
+    Image.new("RGB", (32, 32), (20, 80, 140)).save(image_path, format="JPEG")
+    row = ServiceOrderPhoto(
+        service_order_id=order_id,
+        photo_type="RECEPTION",
+        title=title,
+        file_name=stored_name,
+        original_file_name="test.jpg",
+        mime_type="image/jpeg",
+        file_size=image_path.stat().st_size,
+        width=32,
+        height=32,
+        taken_at=None,
+        sort_order=100,
+        is_visible_for_customer=False,
+        company_id=company_id,
+    )
+    db.session.add(row)
+    db.session.commit()
+    return int(row.id)
+
+
 def test_generate_intake_protocol_pdf_with_polish_text(auth_client, app, company_id, order_protocol_schema):
     with app.app_context():
-        order_id = _create_protocol_order(company_id)
+        order_id = _create_protocol_order(company_id, intake_serial_number="INTAKE-PDF-SERIAL")
         _add_company_settings(company_id)
 
     response = auth_client.get(f"/orders/{order_id}/print/intake")
@@ -181,6 +217,8 @@ def test_generate_intake_protocol_pdf_with_polish_text(auth_client, app, company
     assert "Protokół przyjęcia sprzętu do serwisu" in text
     assert "Zażółć Gęślą Jaźń" in text
     assert "Opis zgłoszonej usterki" in text
+    assert "INTAKE-PDF-SERIAL" in text
+    assert "SN-PL-001" in text
 
 
 def test_generate_release_protocol_pdf_contains_costs(auth_client, app, company_id, order_protocol_schema):
@@ -200,6 +238,33 @@ def test_generate_release_protocol_pdf_contains_costs(auth_client, app, company_
     assert "Kwota do zapłaty" in text
     assert "Historia napraw" in text
     assert "Wymieniono zespół rolek i wykonano kalibrację." in text
+
+
+def test_protocols_omit_photos_by_default_and_only_include_them_on_explicit_opt_in(auth_client, app, company_id, order_protocol_schema, tmp_path, monkeypatch):
+    app.config["UPLOAD_FOLDER"] = str(tmp_path)
+    from app.orders import routes as orders_routes
+    monkeypatch.setattr(orders_routes.photo_service, "is_customer_portal_user", lambda: False)
+    with app.app_context():
+        intake_id = _create_protocol_order(company_id)
+        release_id = _create_protocol_order(company_id)
+        _attach_protocol_photo(company_id=company_id, order_id=intake_id, upload_root=tmp_path, title="INTAKE-OPT-IN-PHOTO")
+        _attach_protocol_photo(company_id=company_id, order_id=release_id, upload_root=tmp_path, title="RELEASE-OPT-IN-PHOTO")
+        _add_company_settings(company_id)
+
+    intake_default = auth_client.get(f"/orders/{intake_id}/print/intake")
+    release_default = auth_client.get(f"/orders/{release_id}/print/release")
+    assert intake_default.status_code == release_default.status_code == 200
+    assert "Dokumentacja fotograficzna" not in _extract_text(intake_default.data)[1]
+    assert "Dokumentacja fotograficzna" not in _extract_text(release_default.data)[1]
+
+    intake_with_photos = auth_client.get(f"/orders/{intake_id}/print/intake?include_photos=1")
+    release_with_photos = auth_client.get(f"/orders/{release_id}/print/release?include_photos=1")
+    assert intake_with_photos.status_code == release_with_photos.status_code == 200
+    assert "INTAKE-OPT-IN-PHOTO" in _extract_text(intake_with_photos.data)[1]
+    assert "RELEASE-OPT-IN-PHOTO" in _extract_text(release_with_photos.data)[1]
+
+    invalid = auth_client.get(f"/orders/{intake_id}/print/intake?include_photos=yes")
+    assert invalid.status_code == 400
 
 
 def test_short_description_fits_single_page(auth_client, app, company_id, order_protocol_schema):

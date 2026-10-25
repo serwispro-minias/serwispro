@@ -13,71 +13,79 @@ TODO: Customers index template.
 
 <div class="page-header d-flex justify-content-between align-items-center mb-3">
     <h1 class="h3">Klienci</h1>
-    <a class="btn btn-primary" href="{{ url_for('customers.create') }}">Dodaj klienta</a>
+    <a class="btn btn-primary" href="{{ url_for('customers.create') }}" data-shortcut-insert
+        data-shortcut-hint="Dodaj klienta (Insert)">Dodaj klienta</a>
 </div>
 
-<form method="get" class="mb-4">
+<form method="get" class="mb-4" data-live-filter data-live-target="#live-results">
     <div class="input-group w-50">
-        <input type="search" name="q" class="form-control" placeholder="Szukaj klientów..." value="{{ q }}" />
+        <input type="search" name="q" class="form-control" placeholder="Szukaj klientów..." value="{{ q }}"
+            data-main-search role="combobox" aria-expanded="false" aria-controls="customer-suggestions"
+            data-keyboard-listbox-input data-live-search-url="{{ url_for('customers.search') }}" data-result-limit="15"
+            data-navigate-on-select data-min-length="2" />
         <button class="btn btn-secondary" type="submit">Szukaj</button>
+        <div class="list-group contextual-search-list d-none" id="customer-suggestions" role="listbox"></div>
     </div>
 </form>
 
-{% if customers["items"] %}
-<div class="table-responsive">
-    <table class="table table-striped table-hover">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Nazwa</th>
-                <th>NIP</th>
-                <th>Email</th>
-                <th>Telefon</th>
-                <th>Miasto</th>
-                <th>Firma</th>
-                <th>Akcje</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for customer in customers["items"] %}
-            <tr>
-                <td>{{ customer.id }}</td>
-                <td>{{ customer.full_name or customer.short_name or (customer.first_name ~ ' ' ~ customer.last_name) }}
-                </td>
-                <td>{{ customer.nip or '-' }}</td>
-                <td>{{ customer.email or '-' }}</td>
-                <td>{{ customer.phone or '-' }}</td>
-                <td>{{ customer.city or '-' }}</td>
-                <td>{{ customer.company.name if customer.company else '-' }}</td>
-                <td>
-                    <a class="btn btn-sm btn-outline-primary"
-                        href="{{ url_for('customers.details', customer_id=customer.id) }}">Szczegóły</a>
-                    <a class="btn btn-sm btn-outline-secondary"
-                        href="{{ url_for('customers.edit', customer_id=customer.id) }}">Edytuj</a>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
-
-{% if customers["pages"] > 1 %}
-<nav aria-label="Pagination">
-    <ul class="pagination">
-        {% for page_num in range(1, customers["pages"] + 1) %}
-        <li class="page-item{% if page_num == customers[" page"] %} active{% endif %}">
-            <a class="page-link" href="?q={{ q }}&page={{ page_num }}">{{ page_num }}</a>
-        </li>
-        {% endfor %}
-    </ul>
-</nav>
-{% endif %}
-{% else %}
-<div class="card">
-    <div class="card-body">
-        <p>Brak klientów do wyświetlenia. Użyj przycisku "Dodaj klienta", aby rozpocząć.</p>
+<div id="live-results" data-live-results aria-live="polite">
+    {% if customers["items"] %}
+    <div class="table-responsive">
+        <table class="table table-striped table-hover">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Nazwa</th>
+                    <th>NIP</th>
+                    <th>Email</th>
+                    <th>Telefon</th>
+                    <th>Miasto</th>
+                    <th>Firma</th>
+                    <th>Akcje</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for customer in customers["items"] %}
+                <tr>
+                    <td>{{ customer.id }}</td>
+                    <td>{{ customer.full_name or customer.short_name or (customer.first_name ~ ' ' ~ customer.last_name)
+                        }}
+                    </td>
+                    <td>{{ customer.nip or '-' }}</td>
+                    <td>{{ customer.email or '-' }}</td>
+                    <td>{{ customer.phone or '-' }}</td>
+                    <td>{{ customer.city or '-' }}</td>
+                    <td>{{ customer.company.name if customer.company else '-' }}</td>
+                    <td>
+                        <a class="btn btn-sm btn-outline-primary"
+                            href="{{ url_for('customers.details', customer_id=customer.id) }}">Szczegóły</a>
+                        <a class="btn btn-sm btn-outline-secondary"
+                            href="{{ url_for('customers.edit', customer_id=customer.id) }}">Edytuj</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
+
+    {% if customers["pages"] > 1 %}
+    <nav aria-label="Pagination">
+        <ul class="pagination">
+            {% for page_num in range(1, customers["pages"] + 1) %}
+            <li class="page-item{% if page_num == customers[" page"] %} active{% endif %}">
+                <a class="page-link" href="?q={{ q }}&page={{ page_num }}">{{ page_num }}</a>
+            </li>
+            {% endfor %}
+        </ul>
+    </nav>
+    {% endif %}
+    {% else %}
+    <div class="card">
+        <div class="card-body">
+            <p>Brak klientów do wyświetlenia. Użyj przycisku "Dodaj klienta", aby rozpocząć.</p>
+        </div>
+    </div>
+    {% endif %}
 </div>
-{% endif %}
 
 {% endblock %}

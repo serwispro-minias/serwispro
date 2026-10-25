@@ -10,22 +10,33 @@
 
 <div class="card">
     <div class="card-body">
-        <form method="post">
+        <form method="post" data-shortcut-save>
             {{ form.hidden_tag() }}
             <div class="row g-3">
-                <div class="col-md-4">{{ form.service_order_id.label(class="form-label") }}{{ form.service_order_id(class="form-control") }}</div>
-                <div class="col-md-4">{{ form.service_order_item_id.label(class="form-label") }}{{ form.service_order_item_id(class="form-control") }}</div>
-                <div class="col-md-4">{{ form.inventory_item_id.label(class="form-label") }}{{ form.inventory_item_id(class="form-select") }}</div>
-                <div class="col-md-4">{{ form.requested_quantity.label(class="form-label") }}{{ form.requested_quantity(class="form-control") }}</div>
-                <div class="col-md-4">{{ form.reserved_quantity.label(class="form-label") }}{{ form.reserved_quantity(class="form-control") }}</div>
-                <div class="col-md-4">{{ form.missing_quantity.label(class="form-label") }}{{ form.missing_quantity(class="form-control") }}</div>
-                <div class="col-md-4">{{ form.status.label(class="form-label") }}{{ form.status(class="form-select") }}</div>
-                <div class="col-md-4">{{ form.priority.label(class="form-label") }}{{ form.priority(class="form-select") }}</div>
-                <div class="col-md-4">{{ form.expected_date.label(class="form-label") }}{{ form.expected_date(class="form-control") }}</div>
-                <div class="col-12">{{ form.notes.label(class="form-label") }}{{ form.notes(class="form-control", rows=4) }}</div>
+                <div class="col-md-4">{{ form.service_order_id.label(class="form-label") }}{{
+                    form.service_order_id(class="form-control") }}</div>
+                <div class="col-md-4">{{ form.service_order_item_id.label(class="form-label") }}{{
+                    form.service_order_item_id(class="form-control") }}</div>
+                <div class="col-md-4">{{ form.inventory_item_id.label(class="form-label") }}{{
+                    form.inventory_item_id(class="form-select") }}</div>
+                <div class="col-md-4">{{ form.requested_quantity.label(class="form-label") }}{{
+                    form.requested_quantity(class="form-control") }}</div>
+                <div class="col-md-4">{{ form.reserved_quantity.label(class="form-label") }}{{
+                    form.reserved_quantity(class="form-control") }}</div>
+                <div class="col-md-4">{{ form.missing_quantity.label(class="form-label") }}{{
+                    form.missing_quantity(class="form-control") }}</div>
+                <div class="col-md-4">{{ form.status.label(class="form-label") }}{{ form.status(class="form-select") }}
+                </div>
+                <div class="col-md-4">{{ form.priority.label(class="form-label") }}{{ form.priority(class="form-select")
+                    }}</div>
+                <div class="col-md-4">{{ form.expected_date.label(class="form-label") }}{{
+                    form.expected_date(class="form-control") }}</div>
+                <div class="col-12">{{ form.notes.label(class="form-label") }}{{ form.notes(class="form-control",
+                    rows=4) }}</div>
             </div>
             <div class="mt-3">
-                {{ form.submit(class="btn btn-primary") }}
+                {{ form.submit(class="btn btn-primary", **{"data-shortcut-save-submit": "", "data-shortcut-hint":
+                "Zapisz zapotrzebowanie (Ctrl + Enter)"}) }}
             </div>
         </form>
     </div>

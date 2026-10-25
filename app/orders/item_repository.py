@@ -5,6 +5,7 @@ from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import or_, select
+from sqlalchemy.orm import selectinload
 
 from app.extensions import db
 from app.models.catalog_material import CatalogMaterial
@@ -13,6 +14,7 @@ from app.models.catalog_service_item import CatalogServiceItem
 from app.models.catalog_stock_movement import CatalogStockMovement
 from app.models.service_order import ServiceOrder
 from app.models.service_order_item import ServiceOrderItem
+from app.utils.contextual_search import contextual_search
 
 
 @dataclass(slots=True)
@@ -116,54 +118,45 @@ class ServiceOrderItemRepository:
 
         return []
 
-    def search_catalog_items(self, *, query_text: str | None, company_id: int | None) -> list[ResolvedCatalogItem]:
+    def search_catalog_items(self, *, query_text: str | None, company_id: int | None, branch_id: int | None = None) -> list[ResolvedCatalogItem]:
         text = (query_text or "").strip()
         if not text:
             return []
 
-        term = f"%{text}%"
         results: list[ResolvedCatalogItem] = []
+        part_search = contextual_search(CatalogPart.code, CatalogPart.name, CatalogPart.barcode, query=text)
 
         part_query = (
             select(CatalogPart)
             .where(CatalogPart.is_active.is_(True))
-            .where(
-                or_(
-                    CatalogPart.code.ilike(term),
-                    CatalogPart.name.ilike(term),
-                )
-            )
+            .where(part_search)
             .order_by(CatalogPart.name.asc(), CatalogPart.id.asc())
+            .limit(20)
         )
         material_query = (
             select(CatalogMaterial)
             .where(CatalogMaterial.is_active.is_(True))
-            .where(
-                or_(
-                    CatalogMaterial.code.ilike(term),
-                    CatalogMaterial.name.ilike(term),
-                    CatalogMaterial.location.ilike(term),
-                )
-            )
+            .where(contextual_search(CatalogMaterial.code, CatalogMaterial.name, CatalogMaterial.location, query=text))
             .order_by(CatalogMaterial.name.asc(), CatalogMaterial.id.asc())
+            .limit(20)
         )
         service_query = (
             select(CatalogServiceItem)
             .where(CatalogServiceItem.is_active.is_(True))
             .where(CatalogServiceItem.is_sellable.is_(True))
-            .where(
-                or_(
-                    CatalogServiceItem.code.ilike(term),
-                    CatalogServiceItem.name.ilike(term),
-                )
-            )
+            .where(contextual_search(CatalogServiceItem.code, CatalogServiceItem.name, query=text))
             .order_by(CatalogServiceItem.name.asc(), CatalogServiceItem.id.asc())
+            .limit(20)
         )
 
         if company_id is not None:
             part_query = part_query.where(CatalogPart.company_id == company_id)
             material_query = material_query.where(CatalogMaterial.company_id == company_id)
             service_query = service_query.where(CatalogServiceItem.company_id == company_id)
+        if branch_id is not None:
+            part_query = part_query.where(or_(CatalogPart.branch_id == branch_id, CatalogPart.branch_id.is_(None)))
+            material_query = material_query.where(or_(CatalogMaterial.branch_id == branch_id, CatalogMaterial.branch_id.is_(None)))
+            service_query = service_query.where(or_(CatalogServiceItem.branch_id == branch_id, CatalogServiceItem.branch_id.is_(None)))
 
         for part in db.session.scalars(part_query).all():
             results.append(
@@ -172,7 +165,7 @@ class ServiceOrderItemRepository:
                     item_id=part.id,
                     code=part.code,
                     name=part.name,
-                    barcode=None,
+                    barcode=part.barcode,
                     unit_price_net=Decimal(part.sale_price_net),
                     vat_rate=Decimal(part.vat.rate if part.vat else 0),
                     current_stock=Decimal(part.current_stock),
@@ -225,7 +218,7 @@ class ServiceOrderItemRepository:
                 item_id=part.id,
                 code=part.code,
                 name=part.name,
-                barcode=None,
+                barcode=part.barcode,
                 unit_price_net=Decimal(part.sale_price_net),
                 vat_rate=Decimal(part.vat.rate if part.vat else 0),
                 current_stock=Decimal(part.current_stock),

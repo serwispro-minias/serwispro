@@ -12,7 +12,7 @@ class InventoryPartForm(FlaskForm):
     category_id = SelectField("Kategoria", coerce=int, validators=[DataRequired(), NumberRange(min=1)])
     name = StringField("Nazwa", validators=[DataRequired(), Length(max=255)])
     barcode = StringField("Kod kreskowy", validators=[Optional(), Length(max=64)])
-    current_stock = IntegerField("Ilość sztuk", validators=[DataRequired(), NumberRange(min=0)])
+    current_stock = IntegerField("Ilość sztuk", validators=[NumberRange(min=0)])
     purchase_price_net = DecimalField("Cena zakupu netto", validators=[DataRequired(), NumberRange(min=0)], places=2)
     sale_price_net = DecimalField("Cena sprzedaży netto", validators=[DataRequired(), NumberRange(min=0)], places=2)
     vat_id = SelectField("VAT", coerce=int, validators=[DataRequired(), NumberRange(min=1)])
@@ -21,10 +21,10 @@ class InventoryPartForm(FlaskForm):
 
 
 class InventoryOperationForm(FlaskForm):
-    operation_type = SelectField("Typ operacji", validators=[DataRequired()], choices=INVENTORY_OPERATION_TYPE_CHOICES)
-    quantity = DecimalField("Ilość", validators=[DataRequired()], places=3)
-    document_number = StringField("Numer dokumentu", validators=[Optional(), Length(max=120)])
-    comment = TextAreaField("Komentarz", validators=[Optional(), Length(max=3000)])
+    operation_type = SelectField("Typ operacji", validators=[DataRequired()], choices=[("ADJUSTMENT", "Jawna korekta stanu")])
+    quantity = DecimalField("Stan po korekcie", validators=[NumberRange(min=0)], places=3)
+    document_number = StringField("Numer dokumentu korekty", validators=[DataRequired(), Length(max=80)])
+    comment = TextAreaField("Uzasadnienie korekty", validators=[DataRequired(), Length(max=3000)])
     submit = SubmitField("Zapisz operację")
 
 

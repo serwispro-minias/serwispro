@@ -1,6 +1,9 @@
-<form method="post" action="{{ url_for('orders.add_order_item', order_id=order.id) }}" class="js-order-item-form">
+<form method="post" action="{{ url_for('orders.add_order_item', order_id=order.id) }}" class="js-order-item-form"
+    data-shortcut-save>
     {{ item_form.hidden_tag() }}
     <div class="row g-3">
+        <div class="col-md-6">{{ item_form.allocation_mode.label(class="form-label") }}{{
+            item_form.allocation_mode(class="form-select") }}</div>
         <div class="col-md-3">
             {{ item_form.item_type.label(class="form-label") }}
             {{ item_form.item_type(class="form-select", id="order_item_type") }}
@@ -10,11 +13,14 @@
         </div>
         <div class="col-md-5">
             {{ item_form.search_query.label(class="form-label") }}
-            {{ item_form.search_query(class="form-control", id="order_item_search", placeholder="Szukaj części, materiału lub usługi") }}
+            {{ item_form.search_query(class="form-control", id="order_item_search", placeholder="Szukaj części,
+            materiału lub usługi", role="combobox", **{"aria-expanded": "false", "aria-controls":
+            "order-item-search-results", "data-keyboard-listbox-input": "", "data-live-search-url":
+            url_for('orders.search_order_items', order_id=order.id), "data-result-limit": "20"}) }}
             {% if item_form.search_query.errors %}
             <div class="form-text text-danger">{{ item_form.search_query.errors[0] }}</div>
             {% endif %}
-            <div class="border rounded p-2 mt-2 small bg-light" id="order-item-search-results">
+            <div class="border rounded p-2 mt-2 small bg-light" id="order-item-search-results" role="listbox">
                 <span class="text-muted">Wpisz frazę, aby wyszukać element.</span>
             </div>
         </div>
@@ -44,7 +50,8 @@
         </div>
         <div class="col-md-3">
             {{ item_form.discount_percent.label(class="form-label") }}
-            {{ item_form.discount_percent(class="form-control", id="order_item_discount", step="0.01", min="0", max="100") }}
+            {{ item_form.discount_percent(class="form-control", id="order_item_discount", step="0.01", min="0",
+            max="100") }}
             {% if item_form.discount_percent.errors %}
             <div class="form-text text-danger">{{ item_form.discount_percent.errors[0] }}</div>
             {% endif %}
@@ -58,6 +65,7 @@
         </div>
     </div>
     <div class="mt-3">
-        {{ item_form.submit(class="btn btn-primary") }}
+        {{ item_form.submit(class="btn btn-primary", **{"data-shortcut-insert": "", "data-shortcut-save-submit": "",
+        "data-shortcut-hint": "Dodaj pozycję (Insert / Ctrl + Enter)"}) }}
     </div>
 </form>

@@ -1,31 +1,41 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from enum import Enum as PyEnum
 from decimal import Decimal
+from enum import Enum as PyEnum
 from typing import TYPE_CHECKING, List
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Numeric, String, Text
+from sqlalchemy import (
+    Boolean,
+    Date,
+    DateTime,
+    ForeignKey,
+    Index,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import BaseTenantModel
 
 if TYPE_CHECKING:
-    from app.models.part_demand import PartDemand
-    from app.models.purchase_request import PurchaseRequest
     from app.models.customer import Customer
     from app.models.device import Device
-    from app.models.notification_message import NotificationMessage
-    from app.models.service_order_photo import ServiceOrderPhoto
-    from app.models.service_order_action import ServiceOrderAction
-    from app.models.service_estimate import ServiceEstimate
-    from app.models.service_order_item import ServiceOrderItem
     from app.models.inventory_reservation import InventoryReservation
-    from app.models.service_order_part_usage import ServiceOrderPartUsage
+    from app.models.notification_message import NotificationMessage
+    from app.models.part_demand import PartDemand
+    from app.models.purchase_request import PurchaseRequest
+    from app.models.service_estimate import ServiceEstimate
+    from app.models.service_order_action import ServiceOrderAction
+    from app.models.service_order_item import ServiceOrderItem
     from app.models.service_order_part_reservation import ServiceOrderPartReservation
+    from app.models.service_order_part_usage import ServiceOrderPartUsage
+    from app.models.service_order_photo import ServiceOrderPhoto
     from app.models.service_order_status_history import ServiceOrderStatusHistory
-    from app.models.service_task import ServiceTask
     from app.models.service_order_timeline import ServiceOrderTimelineEntry
+    from app.models.service_task import ServiceTask
 
 
 class ServiceOrderStatusEnum(str, PyEnum):
@@ -72,6 +82,7 @@ SERVICE_ORDER_PRIORITY_CHOICES: list[tuple[str, str]] = [
 
 SERVICE_ORDER_STATUS_LABELS = dict(SERVICE_ORDER_STATUS_CHOICES)
 SERVICE_ORDER_PRIORITY_LABELS = dict(SERVICE_ORDER_PRIORITY_CHOICES)
+PHOTO_RETENTION_TERMINAL_STATUSES = frozenset({"ISSUED", "CLOSED", "CANCELLED"})
 SERVICE_ORDER_STATUS_BADGE_CLASSES: dict[str, str] = {
     ServiceOrderStatusEnum.RECEIVED.value: "bg-secondary",
     ServiceOrderStatusEnum.DIAGNOSIS.value: "bg-info text-dark",
@@ -90,6 +101,7 @@ class ServiceOrder(BaseTenantModel):
 
     __tablename__ = "service_orders"
     __table_args__ = (
+        UniqueConstraint("company_id", "order_number", name="uq_service_orders_company_order_number"),
         Index("ix_service_orders_company_id", "company_id"),
         Index("ix_service_orders_branch_id", "branch_id"),
         Index("ix_service_orders_customer_id", "customer_id"),
@@ -98,11 +110,13 @@ class ServiceOrder(BaseTenantModel):
         Index("ix_service_orders_status", "status"),
         Index("ix_service_orders_priority", "priority"),
         Index("ix_service_orders_external_reference", "external_reference"),
+        Index("ix_service_orders_photo_retention", "status", "terminal_status_entered_at"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id"), nullable=False)
     device_id: Mapped[int] = mapped_column(ForeignKey("devices.id"), nullable=False)
+    intake_serial_number: Mapped[str | None] = mapped_column(String(120), nullable=True)
     order_number: Mapped[str] = mapped_column(String(50), nullable=False)
     status: Mapped[str] = mapped_column(
         String(40),
@@ -117,6 +131,7 @@ class ServiceOrder(BaseTenantModel):
     intake_date: Mapped[date] = mapped_column(Date, nullable=False, default=date.today)
     planned_finish_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    terminal_status_entered_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     warranty_repair: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     issue_description: Mapped[str] = mapped_column(Text, nullable=False)
     diagnosis: Mapped[str | None] = mapped_column(Text, nullable=True)

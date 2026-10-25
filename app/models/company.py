@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, List
 
-from sqlalchemy import String
+from sqlalchemy import Boolean, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import BaseModel
@@ -25,6 +25,9 @@ class Company(BaseModel):
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     short_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     prefix: Mapped[str] = mapped_column(String(10), nullable=False, default="SER")
+    service_order_prefix: Mapped[str] = mapped_column(String(20), nullable=False, default="ZL")
+    service_order_include_year: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    service_order_number_digits: Mapped[int] = mapped_column(Integer, nullable=False, default=6)
     nip: Mapped[str | None] = mapped_column(String(20), nullable=True)
     email: Mapped[str | None] = mapped_column(String(120), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(50), nullable=True)

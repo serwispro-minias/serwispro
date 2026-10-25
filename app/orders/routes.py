@@ -1,12 +1,27 @@
 from __future__ import annotations
 
 import logging
+from datetime import date
+from decimal import Decimal
 from io import BytesIO
 from pathlib import Path
+from uuid import UUID
 
-from flask import abort, current_app, flash, jsonify, redirect, render_template, request, send_file, url_for
+from flask import (
+    abort,
+    current_app,
+    flash,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    send_file,
+    session,
+    url_for,
+)
 from flask_login import current_user, login_required
 from flask_wtf.csrf import generate_csrf
+from itsdangerous import BadSignature, URLSafeSerializer
 from sqlalchemy.exc import OperationalError
 
 from app.customers.exceptions import CustomerAlreadyExistsError, CustomerValidationError
@@ -20,14 +35,30 @@ from app.devices.service import DeviceService
 from app.extensions import db
 from app.inventory.exceptions import InventoryNotFoundError, InventoryValidationError
 from app.inventory.service import InventoryService
-from app.order_photos.forms import ServiceOrderPhotoDeleteForm, ServiceOrderPhotoFilterForm, ServiceOrderPhotoUploadForm
-from app.order_photos.forms import PhotoAnnotationCreateForm, PhotoAnnotationDeleteForm, PhotoAnnotationUpdateForm
-from app.order_photos.service import ServiceOrderPhotoService
 from app.models.service_order import SERVICE_ORDER_PRIORITY_CHOICES, SERVICE_ORDER_STATUS_CHOICES
-from app.notifications import CHANNEL_EMAIL, CHANNEL_SMS, NOTIFICATION_STATUS_LABELS, NotificationError, NotificationService
+from app.notifications import (
+    CHANNEL_EMAIL,
+    CHANNEL_SMS,
+    NOTIFICATION_STATUS_LABELS,
+    NotificationError,
+    NotificationService,
+)
+from app.order_photos.forms import (
+    PhotoAnnotationCreateForm,
+    PhotoAnnotationDeleteForm,
+    PhotoAnnotationUpdateForm,
+    ServiceOrderPhotoDeleteForm,
+    ServiceOrderPhotoFilterForm,
+    ServiceOrderPhotoUploadForm,
+)
+from app.order_photos.service import ServiceOrderPhotoService
 from app.services.forms import EstimateCreateForm
 from app.services.service import estimate_service
-from app.workflow.exceptions import WorkflowNotFoundError, WorkflowPermissionError, WorkflowValidationError
+from app.workflow.exceptions import (
+    WorkflowNotFoundError,
+    WorkflowPermissionError,
+    WorkflowValidationError,
+)
 from app.workflow.service import WorkflowService
 
 from . import bp
@@ -35,15 +66,29 @@ from .action_exceptions import ServiceOrderActionNotFoundError, ServiceOrderActi
 from .action_repository import ServiceOrderActionRepository
 from .action_service import ServiceOrderActionService
 from .exceptions import ServiceOrderNotFoundError, ServiceOrderValidationError
-from .forms import ORDER_TYPE_CHOICES, OrderActionForm, OrderForm, OrderItemForm, OrderItemMovementForm, OrderNotificationForm, OrderPartUsageForm, OrderSearchForm, OrderStatusChangeForm, TimelineEntryForm
-from .item_service import ServiceOrderItemNotFoundError, ServiceOrderItemService, ServiceOrderItemValidationError
+from .forms import (
+    ORDER_TYPE_CHOICES,
+    OrderActionForm,
+    OrderForm,
+    OrderItemForm,
+    OrderItemMovementForm,
+    OrderNotificationForm,
+    OrderPartUsageForm,
+    OrderSearchForm,
+    OrderStatusChangeForm,
+    TimelineEntryForm,
+)
+from .item_service import (
+    ServiceOrderItemNotFoundError,
+    ServiceOrderItemService,
+    ServiceOrderItemValidationError,
+)
+from .print_service import ServiceOrderPrintService
+from .readiness_service import OrderReadinessService
 from .repository import ServiceOrderRepository
 from .service import ServiceOrderService
-from .print_service import ServiceOrderPrintService
 from .timeline_exceptions import OrderTimelineNotFoundError, OrderTimelineValidationError
 from .timeline_service import ServiceOrderTimelineService
-from .readiness_service import OrderReadinessService
-
 
 service = ServiceOrderService(ServiceOrderRepository())
 customer_service = CustomerService(CustomerRepository())
@@ -75,11 +120,16 @@ def _upload_root() -> Path:
     return (Path(current_app.root_path).parent / "uploads").resolve()
 
 
-def _populate_form_choices(form: OrderForm, *, company_id: int | None, customer_id: int | None = None) -> None:
-    form.customer_id.choices = [(-1, "Wybierz klienta")] + service.get_customer_choices(company_id)
+def _populate_form_choices(
+    form: OrderForm,
+    *,
+    company_id: int | None,
+    customer_id: int | None = None,
+) -> None:
+    form.customer_id.choices = []
+    form.customer_id.validate_choice = False
     form.device_id.choices = [(-1, "Wybierz urządzenie")]
-    if customer_id:
-        form.device_id.choices.extend(service.get_device_choices(company_id, customer_id))
+    form.device_id.validate_choice = False
     form.order_type.choices = ORDER_TYPE_CHOICES
     if company_id is not None and _ensure_workflow_seed(company_id=company_id, branch_id=_branch_id()):
         form.status.choices = workflow_service.get_status_choices(company_id=company_id, branch_id=_branch_id())
@@ -148,6 +198,8 @@ def _photo_filter_form(
 ) -> ServiceOrderPhotoFilterForm:
     form = ServiceOrderPhotoFilterForm(request.args, meta={"csrf": False})
     form.photo_type.choices = [("", "Wszystkie")] + photo_service.get_type_choices()
+    if "photo_type" not in request.args:
+        form.photo_type.data = ""
     try:
         form.author_id.choices = photo_service.author_choices(order_id=order_id, company_id=company_id, branch_id=branch_id)
     except OperationalError:
@@ -156,9 +208,9 @@ def _photo_filter_form(
     return form
 
 
-def _parse_photo_ids_param(raw_value: str | None) -> list[int]:
-    if not raw_value:
-        return []
+def _parse_photo_ids_param(raw_value: str | None) -> list[int] | None:
+    if raw_value is None:
+        return None
     values: list[int] = []
     for chunk in raw_value.split(","):
         chunk = chunk.strip()
@@ -174,6 +226,42 @@ def _parse_photo_render_mode(raw_value: str | None) -> str:
     return value
 
 
+def _photo_draft_serializer() -> URLSafeSerializer:
+    return URLSafeSerializer(current_app.secret_key, salt="serwispro-order-photo-draft-v1")
+
+
+def _validated_photo_draft_token(
+    token: str | None,
+    *,
+    order_id: int,
+    company_id: int | None,
+    user_id: int | None,
+) -> str | None:
+    if not token or company_id is None:
+        return None
+    try:
+        payload = _photo_draft_serializer().loads(token)
+        if (
+            payload.get("order_id") != order_id
+            or payload.get("company_id") != company_id
+            or payload.get("user_id") != user_id
+        ):
+            return None
+        return str(UUID(payload.get("draft", "")))
+    except (BadSignature, ValueError, TypeError, AttributeError):
+        return None
+
+
+def _include_photos_requested(raw_value: str | None) -> bool:
+    if raw_value is None:
+        return False
+    if raw_value == "1":
+        return True
+    if raw_value == "0":
+        return False
+    abort(400, description="Nieprawidłowa opcja dołączania zdjęć.")
+
+
 def _customer_label(customer) -> str:
     return (
         customer.full_name
@@ -185,18 +273,11 @@ def _customer_label(customer) -> str:
 
 def _device_label(device) -> str:
     label_parts = [
+        device.device_type or "-",
         device.manufacturer or "-",
         device.model or "-",
-        device.serial_number or "-",
     ]
-    label = " / ".join(label_parts)
-    if device.inventory_number:
-        return f"{label} | INV: {device.inventory_number}"
-    return label
-
-
-def _populate_device_customer_choices(form: DeviceForm, company_id: int | None) -> None:
-    form.customer_id.choices = device_service.get_customer_choices(company_id)
+    return " / ".join(label_parts)
 
 
 def _ensure_workflow_seed(*, company_id: int, branch_id: int | None) -> bool:
@@ -331,6 +412,9 @@ def index():
 @login_required
 def create():
     form = OrderForm()
+    photo_draft_token = (request.form.get("photo_draft_token") or "").strip() if request.method == "POST" else ""
+    if request.method == "GET":
+        form.intake_date.data = date.today()
     company_id = _company_id()
     customer_id = request.form.get("customer_id", type=int) if request.method == "POST" else request.args.get("customer_id", type=int)
     _populate_form_choices(form, company_id=company_id, customer_id=customer_id)
@@ -345,8 +429,29 @@ def create():
             flash(str(exc), "danger")
         else:
             flash("Zlecenie zostało utworzone.", "success")
-            return redirect(url_for("orders.details", order_id=service_order.id))
+            pending_prints = session.get("order_print_prompts", [])
+            pending_prints.append(service_order.id)
+            session["order_print_prompts"] = pending_prints[-20:]
+            token = (request.form.get("photo_draft_token") or "").strip()
+            try:
+                draft_uuid = str(UUID(token)) if token else None
+            except ValueError:
+                draft_uuid = None
+            signed_photo_token = (
+                _photo_draft_serializer().dumps({
+                    "draft": draft_uuid,
+                    "order_id": service_order.id,
+                    "company_id": company_id,
+                    "user_id": getattr(current_user, "id", None),
+                })
+                if draft_uuid
+                else None
+            )
+            return redirect(url_for("orders.details", order_id=service_order.id, **({"pending_photo_token": signed_photo_token} if signed_photo_token else {})))
 
+    selected_customer = customer_service.get_customer(customer_id, company_id=company_id) if customer_id else None
+    selected_device_id = request.form.get("device_id", type=int) if request.method == "POST" else None
+    selected_device = device_service.get_device(selected_device_id, company_id=company_id) if selected_device_id else None
     has_devices = service.has_customer_devices(company_id, customer_id)
     return render_template(
         "orders/form.html",
@@ -354,6 +459,12 @@ def create():
         title="Nowe zlecenie",
         has_devices=has_devices,
         selected_customer_id=customer_id,
+        selected_customer_label=_customer_label(selected_customer) if selected_customer else "",
+        selected_device_id=selected_device_id,
+        selected_device_label=_device_label(selected_device) if selected_device else "",
+        order_id=None,
+        photo_draft_token=photo_draft_token,
+        can_manage_order_photos=photo_service.can_manage_photos(),
         timeline_form=None,
         timeline_entries=[],
         timeline_type_labels=timeline_service.get_type_labels(),
@@ -372,6 +483,18 @@ def details(order_id: int):
     service_order = service.get_service_order(order_id, company_id=company_id)
     if service_order is None:
         abort(404)
+    pending_prints = session.get("order_print_prompts", [])
+    ask_print_intake = order_id in pending_prints
+    if ask_print_intake:
+        session["order_print_prompts"] = [pending_id for pending_id in pending_prints if pending_id != order_id]
+    raw_photo_token = (request.args.get("pending_photo_token") or "").strip()
+    photo_draft_token = _validated_photo_draft_token(
+        raw_photo_token,
+        order_id=order_id,
+        company_id=company_id,
+        user_id=getattr(current_user, "id", None),
+    )
+    pending_photo_token = raw_photo_token if photo_draft_token else None
     is_admin = "administrator" in _current_user_role_names()
     available_transitions = (
         workflow_service.get_available_transitions(
@@ -434,6 +557,7 @@ def details(order_id: int):
             date_from=photo_filter_form.date_from.data,
             date_to=photo_filter_form.date_to.data,
             author_id=photo_filter_form.author_id.data,
+            only_customer_visible=photo_service.is_customer_portal_user(),
         ) if company_id is not None else []
     except OperationalError:
         photos = []
@@ -441,6 +565,9 @@ def details(order_id: int):
     return render_template(
         "orders/details.html",
         order=service_order,
+        ask_print_intake=ask_print_intake,
+        pending_photo_token=pending_photo_token,
+        photo_draft_token=photo_draft_token,
         status_form=status_form,
         status_history=history,
         communication_history=communication_history,
@@ -462,6 +589,7 @@ def details(order_id: int):
         estimates=estimates,
         estimate_status_labels=estimate_service.get_status_labels(),
         photos=photos,
+        can_manage_photos=photo_service.can_manage_photos(),
         photo_type_labels=photo_service.get_type_labels(),
         photo_filter_form=photo_filter_form,
         photo_upload_form=photo_upload_form,
@@ -492,29 +620,46 @@ def readiness(order_id: int):
 @bp.route("/<int:order_id>/readiness/reserve", methods=["POST"])
 @login_required
 def reserve_available_for_readiness(order_id: int):
+    if not (_current_user_role_names() & {"administrator", "kierownik", "mechanik", "technik", "technician", "magazyn", "magazynier", "zakupy", "warehouse"}):
+        abort(403)
     company_id = _company_id()
     if company_id is None:
         abort(404)
+    from .forms import ReadinessReserveForm
+    if not ReadinessReserveForm().validate_on_submit():
+        return jsonify({"ok": False, "message": "Nieprawidłowy formularz lub token CSRF."}), 400
+    if order_item_service.repository.get_order(order_id=order_id, company_id=company_id, branch_id=_branch_id()) is None:
+        abort(404)
 
-    summary = readiness_service.build(order_id=order_id, company_id=company_id, branch_id=_branch_id())
+    from app.catalog.exceptions import CatalogError
     from app.catalog.service import CatalogService
 
     reserved_count = 0
-    for line in summary["lines"]:
-        available_to_reserve = min(Decimal(str(line["required"])), Decimal(str(line["available"])))
-        already_reserved = Decimal(str(line["reserved"]))
-        quantity = max(Decimal("0"), available_to_reserve - already_reserved)
-        if quantity <= 0:
-            continue
-        CatalogService().reserve_part_for_order(
-            order_id=order_id,
-            part_id=int(line["part_id"]),
-            quantity=quantity,
-            user_id=getattr(current_user, "id", None),
-            company_id=company_id,
-            branch_id=_branch_id(),
-        )
-        reserved_count += 1
+    try:
+        summary = readiness_service.build(order_id=order_id, company_id=company_id, branch_id=_branch_id())
+        for line in summary["lines"]:
+            available_to_reserve = min(Decimal(str(line["required"])), Decimal(str(line["available"])))
+            already_reserved = Decimal(str(line["reserved"]))
+            quantity = max(Decimal("0"), available_to_reserve - already_reserved)
+            if quantity <= 0:
+                continue
+            CatalogService().reserve_part_for_order(
+                order_id=order_id,
+                part_id=int(line["part_id"]),
+                quantity=quantity,
+                user_id=getattr(current_user, "id", None),
+                company_id=company_id,
+                branch_id=_branch_id(),
+                commit=False,
+            )
+            reserved_count += 1
+        db.session.commit()
+    except CatalogError as exc:
+        db.session.rollback()
+        return jsonify({"ok": False, "message": str(exc)}), 400
+    except Exception:
+        db.session.rollback()
+        raise
     return jsonify({"ok": True, "reserved_count": reserved_count, "summary": readiness_service.build(order_id=order_id, company_id=company_id, branch_id=_branch_id())})
 
 
@@ -543,6 +688,8 @@ def print_intake_protocol(order_id: int):
         upload_root=_upload_root(),
         selected_photo_ids=_parse_photo_ids_param(request.args.get("photo_ids")),
         photo_render_mode=_parse_photo_render_mode(request.args.get("photo_render_mode")),
+        include_photos=_include_photos_requested(request.args.get("include_photos")),
+        only_customer_visible=photo_service.is_customer_portal_user(),
     )
     if document is None:
         abort(404)
@@ -567,6 +714,8 @@ def print_release_protocol(order_id: int):
         upload_root=_upload_root(),
         selected_photo_ids=_parse_photo_ids_param(request.args.get("photo_ids")),
         photo_render_mode=_parse_photo_render_mode(request.args.get("photo_render_mode")),
+        include_photos=_include_photos_requested(request.args.get("include_photos")),
+        only_customer_visible=photo_service.is_customer_portal_user(),
     )
     if document is None:
         abort(404)
@@ -619,16 +768,38 @@ def edit(order_id: int):
             flash("Zlecenie zostało zaktualizowane.", "success")
             return redirect(url_for("orders.details", order_id=service_order.id))
 
-    has_devices = service.has_customer_devices(company_id, customer_id)
+    has_devices = service.has_customer_devices(company_id, customer_id) or service_order.device_id is not None
     timeline_form = _timeline_form()
-    part_usage_form, part_price_map, part_vat_map = _order_part_usage_form(company_id)
-    timeline_entries = timeline_service.list_entries(
-        order_id=order_id,
-        company_id=company_id,
-        branch_id=_branch_id(),
-    )
-    part_usages = inventory_service.list_order_usages(order_id=order_id, company_id=company_id, branch_id=_branch_id())
+    try:
+        part_usage_form, part_price_map, part_vat_map = _order_part_usage_form(company_id)
+    except OperationalError:
+        part_usage_form, part_price_map, part_vat_map = OrderPartUsageForm(), {}, {}
+    try:
+        timeline_entries = timeline_service.list_entries(
+            order_id=order_id,
+            company_id=company_id,
+            branch_id=_branch_id(),
+        )
+    except OperationalError:
+        timeline_entries = []
+    try:
+        part_usages = inventory_service.list_order_usages(order_id=order_id, company_id=company_id, branch_id=_branch_id())
+    except OperationalError:
+        part_usages = []
     part_usage_totals = inventory_service.compute_order_usage_totals(part_usages)
+    try:
+        order_photos = photo_service.list_photos(
+            order_id=order_id,
+            company_id=company_id,
+            branch_id=_branch_id(),
+            photo_type=None,
+            date_from=None,
+            date_to=None,
+            author_id=None,
+            only_customer_visible=photo_service.is_customer_portal_user(),
+        )
+    except OperationalError:
+        order_photos = []
 
     return render_template(
         "orders/form.html",
@@ -637,6 +808,14 @@ def edit(order_id: int):
         order=service_order,
         has_devices=has_devices,
         selected_customer_id=customer_id,
+        selected_customer_label=_customer_label(service_order.customer) if service_order.customer else "",
+        selected_device_id=service_order.device_id,
+        selected_device_label=_device_label(service_order.device) if service_order.device else "",
+        order_id=service_order.id,
+        can_manage_order_photos=photo_service.can_manage_photos(),
+        photo_upload_form=_photo_upload_form(default_type="REPAIR"),
+        order_photos=order_photos,
+        photo_type_labels=photo_service.get_type_labels(),
         timeline_form=timeline_form,
         timeline_entries=timeline_entries,
         part_usage_form=part_usage_form,
@@ -1089,6 +1268,8 @@ def delete_action(order_id: int, action_id: int):
 @bp.route("/<int:order_id>/parts/consume", methods=["POST"])
 @login_required
 def add_order_part_usage(order_id: int):
+    if not (_current_user_role_names() & {"administrator", "magazyn", "magazynier", "zakupy", "warehouse"}):
+        abort(403)
     company_id = _company_id()
     if company_id is None:
         return jsonify({"ok": False, "message": "Brak identyfikatora firmy."}), 400
@@ -1104,44 +1285,12 @@ def add_order_part_usage(order_id: int):
         )
         return jsonify({"ok": False, "form_html": form_html}), 400
 
-    try:
-        inventory_service.consume_for_order(
-            order_id=order_id,
-            part_id=part_form.part_id.data,
-            quantity_raw=part_form.quantity.data,
-            unit_net_price_raw=part_form.unit_net_price.data,
-            company_id=company_id,
-            branch_id=_branch_id(),
-            user_id=getattr(current_user, "id", None),
-        )
-    except (InventoryValidationError, InventoryNotFoundError) as exc:
-        part_form.quantity.errors.append(str(exc))
-        form_html = render_template(
-            "orders/partials/order_part_usage_form.html",
-            order={"id": order_id},
-            part_usage_form=part_form,
-            part_price_map=part_price_map,
-            part_vat_map=part_vat_map,
-        )
-        return jsonify({"ok": False, "form_html": form_html}), 400
-
-    refreshed_form, part_price_map, part_vat_map = _order_part_usage_form(company_id)
-    usages = inventory_service.list_order_usages(order_id=order_id, company_id=company_id, branch_id=_branch_id())
-    totals = inventory_service.compute_order_usage_totals(usages)
-
-    form_html = render_template(
-        "orders/partials/order_part_usage_form.html",
-        order={"id": order_id},
-        part_usage_form=refreshed_form,
-        part_price_map=part_price_map,
-        part_vat_map=part_vat_map,
-    )
-    list_html = render_template(
-        "orders/partials/order_part_usage_table.html",
-        part_usages=usages,
-        part_usage_totals=totals,
-    )
-    return jsonify({"ok": True, "form_html": form_html, "list_html": list_html})
+    order = order_item_service.repository.get_order(order_id=order_id, company_id=company_id, branch_id=_branch_id())
+    if order is None:
+        abort(404)
+    return jsonify({"ok": False,
+        "message": "Zużycie rozlicz w zakładce Części i usługi przez dokument RW.",
+        "url": url_for("orders.details", order_id=order_id, tab="items")}), 409
 
 
 @bp.route("/<int:order_id>/items/search")
@@ -1151,14 +1300,24 @@ def search_order_items(order_id: int):
     if company_id is None:
         return jsonify({"ok": False, "message": "Brak identyfikatora firmy."}), 400
 
+    order = order_item_service.repository.get_order(
+        order_id=order_id,
+        company_id=company_id,
+        branch_id=_branch_id(),
+    )
+    if order is None:
+        return jsonify({"ok": False, "message": "Nie znaleziono zlecenia."}), 404
+
     query_text = request.args.get("q")
-    items = order_item_service.search_catalog_items(query_text=query_text, company_id=company_id)
+    items = order_item_service.search_catalog_items(query_text=query_text, company_id=company_id, branch_id=_branch_id())
     return jsonify({"ok": True, "items": items})
 
 
 @bp.route("/<int:order_id>/items", methods=["POST"])
 @login_required
 def add_order_item(order_id: int):
+    if not (_current_user_role_names() & {"administrator", "kierownik", "mechanik", "technik", "technician", "magazyn", "magazynier", "zakupy", "warehouse"}):
+        abort(403)
     company_id = _company_id()
     if company_id is None:
         return jsonify({"ok": False, "message": "Brak identyfikatora firmy."}), 400
@@ -1184,6 +1343,7 @@ def add_order_item(order_id: int):
             unit_price_net_raw=form.unit_price_net.data,
             discount_percent_raw=form.discount_percent.data,
             notes=form.notes.data,
+            reserve=form.allocation_mode.data != "direct",
         )
     except (ServiceOrderItemNotFoundError, ServiceOrderItemValidationError) as exc:
         form.item_id.errors.append(str(exc))
@@ -1219,6 +1379,8 @@ def add_order_item(order_id: int):
 @bp.route("/<int:order_id>/items/<int:item_id>/use", methods=["POST"])
 @login_required
 def use_order_item(order_id: int, item_id: int):
+    if not (_current_user_role_names() & {"administrator", "magazyn", "magazynier", "zakupy", "warehouse"}):
+        abort(403)
     company_id = _company_id()
     if company_id is None:
         return jsonify({"ok": False, "message": "Brak identyfikatora firmy."}), 400
@@ -1229,40 +1391,27 @@ def use_order_item(order_id: int, item_id: int):
         return jsonify({"ok": False, "message": "Nieprawidłowe dane formularza."}), 400
 
     try:
-        order_item_service.mark_used(
+        issue = order_item_service.mark_used(
             order_id=order_id,
             item_id=item_id,
             quantity_raw=form.quantity.data,
             company_id=company_id,
             branch_id=_branch_id(),
             user_id=getattr(current_user, "id", None),
+            actor=current_user,
+            expected_version=int(form.version.data),
         )
-    except (ServiceOrderItemNotFoundError, ServiceOrderItemValidationError) as exc:
+    except (ServiceOrderItemNotFoundError, ServiceOrderItemValidationError, ValueError) as exc:
         return jsonify({"ok": False, "message": str(exc)}), 400
 
-    items = order_item_service.list_items(order_id=order_id, company_id=company_id, branch_id=_branch_id())
-    totals = order_item_service.compute_totals(items)
-    return jsonify(
-        {
-            "ok": True,
-            "list_html": render_template(
-                "orders/partials/order_item_table.html",
-                order_items=items,
-                order_item_totals=totals,
-                item_type_labels=order_item_service.get_type_labels(),
-                csrf_token_value=generate_csrf(),
-            ),
-            "summary_html": render_template(
-                "orders/partials/order_item_summary.html",
-                order_item_totals=totals,
-            ),
-        }
-    )
+    return redirect(url_for("stock_issues.details", issue_id=issue.id))
 
 
 @bp.route("/<int:order_id>/items/<int:item_id>/return", methods=["POST"])
 @login_required
 def return_order_item(order_id: int, item_id: int):
+    if not (_current_user_role_names() & {"administrator", "kierownik", "mechanik", "technik", "technician", "magazyn", "magazynier", "zakupy", "warehouse"}):
+        abort(403)
     company_id = _company_id()
     if company_id is None:
         return jsonify({"ok": False, "message": "Brak identyfikatora firmy."}), 400
@@ -1280,8 +1429,10 @@ def return_order_item(order_id: int, item_id: int):
             company_id=company_id,
             branch_id=_branch_id(),
             user_id=getattr(current_user, "id", None),
+            expected_version=int(form.version.data),
+            reserve=form.operation.data == "reserve",
         )
-    except (ServiceOrderItemNotFoundError, ServiceOrderItemValidationError) as exc:
+    except (ServiceOrderItemNotFoundError, ServiceOrderItemValidationError, ValueError) as exc:
         return jsonify({"ok": False, "message": str(exc)}), 400
 
     items = order_item_service.list_items(order_id=order_id, company_id=company_id, branch_id=_branch_id())
@@ -1341,21 +1492,50 @@ def devices_by_customer():
 
     company_id = _company_id()
     customer_id = request.args.get("customer_id", type=int)
-    choices = service.get_device_choices(company_id, customer_id)
+    has_devices = service.has_customer_devices(company_id, customer_id)
     return jsonify(
         {
-            "devices": [{"id": device_id, "label": label} for device_id, label in choices],
-            "has_devices": len(choices) > 0,
+            "devices": [],
+            "has_devices": has_devices,
         }
     )
+
+
+@bp.route("/devices/search")
+@login_required
+def search_order_devices():
+    company_id = _company_id()
+    query = (request.args.get("q") or "").strip()
+    if company_id is None:
+        abort(404)
+    if len(query) < 2:
+        return jsonify({"items": []})
+    limit = max(1, min(request.args.get("limit", 20, type=int) or 20, 50))
+    devices = device_service.repository.search_order_choices(
+        query=query,
+        company_id=company_id,
+        limit=limit,
+    )
+    return jsonify({
+        "items": [
+            {
+                "id": device.id,
+                "display": _device_label(device),
+                "serial_number": device.serial_number,
+            }
+            for device in devices
+        ]
+    })
 
 
 @bp.route("/customers/options")
 @login_required
 def customer_options():
-    """Return active customers for select refresh in order form."""
-
-    choices = service.get_customer_choices(_company_id())
+    """Return active customers for clients that refresh dependent selects."""
+    company_id = _company_id()
+    if company_id is None:
+        abort(404)
+    choices = service.get_customer_choices(company_id)
     return jsonify({"customers": [{"id": customer_id, "label": label} for customer_id, label in choices]})
 
 
@@ -1451,38 +1631,22 @@ def modal_create_device():
     """Create device inside modal and return JSON response."""
 
     company_id = _company_id()
-    initial_customer_id = request.args.get("customer_id", type=int)
     form = DeviceForm(meta={"csrf": False})
-    _populate_device_customer_choices(form, company_id)
-
-    if request.method == "GET" and initial_customer_id:
-        valid_customer_ids = {item[0] for item in form.customer_id.choices}
-        if initial_customer_id in valid_customer_ids:
-            form.customer_id.data = initial_customer_id
 
     if request.method == "POST":
         if form.validate_on_submit():
             try:
                 device = device_service.create_device(form.data, company_id=company_id)
             except DeviceValidationError as exc:
-                form.customer_id.errors.append(str(exc))
+                flash(str(exc), "danger")
             else:
-                return jsonify(
-                    {
-                        "ok": True,
-                        "device": {
-                            "id": device.id,
-                            "customer_id": device.customer_id,
-                            "label": _device_label(device),
-                        },
-                    }
-                )
+                return jsonify({"ok": True, "device": {"id": device.id, "label": _device_label(device)}})
 
         html = render_template(
             "orders/partials/device_modal_form.html",
             form=form,
             modal_title="Nowe urządzenie",
-            action_url=url_for("orders.modal_create_device", customer_id=form.customer_id.data or ""),
+            action_url=url_for("orders.modal_create_device"),
         )
         return jsonify({"ok": False, "html": html}), 400
 
@@ -1490,7 +1654,7 @@ def modal_create_device():
         "orders/partials/device_modal_form.html",
         form=form,
         modal_title="Nowe urządzenie",
-        action_url=url_for("orders.modal_create_device", customer_id=initial_customer_id or ""),
+        action_url=url_for("orders.modal_create_device"),
     )
 
 
@@ -1500,26 +1664,29 @@ def modal_edit_device(device_id: int):
     """Edit device inside modal and return JSON response."""
 
     company_id = _company_id()
-    device = device_service.get_device(device_id, company_id=company_id)
+    device = device_service.get_device(device_id, company_id=company_id, allow_assigned=True)
     if device is None:
         abort(404)
 
     form = DeviceForm(obj=device, meta={"csrf": False})
-    _populate_device_customer_choices(form, company_id)
 
     if request.method == "POST":
         if form.validate_on_submit():
             try:
-                device = device_service.update_device(device_id, form.data, company_id=company_id)
+                device = device_service.update_device(
+                    device_id,
+                    form.data,
+                    company_id=company_id,
+                    allow_assigned=True,
+                )
             except DeviceValidationError as exc:
-                form.customer_id.errors.append(str(exc))
+                flash(str(exc), "danger")
             else:
                 return jsonify(
                     {
                         "ok": True,
                         "device": {
                             "id": device.id,
-                            "customer_id": device.customer_id,
                             "label": _device_label(device),
                         },
                     }

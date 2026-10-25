@@ -1,19 +1,20 @@
 from __future__ import annotations
 
+from decimal import Decimal
 from io import BytesIO
 
 from flask import abort, flash, redirect, render_template, request, send_file, url_for
 from flask_login import current_user, login_required
 
-from app.models.inventory_stock_operation import INVENTORY_OPERATION_TYPE_LABELS
+from app.catalog.exceptions import CatalogError
 from app.catalog.service import CatalogService
+from app.models.inventory_stock_operation import INVENTORY_OPERATION_TYPE_LABELS
 
 from . import bp
 from .exceptions import InventoryNotFoundError, InventoryValidationError
 from .forms import InventoryOperationForm, InventoryPartForm, InventorySearchForm
 from .print_service import InventoryPrintService
 from .service import InventoryService
-
 
 service = InventoryService()
 catalog_service = CatalogService()
@@ -64,6 +65,8 @@ def create_part():
 
     if form.validate_on_submit():
         try:
+            if form.current_stock.data != 0:
+                raise InventoryValidationError("Nowy produkt musi mieć stan 0. Przyjęcie wykonaj dokumentem magazynowym.")
             part = service.create_part(
                 form.data,
                 company_id=_company_id(),
@@ -112,14 +115,15 @@ def edit_part(part_id: int):
 
     if form.validate_on_submit():
         try:
-            service.update_part(
-                part_id,
-                form.data,
-                company_id=_company_id(),
-                branch_id=_branch_id(),
-                user_id=_user_id(),
-            )
-        except (InventoryValidationError, InventoryNotFoundError) as exc:
+            if _branch_id() is not None and part.branch_id not in {None, _branch_id()}:
+                abort(404)
+            if Decimal(form.current_stock.data) != Decimal(part.current_stock):
+                raise InventoryValidationError("Edycja kartoteki nie zmienia stanu. Użyj jawnej korekty lub dokumentu magazynowego.")
+            payload = dict(form.data)
+            payload["is_active"] = form.is_active.data == "1"
+            catalog_service.update_entity(catalog_service.parts, part_id, payload,
+                company_id=_company_id(), branch_id=_branch_id())
+        except (InventoryValidationError, InventoryNotFoundError, CatalogError) as exc:
             flash(str(exc), "danger")
         else:
             flash("Karta części została zaktualizowana.", "success")
@@ -131,23 +135,29 @@ def edit_part(part_id: int):
 @bp.route("/<int:part_id>/operations", methods=["POST"])
 @login_required
 def add_operation(part_id: int):
+    from app.stock_issues.exceptions import StockIssuePermissionError
+    from app.stock_issues.service import stock_issue_service
+    try:
+        stock_issue_service._assert_manage(current_user)
+    except StockIssuePermissionError:
+        abort(403)
     form = InventoryOperationForm()
     if not form.validate_on_submit():
         flash("Nie udało się dodać operacji magazynowej.", "danger")
         return redirect(url_for("inventory.details", part_id=part_id))
 
     try:
-        service.register_operation(
-            part_id=part_id,
-            operation_type=form.operation_type.data,
-            quantity_raw=form.quantity.data,
-            document_number=form.document_number.data,
-            comment=form.comment.data,
+        catalog_service.add_stock_movement(
+            entity_type="part", entity_id=part_id,
+            movement_type=form.operation_type.data,
+            quantity=form.quantity.data,
+            reference_type="ADJUSTMENT", reference_id=form.document_number.data,
+            note=form.comment.data, actor=current_user,
             company_id=_company_id(),
             branch_id=_branch_id(),
             user_id=_user_id(),
         )
-    except (InventoryValidationError, InventoryNotFoundError) as exc:
+    except (InventoryValidationError, InventoryNotFoundError, CatalogError) as exc:
         flash(str(exc), "danger")
     else:
         flash("Operacja magazynowa została zapisana.", "success")

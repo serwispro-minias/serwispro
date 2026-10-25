@@ -5,10 +5,54 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
 
+from sqlalchemy import inspect, select
+
 from app.extensions import db
 from app.models.inventory_item import InventoryItem
 from app.models.inventory_reservation import InventoryReservation, InventoryReservationStatusEnum
 from app.models.service_order import ServiceOrder
+
+
+def reserved_stock(*, item_type: str, item_id: int, company_id: int, exclude_order_id: int | None = None) -> Decimal:
+    """Count existing holds company-wide: the physical stock is company-wide too.
+
+    Old catalog reservations wrote both reservation tables. For the same order
+    take the larger total rather than counting those mirror rows twice.
+    """
+    from app.models.service_order_item import ServiceOrderItem
+    from app.models.service_order_part_reservation import ServiceOrderPartReservation
+
+    totals: dict[int, Decimal] = {}
+    inspector = inspect(db.session.connection())
+    sources = []
+    if item_type == "PART":
+        sources = [
+            (ServiceOrderPartReservation, ServiceOrderPartReservation.part_id),
+            (InventoryReservation, InventoryReservation.inventory_item_id),
+        ]
+    for model, product_column in sources:
+        if not inspector.has_table(model.__tablename__):
+            continue
+        subtotals: dict[int, Decimal] = {}
+        rows = db.session.scalars(select(model).where(
+            product_column == item_id, model.company_id == company_id,
+            model.is_active.is_(True), model.status == "RESERVED",
+        )).all()
+        for row in rows:
+            subtotals[row.service_order_id] = subtotals.get(row.service_order_id, Decimal("0")) + Decimal(row.quantity)
+        for order_id, quantity in subtotals.items():
+            totals[order_id] = max(totals.get(order_id, Decimal("0")), quantity)
+    if inspector.has_table(ServiceOrderItem.__tablename__):
+        rows = db.session.scalars(select(ServiceOrderItem).where(
+            ServiceOrderItem.company_id == company_id, ServiceOrderItem.item_type == item_type,
+            ServiceOrderItem.item_id == item_id, ServiceOrderItem.is_active.is_(True),
+        )).all()
+        subtotals = {}
+        for row in rows:
+            subtotals[row.service_order_id] = subtotals.get(row.service_order_id, Decimal("0")) + Decimal(row.reserved_quantity)
+        for order_id, quantity in subtotals.items():
+            totals[order_id] = max(totals.get(order_id, Decimal("0")), quantity)
+    return sum((qty for order_id, qty in totals.items() if order_id != exclude_order_id), Decimal("0"))
 
 
 @dataclass(slots=True)
@@ -35,10 +79,8 @@ class InventoryReservationService:
         if quantity <= Decimal("0"):
             raise ValueError("Ilość rezerwacji musi być większa od zera.")
 
-        reserved = sum(
-            (Decimal(row.quantity) for row in inventory_item.inventory_reservations if row.status == InventoryReservationStatusEnum.RESERVED.value),
-            Decimal("0"),
-        )
+        db.session.refresh(inventory_item, with_for_update=True)
+        reserved = reserved_stock(item_type="PART", item_id=inventory_item.id, company_id=company_id)
         available = Decimal(inventory_item.current_stock) - reserved
         reserved_quantity = min(quantity, available)
         missing_quantity = max(Decimal("0"), quantity - reserved_quantity)

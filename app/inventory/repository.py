@@ -11,6 +11,7 @@ from app.models.inventory_item import InventoryItem
 from app.models.inventory_stock_operation import InventoryStockOperation
 from app.models.service_order import ServiceOrder
 from app.models.service_order_part_usage import ServiceOrderPartUsage
+from app.utils.contextual_search import contextual_search
 
 
 class InventoryRepository:
@@ -36,15 +37,9 @@ class InventoryRepository:
         filters: list[Any] = [InventoryItem.is_active.is_(True)]
         if company_id is not None:
             filters.append(InventoryItem.company_id == company_id)
-        if query_text:
-            term = f"%{query_text}%"
-            filters.append(
-                or_(
-                    InventoryItem.code.ilike(term),
-                    InventoryItem.name.ilike(term),
-                    InventoryItem.barcode.ilike(term),
-                )
-            )
+        search_clause = contextual_search(InventoryItem.code, InventoryItem.name, InventoryItem.barcode, query=query_text)
+        if search_clause is not None:
+            filters.append(search_clause)
 
         total = int(db.session.scalar(select(func.count()).select_from(InventoryItem).where(*filters)) or 0)
         items = list(

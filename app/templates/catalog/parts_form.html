@@ -10,19 +10,28 @@
 
 <div class="card">
     <div class="card-body">
-        <form method="post">
+        <form method="post" data-shortcut-save>
             {{ form.hidden_tag() }}
             <div class="row g-3">
-                <div class="col-md-3">{{ form.code.label(class="form-label") }}{{ form.code(class="form-control") }}</div>
-                <div class="col-md-9">{{ form.name.label(class="form-label") }}{{ form.name(class="form-control") }}</div>
-                <div class="col-md-4">{{ form.category_id.label(class="form-label") }}{{ form.category_id(class="form-select") }}</div>
-                <div class="col-md-4">{{ form.barcode.label(class="form-label") }}{{ form.barcode(class="form-control") }}</div>
-                <div class="col-md-4">{{ form.current_stock.label(class="form-label") }}{{ form.current_stock(class="form-control") }}</div>
-                <div class="col-md-4">{{ form.purchase_price_net.label(class="form-label") }}{{ form.purchase_price_net(class="form-control") }}</div>
-                <div class="col-md-4">{{ form.sale_price_net.label(class="form-label") }}{{ form.sale_price_net(class="form-control") }}</div>
-                <div class="col-md-4">{{ form.vat_id.label(class="form-label") }}{{ form.vat_id(class="form-select") }}</div>
+                <div class="col-md-3">{{ form.code.label(class="form-label") }}{{ form.code(class="form-control") }}
+                </div>
+                <div class="col-md-9">{{ form.name.label(class="form-label") }}{{ form.name(class="form-control") }}
+                </div>
+                <div class="col-md-4">{{ form.category_id.label(class="form-label") }}{{
+                    form.category_id(class="form-select") }}</div>
+                <div class="col-md-4">{{ form.barcode.label(class="form-label") }}{{ form.barcode(class="form-control")
+                    }}</div>
+                <div class="col-md-4">{{ form.current_stock.label(class="form-label") }}{{
+                    form.current_stock(class="form-control") }}</div>
+                <div class="col-md-4">{{ form.purchase_price_net.label(class="form-label") }}{{
+                    form.purchase_price_net(class="form-control") }}</div>
+                <div class="col-md-4">{{ form.sale_price_net.label(class="form-label") }}{{
+                    form.sale_price_net(class="form-control") }}</div>
+                <div class="col-md-4">{{ form.vat_id.label(class="form-label") }}{{ form.vat_id(class="form-select") }}
+                </div>
             </div>
-            <div class="mt-4">{{ form.submit(class="btn btn-primary") }}</div>
+            <div class="mt-4">{{ form.submit(class="btn btn-primary", **{"data-shortcut-save-submit": "",
+                "data-shortcut-hint": "Zapisz część (Ctrl + Enter)"}) }}</div>
         </form>
     </div>
 </div>

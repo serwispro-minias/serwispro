@@ -42,8 +42,16 @@ def create_app(environment: str | None = None) -> Flask:
 
     register_extensions(app)
     app.jinja_env.globals["csrf_token"] = generate_csrf
+    from flask_login import current_user
+
+    from app.settings.access import has_company_admin_role
+    app.jinja_env.globals["has_company_admin_role"] = lambda: has_company_admin_role(
+        current_user, getattr(current_user, "company_id", None)
+    )
     register_blueprints(app)
     register_routes(app)
+    from app.order_photos.cli import register_cli as register_order_photo_cli
+    register_order_photo_cli(app)
 
     return app
 

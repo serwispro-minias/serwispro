@@ -22,7 +22,10 @@ def _branch_id(): return getattr(current_user, "branch_id", None)
 
 def _supplier_choices(company_id):
     rows = CatalogSupplier.query.filter_by(company_id=company_id, is_active=True).order_by(CatalogSupplier.name.asc()).all()
-    return [(0, "Wszyscy")] + [(row.id, f"{row.code} | {row.name}") for row in rows]
+    return [(0, "Wszyscy")] + [
+        (row.id, f"{row.code} | {row.name}" + (f" | NIP: {row.tax_id}" if row.tax_id else ""))
+        for row in rows
+    ]
 
 
 def _part_choices(company_id):
@@ -63,6 +66,44 @@ def create_from_demands():
             flash("Zamówienie zostało utworzone.", "success")
             return redirect(url_for("purchase_orders.details", order_id=order.id))
     return render_template("purchase_orders/form.html", form=form, title="Nowe zamówienie do dostawcy", demand_ids=demand_ids, suggestions=suggestions)
+
+
+@bp.route("/new/catalog", methods=["GET", "POST"])
+@login_required
+def create_from_catalog():
+    company_id = _company_id()
+    if company_id is None:
+        abort(404)
+    suppliers = purchase_order_service.get_suppliers(company_id=company_id)
+    form = PurchaseOrderForm()
+    form.supplier_id.choices = [(row.id, row.name) for row in suppliers]
+    if form.validate_on_submit():
+        items = []
+        index = 0
+        while f"items-{index}-part_id" in request.form:
+            items.append({
+                "part_id": request.form.get(f"items-{index}-part_id"),
+                "quantity_ordered": request.form.get(f"items-{index}-quantity_ordered"),
+                "unit_price_net": request.form.get(f"items-{index}-unit_price_net"),
+            })
+            index += 1
+        try:
+            order = purchase_order_service.create_order(
+                items=items,
+                supplier_id=request.form.get("supplier_id", type=int),
+                company_id=company_id,
+                branch_id=_branch_id(),
+                actor=current_user,
+                order_date=date.fromisoformat(request.form["order_date"]) if request.form.get("order_date") else None,
+                expected_delivery_date=date.fromisoformat(request.form["expected_delivery_date"]) if request.form.get("expected_delivery_date") else None,
+                notes=request.form.get("notes"),
+            )
+        except (PurchaseOrderError, ValueError) as exc:
+            flash(str(exc) or "Nieprawidłowa data zamówienia.", "danger")
+        else:
+            flash("Zamówienie zostało utworzone.", "success")
+            return redirect(url_for("purchase_orders.details", order_id=order.id))
+    return render_template("purchase_orders/catalog_form.html", suppliers=suppliers, today=date.today().isoformat())
 
 
 @bp.route("/<int:order_id>", methods=["GET"])

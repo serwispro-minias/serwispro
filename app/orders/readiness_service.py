@@ -16,7 +16,6 @@ from app.models.service_estimate import ServiceEstimate
 from app.models.service_estimate_item import ServiceEstimateItem
 from app.models.service_order_part_reservation import ServiceOrderPartReservation
 
-
 OPEN_PURCHASE_STATUSES = {
     PurchaseOrderStatusEnum.DRAFT.value,
     PurchaseOrderStatusEnum.SENT.value,
@@ -123,7 +122,8 @@ class OrderReadinessService:
             part = parts.get(part_id)
             if part is None:
                 continue
-            stock = max(Decimal("0"), Decimal(part.current_stock or 0))
+            from app.inventory.reservation_service import reserved_stock
+            stock = max(Decimal("0"), Decimal(part.current_stock or 0) - reserved_stock(item_type="PART", item_id=part.id, company_id=company_id))
             required_quantity = max(Decimal("0"), quantity)
             reserved_quantity = reserved.get(part_id, Decimal("0"))
             to_order = max(Decimal("0"), required_quantity - reserved_quantity - stock)

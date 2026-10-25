@@ -106,6 +106,7 @@ from app.models.service_order_item import (
     ServiceOrderItem,
 )
 from app.models.service_order_material_usage import ServiceOrderMaterialUsage
+from app.models.service_order_number_counter import ServiceOrderNumberCounter
 from app.models.service_order_part_reservation import ServiceOrderPartReservation
 from app.models.service_order_part_usage import ServiceOrderPartUsage
 from app.models.service_order_photo import (

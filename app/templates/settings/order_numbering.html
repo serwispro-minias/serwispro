@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Numeracja zleceń{% endblock %}
+{% block content %}
+<div class="page-header mb-3">
+    <h1 class="h3">Numeracja zleceń</h1>
+    <p class="text-muted mb-0">Ustawienia dotyczą wyłącznie Twojej firmy. Zmiana nie modyfikuje wcześniej nadanych
+        numerów.</p>
+</div>
+<div class="card">
+    <div class="card-body">
+        <form method="post" data-shortcut-save>
+            {{ form.hidden_tag() }}
+            <div class="row g-3">
+                <div class="col-md-4">{{ form.prefix.label(class="form-label") }}{{ form.prefix(class="form-control",
+                    autocomplete="off") }}{% if form.prefix.errors %}<div class="form-text text-danger">{{
+                        form.prefix.errors[0] }}</div>{% endif %}</div>
+                <div class="col-md-4">{{ form.digits.label(class="form-label") }}{{ form.digits(class="form-control",
+                    min="3", max="10") }}{% if form.digits.errors %}<div class="form-text text-danger">{{
+                        form.digits.errors[0] }}</div>{% endif %}</div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <div class="form-check mb-2">{{ form.include_year(class="form-check-input") }}{{
+                        form.include_year.label(class="form-check-label") }}</div>
+                </div>
+            </div>
+            <p class="form-text mt-3">Przykład: ZL/2026/000001 z rokiem albo ZL/000001 bez roku. Numer jest przydzielany
+                automatycznie i unikalnie w obrębie firmy.</p>
+            {{ form.submit(class="btn btn-primary", **{"data-shortcut-save-submit": "", "data-shortcut-hint": "Zapisz
+            numerację (Ctrl + Enter)"}) }}
+        </form>
+    </div>
+</div>
+{% endblock %}

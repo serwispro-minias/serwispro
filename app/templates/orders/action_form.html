@@ -9,28 +9,28 @@
 
 <div class="card shadow-sm">
   <div class="card-body">
-    <form method="post" novalidate>
+    <form method="post" novalidate data-shortcut-save>
       {{ form.hidden_tag() }}
       <div class="row g-3">
         <div class="col-md-4">
           {{ form.action_date.label(class='form-label') }}
           {{ form.action_date(class='form-control') }}
           {% for error in form.action_date.errors %}
-            <div class="text-danger small">{{ error }}</div>
+          <div class="text-danger small">{{ error }}</div>
           {% endfor %}
         </div>
         <div class="col-md-4">
           {{ form.technician_id.label(class='form-label') }}
           {{ form.technician_id(class='form-select') }}
           {% for error in form.technician_id.errors %}
-            <div class="text-danger small">{{ error }}</div>
+          <div class="text-danger small">{{ error }}</div>
           {% endfor %}
         </div>
         <div class="col-md-4">
           {{ form.action_type.label(class='form-label') }}
           {{ form.action_type(class='form-select') }}
           {% for error in form.action_type.errors %}
-            <div class="text-danger small">{{ error }}</div>
+          <div class="text-danger small">{{ error }}</div>
           {% endfor %}
         </div>
 
@@ -38,7 +38,7 @@
           {{ form.description.label(class='form-label') }}
           {{ form.description(class='form-control', rows='5') }}
           {% for error in form.description.errors %}
-            <div class="text-danger small">{{ error }}</div>
+          <div class="text-danger small">{{ error }}</div>
           {% endfor %}
         </div>
 
@@ -46,27 +46,27 @@
           {{ form.work_time_minutes.label(class='form-label') }}
           {{ form.work_time_minutes(class='form-control') }}
           {% for error in form.work_time_minutes.errors %}
-            <div class="text-danger small">{{ error }}</div>
+          <div class="text-danger small">{{ error }}</div>
           {% endfor %}
         </div>
         <div class="col-md-4">
           {{ form.cost.label(class='form-label') }}
           {{ form.cost(class='form-control') }}
           {% for error in form.cost.errors %}
-            <div class="text-danger small">{{ error }}</div>
+          <div class="text-danger small">{{ error }}</div>
           {% endfor %}
         </div>
         <div class="col-md-4">
           {{ form.is_visible_for_customer.label(class='form-label') }}
           {{ form.is_visible_for_customer(class='form-select') }}
           {% for error in form.is_visible_for_customer.errors %}
-            <div class="text-danger small">{{ error }}</div>
+          <div class="text-danger small">{{ error }}</div>
           {% endfor %}
         </div>
       </div>
 
       <div class="mt-4 d-flex gap-2">
-        {{ form.submit(class='btn btn-primary') }}
+        {{ form.submit(class='btn btn-primary', **{"data-shortcut-save-submit": ""}) }}
         <a class="btn btn-outline-secondary" href="{{ url_for('orders.details', order_id=order_id) }}">Anuluj</a>
       </div>
     </form>

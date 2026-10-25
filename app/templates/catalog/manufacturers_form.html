@@ -10,15 +10,19 @@
 
 <div class="card">
     <div class="card-body">
-        <form method="post">
+        <form method="post" data-shortcut-save>
             {{ form.hidden_tag() }}
             <div class="row g-3">
-                <div class="col-md-3">{{ form.code.label(class="form-label") }}{{ form.code(class="form-control") }}</div>
-                <div class="col-md-9">{{ form.name.label(class="form-label") }}{{ form.name(class="form-control") }}</div>
-                <div class="col-md-12">{{ form.website.label(class="form-label") }}{{ form.website(class="form-control") }}</div>
-                <div class="col-12">{{ form.notes.label(class="form-label") }}{{ form.notes(class="form-control", rows=4) }}</div>
+                <div class="col-md-3">{{ form.code.label(class="form-label") }}{{ form.code(class="form-control") }}
+                </div>
+                <div class="col-md-9">{{ form.name.label(class="form-label") }}{{ form.name(class="form-control") }}
+                </div>
+                <div class="col-md-12">{{ form.website.label(class="form-label") }}{{ form.website(class="form-control")
+                    }}</div>
+                <div class="col-12">{{ form.notes.label(class="form-label") }}{{ form.notes(class="form-control",
+                    rows=4) }}</div>
             </div>
-            <div class="mt-4">{{ form.submit(class="btn btn-primary") }}</div>
+            <div class="mt-4">{{ form.submit(class="btn btn-primary", **{"data-shortcut-save-submit": ""}) }}</div>
         </form>
     </div>
 </div>

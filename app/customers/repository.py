@@ -15,6 +15,7 @@ from sqlalchemy import func, or_, select
 from app.extensions import db
 from app.models.company import Company
 from app.models.customer import Customer
+from app.utils.contextual_search import contextual_search
 
 
 class CustomerRepository:
@@ -90,26 +91,18 @@ class CustomerRepository:
         """Search active customers by company name, full name, first name, last name, short name, city, NIP, phone, or email."""
         page = max(page, 1)
         per_page = max(per_page, 1)
-        term = f"%{query.strip()}%"
         filters = self._active_filters(company_id)
+        search_clause = contextual_search(
+            Company.name, Customer.full_name, Customer.short_name,
+            Customer.first_name, Customer.last_name, Customer.city,
+            Customer.nip, Customer.phone, Customer.email, query=query,
+        )
         count_query = (
             select(func.count())
             .select_from(Customer)
             .join(Customer.company)
             .where(*filters)
-            .where(
-                or_(
-                    Company.name.ilike(term),
-                    Customer.full_name.ilike(term),
-                    Customer.short_name.ilike(term),
-                    Customer.first_name.ilike(term),
-                    Customer.last_name.ilike(term),
-                    Customer.city.ilike(term),
-                    Customer.nip.ilike(term),
-                    Customer.phone.ilike(term),
-                    Customer.email.ilike(term),
-                )
-            )
+            .where(search_clause)
         )
         total = db.session.scalar(count_query) or 0
         offset = (page - 1) * per_page
@@ -117,19 +110,7 @@ class CustomerRepository:
             select(Customer)
             .join(Customer.company)
             .where(*filters)
-            .where(
-                or_(
-                    Company.name.ilike(term),
-                    Customer.full_name.ilike(term),
-                    Customer.short_name.ilike(term),
-                    Customer.first_name.ilike(term),
-                    Customer.last_name.ilike(term),
-                    Customer.city.ilike(term),
-                    Customer.nip.ilike(term),
-                    Customer.phone.ilike(term),
-                    Customer.email.ilike(term),
-                )
-            )
+            .where(search_clause)
             .order_by(Customer.id)
             .offset(offset)
             .limit(per_page)

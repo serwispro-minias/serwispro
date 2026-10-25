@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from flask import flash, redirect, render_template, request, url_for
+from flask import abort, flash, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
 from . import bp
@@ -18,7 +18,6 @@ def index():
     page = request.args.get('page', 1, type=int)
     query = request.args.get('q', '', type=str)
     per_page = 20
-
     if query:
         customers = service.search_customers(
             query=query,
@@ -37,6 +36,41 @@ def index():
         'customers/index.html',
         customers=customers,
         q=query,
+    )
+
+
+@bp.route('/search')
+@login_required
+def search():
+    company_id = getattr(current_user, 'company_id', None)
+    if company_id is None:
+        abort(404)
+    query = (request.args.get('q') or '').strip()
+    if len(query) < 2:
+        return jsonify({'items': []})
+    limit = max(1, min(request.args.get('limit', 10, type=int) or 10, 20))
+    result = service.search_customers(query=query, page=1, per_page=limit, company_id=company_id)
+    return jsonify({
+        'items': [
+            {
+                'id': customer.id,
+                'code': str(customer.id),
+                'name': _customer_search_label(customer),
+                'display': _customer_search_label(customer),
+                'tax_id': customer.nip,
+                'url': url_for('customers.details', customer_id=customer.id),
+            }
+            for customer in result['items']
+        ]
+    })
+
+
+def _customer_search_label(customer) -> str:
+    return (
+        customer.full_name
+        or customer.short_name
+        or ' '.join(filter(None, [customer.first_name, customer.last_name]))
+        or f'Klient #{customer.id}'
     )
 
 

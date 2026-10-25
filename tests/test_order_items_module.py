@@ -6,20 +6,28 @@ from decimal import Decimal
 import pytest
 
 from app.extensions import db
+from app.models.catalog_category import ProductCategory
 from app.models.catalog_material import CatalogMaterial
 from app.models.catalog_part import CatalogPart
-from app.models.catalog_category import ProductCategory
 from app.models.catalog_service_item import CatalogServiceItem
 from app.models.catalog_stock_movement import CatalogStockMovement
 from app.models.customer import Customer
 from app.models.device import Device
+from app.models.inventory_reservation import InventoryReservation
+from app.models.part_demand import PartDemand
+from app.models.purchase_request import PurchaseRequest
+from app.models.role import Role
 from app.models.service_estimate import ServiceEstimate
 from app.models.service_estimate_item import ServiceEstimateItem
 from app.models.service_order import ServiceOrder
 from app.models.service_order_item import ServiceOrderItem
-from app.models.purchase_request import PurchaseRequest
-from app.orders.item_service import ServiceOrderItemService
+from app.models.service_order_part_reservation import ServiceOrderPartReservation
+from app.models.stock_issue import StockIssue
+from app.models.stock_issue_item import StockIssueItem
+from app.models.user import User
+from app.models.user_role import UserRole
 from app.models.vat_rate import VatRate
+from app.orders.item_service import ServiceOrderItemService
 
 
 @pytest.fixture()
@@ -40,6 +48,9 @@ def order_items_schema(app):
                 ServiceEstimateItem.__table__,
                 ServiceOrderItem.__table__,
                 PurchaseRequest.__table__,
+                ServiceOrderPartReservation.__table__, InventoryReservation.__table__,
+                StockIssue.__table__, StockIssueItem.__table__, PartDemand.__table__,
+                Role.__table__, UserRole.__table__,
             ],
         )
 
@@ -50,6 +61,9 @@ def order_items_schema(app):
         db.Model.metadata.drop_all(
             bind=db.engine,
             tables=[
+                StockIssueItem.__table__, StockIssue.__table__, PartDemand.__table__,
+                ServiceOrderPartReservation.__table__, InventoryReservation.__table__,
+                UserRole.__table__, Role.__table__,
                 ServiceOrderItem.__table__,
                 CatalogStockMovement.__table__,
                 CatalogServiceItem.__table__,
@@ -156,6 +170,11 @@ def test_order_items_tab_and_lifecycle(auth_client, app, company_id, order_items
     with app.app_context():
         order_id = _create_order(company_id)
         part_id, material_id, service_id = _create_catalog_records(company_id)
+        role = Role(name="Magazynier", company_id=company_id)
+        db.session.add(role)
+        db.session.flush()
+        db.session.add(UserRole(user_id=app.config["TEST_USER_ID"], role_id=role.id, company_id=company_id))
+        db.session.commit()
 
     response = auth_client.get(f"/orders/{order_id}?tab=items")
     assert response.status_code == 200
@@ -227,20 +246,19 @@ def test_order_items_tab_and_lifecycle(auth_client, app, company_id, order_items
         assert totals.gross == Decimal("154.98")
 
         part_item_id = int(items[0].id)
+        version = items[0].version
 
     use_part = auth_client.post(
         f"/orders/{order_id}/items/{part_item_id}/use",
-        data={"quantity": "2", "submit_use": "1"},
+        data={"quantity": "2", "submit_use": "1", "version": str(version)},
     )
-    assert use_part.status_code == 200
-    assert use_part.get_json()["ok"] is True
-
-    return_part = auth_client.post(
-        f"/orders/{order_id}/items/{part_item_id}/return",
-        data={"quantity": "1", "submit_return": "1"},
-    )
-    assert return_part.status_code == 200
-    assert return_part.get_json()["ok"] is True
+    assert use_part.status_code == 302
+    with app.app_context():
+        issue = db.session.query(StockIssue).one()
+        assert db.session.get(CatalogPart, part_id).current_stock == 10
+        issue_id = issue.id
+    posted = auth_client.post(f"/stock-issues/{issue_id}/post")
+    assert posted.status_code == 302
 
     with app.app_context():
         refreshed_part = db.session.get(ServiceOrderItem, items[0].id)
@@ -257,5 +275,5 @@ def test_order_items_tab_and_lifecycle(auth_client, app, company_id, order_items
 
         part = db.session.get(CatalogPart, part_id)
         material = db.session.get(CatalogMaterial, material_id)
-        assert part is not None and Decimal(part.current_stock) == Decimal("9.000")
+        assert part is not None and Decimal(part.current_stock) == Decimal("8.000")
         assert material is not None and Decimal(material.current_stock) == Decimal("5.000")

@@ -7,9 +7,9 @@ from sqlalchemy import and_, select
 from sqlalchemy.orm import selectinload
 
 from app.extensions import db
-from app.models.service_order_photo_annotation import PhotoAnnotation
 from app.models.service_order import ServiceOrder
 from app.models.service_order_photo import ServiceOrderPhoto
+from app.models.service_order_photo_annotation import PhotoAnnotation
 from app.models.user import User
 
 
@@ -33,6 +33,7 @@ class ServiceOrderPhotoRepository:
         date_from: datetime | None,
         date_to: datetime | None,
         author_id: int | None,
+        only_customer_visible: bool = False,
     ) -> list[ServiceOrderPhoto]:
         query = (
             select(ServiceOrderPhoto)
@@ -47,6 +48,8 @@ class ServiceOrderPhotoRepository:
             query = query.where(ServiceOrderPhoto.photo_type == photo_type)
         if author_id is not None:
             query = query.where(ServiceOrderPhoto.created_by == author_id)
+        if only_customer_visible:
+            query = query.where(ServiceOrderPhoto.is_visible_for_customer.is_(True))
         if date_from is not None:
             query = query.where(ServiceOrderPhoto.taken_at >= date_from)
         if date_to is not None:

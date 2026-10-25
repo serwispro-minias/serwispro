@@ -10,7 +10,7 @@
 
 <div class="card">
     <div class="card-body">
-        <form method="post">
+        <form method="post" data-shortcut-save>
             {{ form.hidden_tag() }}
             <div class="row g-3">
                 <div class="col-md-3">{{ form.code.label(class="form-label") }}{{ form.code(class="form-control") }}
@@ -20,7 +20,7 @@
                 <div class="col-md-3 form-check">{{ form.is_active(class="form-check-input") }} {{
                     form.is_active.label(class="form-check-label") }}</div>
             </div>
-            <div class="mt-4">{{ form.submit(class="btn btn-primary") }}</div>
+            <div class="mt-4">{{ form.submit(class="btn btn-primary", **{"data-shortcut-save-submit": ""}) }}</div>
         </form>
     </div>
 </div>

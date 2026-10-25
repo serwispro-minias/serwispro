@@ -1,9 +1,16 @@
 from __future__ import annotations
 
 from flask_wtf import FlaskForm
-from wtforms import BooleanField, DecimalField, IntegerField, SelectField, StringField, SubmitField, TextAreaField
+from wtforms import (
+    BooleanField,
+    DecimalField,
+    IntegerField,
+    SelectField,
+    StringField,
+    SubmitField,
+    TextAreaField,
+)
 from wtforms.validators import DataRequired, Email, Length, NumberRange, Optional
-
 
 CATEGORY_KIND_CHOICES: list[tuple[str, str]] = [
     ("ANY", "Wszystkie"),
@@ -68,7 +75,7 @@ class PartForm(FlaskForm):
     category_id = SelectField("Kategoria", coerce=int, validators=[DataRequired(message="Kategoria jest wymagana.")])
     name = StringField("Nazwa", validators=[DataRequired(), Length(max=255)])
     barcode = StringField("Kod kreskowy", validators=[Optional(), Length(max=64)])
-    current_stock = IntegerField("Ilość sztuk", validators=[DataRequired(), NumberRange(min=0)])
+    current_stock = IntegerField("Ilość sztuk", validators=[NumberRange(min=0)])
     purchase_price_net = DecimalField("Cena zakupu netto", validators=[DataRequired(), NumberRange(min=0)], places=2)
     vat_id = SelectField("VAT", coerce=int, validators=[DataRequired(message="Stawka VAT jest wymagana.")])
     sale_price_net = DecimalField("Cena sprzedaży netto", validators=[DataRequired(), NumberRange(min=0)], places=2)
@@ -81,7 +88,7 @@ class MaterialForm(FlaskForm):
     category_id = SelectField("Kategoria", coerce=int, validators=[Optional()])
     manufacturer_id = SelectField("Producent", coerce=int, validators=[Optional()])
     unit = StringField("Jednostka", validators=[DataRequired(), Length(max=40)])
-    current_stock = DecimalField("Stan", validators=[DataRequired(), NumberRange(min=0)], places=3)
+    current_stock = DecimalField("Stan", validators=[NumberRange(min=0)], places=3)
     minimum_stock = DecimalField("Minimum", validators=[DataRequired(), NumberRange(min=0)], places=3)
     purchase_price_net = DecimalField("Cena zakupu netto", validators=[DataRequired(), NumberRange(min=0)], places=2)
     default_usage_qty = DecimalField("Domyślne zużycie", validators=[DataRequired(), NumberRange(min=0)], places=3)
@@ -105,11 +112,11 @@ class ServiceItemForm(FlaskForm):
 
 
 class StockMovementForm(FlaskForm):
-    movement_type = SelectField("Typ ruchu", validators=[DataRequired()], choices=MOVEMENT_TYPE_CHOICES)
-    quantity = DecimalField("Ilość", validators=[DataRequired(), NumberRange(min=0.001)], places=3)
+    movement_type = SelectField("Typ ruchu", validators=[DataRequired()], choices=[("ADJUSTMENT", "Jawna korekta stanu")])
+    quantity = DecimalField("Stan po korekcie", validators=[NumberRange(min=0)], places=3)
     reference_type = StringField("Typ dokumentu", validators=[Optional(), Length(max=40)])
-    reference_id = StringField("Numer dokumentu", validators=[Optional(), Length(max=80)])
-    note = TextAreaField("Komentarz", validators=[Optional(), Length(max=5000)])
+    reference_id = StringField("Numer dokumentu korekty", validators=[DataRequired(), Length(max=80)])
+    note = TextAreaField("Uzasadnienie korekty", validators=[DataRequired(), Length(max=5000)])
     submit = SubmitField("Zapisz ruch")
 
 

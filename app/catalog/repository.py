@@ -19,6 +19,7 @@ from app.models.service_order_material_usage import ServiceOrderMaterialUsage
 from app.models.service_order_part_reservation import ServiceOrderPartReservation
 from app.models.service_order_service_line import ServiceOrderServiceLine
 from app.models.vat_rate import VatRate
+from app.utils.contextual_search import contextual_search
 
 TModel = TypeVar("TModel")
 
@@ -48,13 +49,13 @@ class _BaseCatalogRepository(Generic[TModel]):
         filters = [getattr(self.model, "is_active").is_(True)]
         if company_id is not None:
             filters.append(getattr(self.model, "company_id") == company_id)
-        if query_text:
-            term = f"%{query_text}%"
-            fields = [
-                getattr(self.model, self.code_field).ilike(term),
-                getattr(self.model, self.name_field).ilike(term),
-            ]
-            filters.append(or_(*fields))
+        search_columns = [getattr(self.model, self.code_field), getattr(self.model, self.name_field)]
+        for optional_field in ("tax_id", "contact_person", "email", "phone"):
+            if hasattr(self.model, optional_field):
+                search_columns.append(getattr(self.model, optional_field))
+        search_clause = contextual_search(*search_columns, query=query_text)
+        if search_clause is not None:
+            filters.append(search_clause)
 
         total = int(db.session.scalar(select(func.count()).select_from(self.model).where(*filters)) or 0)
         items = list(
@@ -135,9 +136,9 @@ class PartsRepository(_BaseCatalogRepository[CatalogPart]):
             filters.append(CatalogPart.company_id == company_id)
         if category_id is not None:
             filters.append(CatalogPart.category_id == category_id)
-        if query_text:
-            term = f"%{query_text}%"
-            filters.append(or_(CatalogPart.code.ilike(term), CatalogPart.name.ilike(term), CatalogPart.barcode.ilike(term)))
+        search_clause = contextual_search(CatalogPart.code, CatalogPart.name, CatalogPart.barcode, query=query_text)
+        if search_clause is not None:
+            filters.append(search_clause)
         sort_columns = {
             "code": CatalogPart.code,
             "name": CatalogPart.name,
@@ -185,14 +186,14 @@ class PartsRepository(_BaseCatalogRepository[CatalogPart]):
         query = select(CatalogPart).options(selectinload(CatalogPart.category), selectinload(CatalogPart.vat)).where(CatalogPart.is_active.is_(True))
         if company_id is not None:
             query = query.where(CatalogPart.company_id == company_id)
-        terms = [term for term in (query_text or "").strip().split() if term]
+        terms = [term for term in (query_text or "").strip().split() if term][:20]
         if len(terms) == 1 and terms[0].isdigit():
-            pattern = f"%{terms[0]}%"
-            query = query.where(or_(CatalogPart.id == int(terms[0]), CatalogPart.code.ilike(pattern), CatalogPart.name.ilike(pattern), CatalogPart.barcode.ilike(pattern)))
+            clause = contextual_search(CatalogPart.code, CatalogPart.name, CatalogPart.barcode, query=terms[0])
+            query = query.where(or_(CatalogPart.id == int(terms[0]), clause))
             return list(db.session.scalars(query.order_by(CatalogPart.name.asc(), CatalogPart.id.asc()).limit(limit)).all())
-        for term in terms:
-            pattern = f"%{term}%"
-            query = query.where(or_(CatalogPart.code.ilike(pattern), CatalogPart.name.ilike(pattern), CatalogPart.barcode.ilike(pattern)))
+        clause = contextual_search(CatalogPart.code, CatalogPart.name, CatalogPart.barcode, query=" ".join(terms))
+        if clause is not None:
+            query = query.where(clause)
         return list(db.session.scalars(query.order_by(CatalogPart.name.asc(), CatalogPart.id.asc()).limit(limit)).all())
 
 
@@ -330,15 +331,11 @@ class StockRepository:
         return list(db.session.scalars(query).all())
 
     def update_part_stock(self, part: CatalogPart, *, quantity: Decimal, movement_type: str) -> tuple[Decimal, Decimal]:
+        from .exceptions import CatalogValidationError
+        if movement_type != "ADJUSTMENT":
+            raise CatalogValidationError("Zmiana stanu katalogowego wymaga jawnej korekty; rozchód obsługuje RW.")
         stock_before = Decimal(part.current_stock)
-        if movement_type in {"ISSUE", "RESERVATION", "SALE", "AUTO_ISSUE"}:
-            stock_after = stock_before - quantity
-        elif movement_type == "RELEASE":
-            stock_after = stock_before + quantity
-        elif movement_type == "ADJUSTMENT":
-            stock_after = quantity
-        else:
-            stock_after = stock_before + quantity
+        stock_after = quantity
 
         # Product stock is a whole-unit count ("ilość sztuk").
         part.current_stock = int(stock_after)
@@ -347,13 +344,11 @@ class StockRepository:
         return stock_before, stock_after
 
     def update_material_stock(self, material: CatalogMaterial, *, quantity: Decimal, movement_type: str) -> tuple[Decimal, Decimal]:
+        from .exceptions import CatalogValidationError
+        if movement_type != "ADJUSTMENT":
+            raise CatalogValidationError("Zmiana stanu katalogowego wymaga jawnej korekty; rozchód obsługuje RW.")
         stock_before = Decimal(material.current_stock)
-        if movement_type in {"ISSUE", "AUTO_ISSUE"}:
-            stock_after = stock_before - quantity
-        elif movement_type == "ADJUSTMENT":
-            stock_after = quantity
-        else:
-            stock_after = stock_before + quantity
+        stock_after = quantity
 
         material.current_stock = stock_after
         db.session.add(material)

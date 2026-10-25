@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 
-from sqlalchemy import func, inspect, or_, select
+from sqlalchemy import func, inspect, or_, select, update
 from sqlalchemy.orm import selectinload
 
 from app.extensions import db
@@ -13,6 +13,7 @@ from app.models.catalog_stock_movement import CatalogStockMovement
 from app.models.catalog_supplier import Supplier
 from app.models.goods_receipt import GoodsReceipt, GoodsReceiptStatusEnum
 from app.models.goods_receipt_item import GoodsReceiptItem
+from app.models.part_demand import PartDemand
 from app.models.purchase_order import PurchaseOrder, PurchaseOrderStatusEnum
 from app.models.purchase_order_demand_link import PurchaseOrderDemandLink
 from app.models.purchase_order_item import PurchaseOrderItem
@@ -82,14 +83,19 @@ class GoodsReceiptService:
             raise GoodsReceiptValidationError("Dokument PZ musi zawierać co najmniej jedną pozycję.")
         order = None
         if purchase_order_id is not None:
-            order = db.session.scalar(select(PurchaseOrder).options(selectinload(PurchaseOrder.items)).where(PurchaseOrder.id == purchase_order_id, PurchaseOrder.company_id == company_id, PurchaseOrder.is_active.is_(True)))
+            order_query = select(PurchaseOrder).options(selectinload(PurchaseOrder.items)).where(PurchaseOrder.id == purchase_order_id, PurchaseOrder.company_id == company_id, PurchaseOrder.is_active.is_(True))
+            if branch_id is not None and not self._is_admin(actor):
+                order_query = order_query.where(or_(PurchaseOrder.branch_id == branch_id, PurchaseOrder.branch_id.is_(None)))
+            order = db.session.scalar(order_query.with_for_update().execution_options(populate_existing=True))
             if order is None:
                 raise GoodsReceiptValidationError("Nie znaleziono zamówienia dostawcy.")
-            if order.status == PurchaseOrderStatusEnum.CANCELLED.value:
-                raise GoodsReceiptValidationError("Nie można przyjąć anulowanego zamówienia.")
+            if order.status not in {PurchaseOrderStatusEnum.CONFIRMED.value, PurchaseOrderStatusEnum.PARTIAL.value}:
+                raise GoodsReceiptValidationError("PZ można utworzyć wyłącznie do potwierdzonego, niezakończonego zamówienia.")
         effective_supplier_id = supplier_id if supplier_id is not None else (order.supplier_id if order is not None else None)
         if effective_supplier_id is None:
             raise GoodsReceiptValidationError("PZ musi mieć dostawcę.")
+        if order is not None and effective_supplier_id != order.supplier_id:
+            raise GoodsReceiptValidationError("Dostawca PZ musi być zgodny z zamówieniem.")
         supplier = db.session.scalar(select(Supplier).where(Supplier.id == effective_supplier_id, Supplier.company_id == company_id, Supplier.is_active.is_(True)))
         if supplier is None:
             raise GoodsReceiptValidationError("Nieprawidłowy dostawca.")
@@ -108,8 +114,35 @@ class GoodsReceiptService:
             quantity = self._positive_quantity(payload.get("quantity_received"), "ilość dostarczona")
             if po_item is not None and quantity > Decimal(po_item.quantity_ordered) - Decimal(po_item.quantity_received):
                 raise GoodsReceiptValidationError("Ilość dostarczona nie może przekroczyć ilości pozostałej w zamówieniu.")
+            if po_item is not None:
+                draft_quantity = db.session.scalar(
+                    select(func.coalesce(func.sum(GoodsReceiptItem.quantity_received), 0))
+                    .join(GoodsReceipt, GoodsReceipt.id == GoodsReceiptItem.goods_receipt_id)
+                    .where(
+                        GoodsReceiptItem.purchase_order_item_id == po_item.id,
+                        GoodsReceipt.company_id == company_id,
+                        GoodsReceipt.status == GoodsReceiptStatusEnum.DRAFT.value,
+                        GoodsReceipt.is_active.is_(True),
+                    )
+                ) or 0
+                if quantity + Decimal(draft_quantity) > Decimal(po_item.quantity_ordered) - Decimal(po_item.quantity_received):
+                    raise GoodsReceiptValidationError("Ilość przekracza pozostałą ilość po uwzględnieniu innych roboczych dokumentów PZ.")
             item_id = payload.get("inventory_item_id") or (po_item.part_id if po_item is not None else None)
             product_id = self._positive_int(item_id, "produkt")
+            if po_item is not None and product_id != po_item.part_id:
+                raise GoodsReceiptValidationError("Produkt PZ musi być zgodny z pozycją zamówienia.")
+            demand_id = payload.get("demand_id")
+            if demand_id:
+                demand = db.session.scalar(select(PartDemand).where(
+                    PartDemand.id == self._positive_int(demand_id, "zapotrzebowanie"),
+                    PartDemand.company_id == company_id,
+                    PartDemand.inventory_item_id == product_id,
+                    PartDemand.is_active.is_(True),
+                ))
+                if demand is None or (branch_id is not None and not self._is_admin(actor) and demand.branch_id not in {None, branch_id}):
+                    raise GoodsReceiptValidationError("Nieprawidłowe zapotrzebowanie dla pozycji PZ.")
+                if po_item is not None and not any(link.part_demand_id == demand.id for link in po_item.demand_links):
+                    raise GoodsReceiptValidationError("Zapotrzebowanie PZ nie jest powiązane z pozycją zamówienia.")
             product = db.session.scalar(select(InventoryItem).options(selectinload(InventoryItem.vat)).where(InventoryItem.id == product_id, InventoryItem.company_id == company_id, InventoryItem.is_active.is_(True)))
             if product is None:
                 raise GoodsReceiptValidationError("Nieprawidłowy produkt.")
@@ -179,12 +212,64 @@ class GoodsReceiptService:
             raise GoodsReceiptValidationError("Anulowanego dokumentu PZ nie można przyjąć.")
         if receipt.status == GoodsReceiptStatusEnum.POSTED.value:
             return receipt
-        order = db.session.scalar(select(PurchaseOrder).options(selectinload(PurchaseOrder.items)).where(PurchaseOrder.id == receipt.purchase_order_id)) if receipt.purchase_order_id else None
+        # Conditional write serializes competing posts, including on SQLite.
+        # The claim and all stock effects are committed or rolled back together.
+        claimed = db.session.execute(
+            update(GoodsReceipt).where(
+                GoodsReceipt.id == receipt.id,
+                GoodsReceipt.company_id == company_id,
+                GoodsReceipt.status == GoodsReceiptStatusEnum.DRAFT.value,
+            ).values(status=GoodsReceiptStatusEnum.POSTED.value)
+            .execution_options(synchronize_session=False)
+        ).rowcount
+        if claimed != 1:
+            db.session.refresh(receipt)
+            if receipt.status == GoodsReceiptStatusEnum.POSTED.value:
+                return receipt
+            raise GoodsReceiptValidationError("Dokument PZ nie jest roboczy.")
+        order = None
+        if receipt.purchase_order_id:
+            order_query = select(PurchaseOrder).options(selectinload(PurchaseOrder.items).selectinload(PurchaseOrderItem.demand_links)).where(
+                PurchaseOrder.id == receipt.purchase_order_id,
+                PurchaseOrder.company_id == company_id,
+                PurchaseOrder.is_active.is_(True),
+            )
+            if branch_id is not None and not self._is_admin(actor):
+                order_query = order_query.where(or_(PurchaseOrder.branch_id == branch_id, PurchaseOrder.branch_id.is_(None)))
+            order = db.session.scalar(order_query.with_for_update().execution_options(populate_existing=True))
+            if order is None:
+                raise GoodsReceiptValidationError("Nie znaleziono zamówienia dostawcy dla dokumentu PZ.")
+            if order.status not in {PurchaseOrderStatusEnum.CONFIRMED.value, PurchaseOrderStatusEnum.PARTIAL.value}:
+                raise GoodsReceiptValidationError("PZ można zaksięgować wyłącznie do potwierdzonego, niezakończonego zamówienia.")
         if receipt.supplier_id is None and order is not None:
             receipt.supplier_id = order.supplier_id
+        if order is not None and receipt.supplier_id != order.supplier_id:
+            raise GoodsReceiptValidationError("Dostawca PZ musi być zgodny z zamówieniem.")
+        if not receipt.items:
+            raise GoodsReceiptValidationError("Dokument PZ musi zawierać co najmniej jedną pozycję.")
 
+        receipt_quantities: dict[int, Decimal] = {}
         for item in receipt.items:
-            part = db.session.scalar(select(InventoryItem).where(InventoryItem.id == item.inventory_item_id, InventoryItem.company_id == company_id, InventoryItem.is_active.is_(True)))
+            self._positive_quantity(item.quantity_received, "ilość dostarczona")
+            if order is not None:
+                po_item = next((row for row in order.items if row.id == item.purchase_order_item_id), None)
+                if po_item is None or po_item.part_id != item.inventory_item_id:
+                    raise GoodsReceiptValidationError("Pozycja lub produkt PZ nie jest zgodny z zamówieniem.")
+            elif item.purchase_order_item_id is not None:
+                raise GoodsReceiptValidationError("Pozycja PZ wskazuje zamówienie bez powiązania nagłówka.")
+            if item.purchase_order_item_id is not None:
+                receipt_quantities[item.purchase_order_item_id] = receipt_quantities.get(item.purchase_order_item_id, Decimal("0")) + Decimal(item.quantity_received)
+        if order is not None:
+            order_items = {po_item.id: po_item for po_item in order.items}
+            for po_item_id, quantity in receipt_quantities.items():
+                po_item = order_items.get(po_item_id)
+                if po_item is None:
+                    raise GoodsReceiptValidationError("Pozycja PZ nie należy do zamówienia.")
+                if Decimal(po_item.quantity_received) + quantity > Decimal(po_item.quantity_ordered):
+                    raise GoodsReceiptValidationError("Nie można zaksięgować ilości większej niż pozostała w zamówieniu.")
+
+        for item in sorted(receipt.items, key=lambda row: row.inventory_item_id):
+            part = db.session.scalar(select(InventoryItem).where(InventoryItem.id == item.inventory_item_id, InventoryItem.company_id == company_id, InventoryItem.is_active.is_(True)).with_for_update().execution_options(populate_existing=True))
             if part is None:
                 raise GoodsReceiptValidationError("Nie znaleziono części dla pozycji PZ.")
             before = Decimal(part.current_stock)
@@ -205,12 +290,21 @@ class GoodsReceiptService:
                     note=f"Przyjęcie PZ nr {receipt.receipt_number}",
                     user_id=getattr(actor, "id", None),
                     company_id=company_id,
-                    branch_id=branch_id,
+                    branch_id=receipt.branch_id,
                 )
             )
             if order is not None and item.purchase_order_item_id is not None:
                 po_item = next(po_item for po_item in order.items if po_item.id == item.purchase_order_item_id)
                 po_item.quantity_received = Decimal(po_item.quantity_received) + Decimal(item.quantity_received)
+                unallocated = Decimal(item.quantity_received)
+                for link in po_item.demand_links:
+                    remaining_allocation = max(Decimal("0"), Decimal(link.allocated_quantity) - Decimal(link.received_quantity))
+                    allocated_now = min(unallocated, remaining_allocation)
+                    if allocated_now > 0:
+                        link.received_quantity = Decimal(link.received_quantity) + allocated_now
+                        unallocated -= allocated_now
+                    if unallocated <= 0:
+                        break
 
         receipt.status = GoodsReceiptStatusEnum.POSTED.value
         receipt.updated_by = getattr(actor, "id", None)
@@ -256,7 +350,7 @@ class GoodsReceiptService:
             result = Decimal(str(value))
         except Exception:
             raise GoodsReceiptValidationError(f"Nieprawidłowa wartość pola: {label}.") from None
-        if result < 0 or (result == 0 and not allow_zero):
+        if not result.is_finite() or result < 0 or (result == 0 and not allow_zero):
             raise GoodsReceiptValidationError(f"Pole {label} musi być większe od zera.")
         return result
 
