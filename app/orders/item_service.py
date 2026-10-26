@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
+from functools import wraps
 from typing import Any
 
 from sqlalchemy import select, update
@@ -41,6 +42,21 @@ class ServiceOrderItemNotFoundError(ServiceOrderItemError):
 
 class ServiceOrderItemValidationError(ServiceOrderItemError):
     pass
+
+
+def _rollback_rejected_item_operation(method):
+    @wraps(method)
+    def call(*args, **kwargs):
+        from app.part_demands.exceptions import PartDemandValidationError
+        try:
+            return method(*args, **kwargs)
+        except PartDemandValidationError as exc:
+            db.session.rollback()
+            raise ServiceOrderItemValidationError(str(exc)) from exc
+        except Exception:
+            db.session.rollback()
+            raise
+    return call
 
 
 class ServiceOrderItemService:
@@ -85,6 +101,7 @@ class ServiceOrderItemService:
             for item in results
         ]
 
+    @_rollback_rejected_item_operation
     def add_item(
         self,
         *,
@@ -166,6 +183,7 @@ class ServiceOrderItemService:
             }
             item = self.repository.create_item(payload)
         else:
+            self._validate_demands(existing)
             self._assert_no_pending_issue(existing)
             self._claim_item(existing, existing.version)
             existing.quantity = Decimal(existing.quantity) + quantity
@@ -196,7 +214,6 @@ class ServiceOrderItemService:
                     company_id=company_id, branch_id=order.branch_id, actor_id=user_id,
                     service_order_item_id=item.id, commit=False,
                 )
-                shortage.demand.reserved_quantity += reserved_quantity
         db.session.commit()
         return item
 
@@ -251,6 +268,7 @@ class ServiceOrderItemService:
             db.session.rollback()
             raise
 
+    @_rollback_rejected_item_operation
     def return_item(
         self,
         *,
@@ -328,15 +346,24 @@ class ServiceOrderItemService:
         return product
 
     def _sync_demand(self, item, user_id):
-        from app.models.part_demand import PartDemand
-        rows = db.session.scalars(select(PartDemand).where(
-            PartDemand.service_order_item_id == item.id,
-            PartDemand.company_id == item.company_id, PartDemand.is_active.is_(True),
-            PartDemand.status != "CANCELLED")).all()
-        for demand in rows:
-            demand.reserved_quantity = item.reserved_quantity
-            demand.missing_quantity = max(Decimal("0"), Decimal(demand.requested_quantity) - Decimal(item.used_quantity) - Decimal(item.returned_quantity) - Decimal(item.reserved_quantity))
-            demand.updated_by = user_id
+        from app.part_demands import consistency
+        from app.part_demands.exceptions import PartDemandValidationError
+        try:
+            db.session.flush()
+            for demand in consistency.for_item(item):
+                consistency.synchronize(demand, user_id)
+        except PartDemandValidationError as exc:
+            db.session.rollback()
+            raise ServiceOrderItemValidationError(str(exc)) from exc
+
+    def _validate_demands(self, item):
+        from app.part_demands import consistency
+        from app.part_demands.exceptions import PartDemandValidationError
+        try:
+            consistency.for_item(item)
+        except PartDemandValidationError as exc:
+            db.session.rollback()
+            raise ServiceOrderItemValidationError(str(exc)) from exc
 
     def _claim_item(self, item, expected_version):
         version = int(expected_version) if expected_version is not None else item.version
@@ -422,6 +449,7 @@ class ServiceOrderItemService:
         item = self.repository.get_item(item_id=item_id, company_id=company_id, branch_id=branch_id)
         if item is None or item.service_order_id != order_id:
             raise ServiceOrderItemNotFoundError("Nie znaleziono pozycji zlecenia.")
+        self._validate_demands(item)
         return item
 
     def _serialize_item(self, item: ServiceOrderItem, resolved: ResolvedCatalogItem | None) -> dict[str, Any]:

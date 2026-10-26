@@ -8,8 +8,8 @@ import pytest
 from app.catalog.service import CatalogService
 from app.extensions import db
 from app.models.branch import Branch
-from app.models.catalog_part import CatalogPart
 from app.models.catalog_category import ProductCategory
+from app.models.catalog_part import CatalogPart
 from app.models.catalog_stock_movement import CatalogStockMovement
 from app.models.customer import Customer
 from app.models.device import Device
@@ -291,7 +291,7 @@ def test_part_demand_crud_grouping_filtering_and_scope(app, part_demand_schema):
                 "service_order_item_id": None,
                 "inventory_item_id": part_a.id,
                 "requested_quantity": "12",
-                "reserved_quantity": "2",
+                "reserved_quantity": "0",
                 "missing_quantity": "10",
                 "status": "IN_PURCHASE",
                 "priority": "URGENT",
@@ -392,6 +392,10 @@ def test_missing_quantity_is_derived_from_requested_and_reserved_quantity(app, p
         db.session.commit()
 
         service = PartDemandService()
+        hold = ServiceOrderPartReservation(service_order_id=order.id, part_id=part.id,
+            quantity=Decimal("3"), status="RESERVED", company_id=company_id, branch_id=branch.id)
+        db.session.add(hold)
+        db.session.commit()
         created = service.create_demand(
             data={
                 "service_order_id": order.id,
@@ -421,7 +425,7 @@ def test_missing_quantity_is_derived_from_requested_and_reserved_quantity(app, p
                 "service_order_item_id": None,
                 "inventory_item_id": part.id,
                 "requested_quantity": "15",
-                "reserved_quantity": "8",
+                "reserved_quantity": "3",
                 "missing_quantity": "999",
                 "status": "TO_ORDER",
                 "priority": "HIGH",
@@ -433,4 +437,4 @@ def test_missing_quantity_is_derived_from_requested_and_reserved_quantity(app, p
             actor=admin,
         )
 
-        assert Decimal(updated.missing_quantity) == Decimal("7")
+        assert Decimal(updated.missing_quantity) == Decimal("12")

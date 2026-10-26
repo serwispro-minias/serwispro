@@ -37,7 +37,7 @@ PART_DEMAND_STATUS_CHOICES: list[tuple[str, str]] = [
     (PartDemandStatusEnum.TO_ORDER.value, "Do zamówienia"),
     (PartDemandStatusEnum.IN_PURCHASE.value, "W trakcie zakupu"),
     (PartDemandStatusEnum.ORDERED.value, "Zamówione"),
-    (PartDemandStatusEnum.DELIVERED.value, "Dostarczone"),
+    (PartDemandStatusEnum.DELIVERED.value, "Zaspokojone"),
     (PartDemandStatusEnum.CANCELLED.value, "Anulowane"),
 ]
 

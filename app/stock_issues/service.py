@@ -108,6 +108,26 @@ class StockIssueService:
                 raise StockIssueValidationError("Anulowanego RW nie można zaksięgować.")
             if not issue.items:
                 raise StockIssueValidationError("RW nie ma pozycji.")
+            from app.part_demands import consistency
+            from app.part_demands.exceptions import PartDemandValidationError
+            try:
+                for line in issue.items:
+                    if line.inventory_item_id and issue.service_order_id:
+                        candidates = db.session.scalars(select(PartDemand).where(
+                            PartDemand.service_order_id == issue.service_order_id,
+                            PartDemand.inventory_item_id == line.inventory_item_id,
+                            PartDemand.company_id == company_id,
+                            PartDemand.is_active.is_(True), PartDemand.status != "CANCELLED")).all()
+                        for demand in candidates:
+                            consistency.allocation(demand)
+                    if line.service_order_item_id:
+                        linked_item = db.session.get(ServiceOrderItem, line.service_order_item_id)
+                        if linked_item is not None:
+                            consistency.for_item(linked_item)
+                    if line.part_demand_id:
+                        consistency.allocation(db.session.get(PartDemand, line.part_demand_id))
+            except PartDemandValidationError as exc:
+                raise StockIssueValidationError(str(exc)) from exc
             claimed = db.session.execute(update(StockIssue).where(StockIssue.id == issue.id,
                 StockIssue.status == "DRAFT").values(status="POSTED")
                 .execution_options(synchronize_session=False)).rowcount
@@ -190,13 +210,12 @@ class StockIssueService:
                             user_id=getattr(actor, "id", None), service_order_id=issue.service_order_id,
                             company_id=company_id, branch_id=issue.branch_id))
                     if not material:
-                        demands = db.session.scalars(select(PartDemand).where(
-                            PartDemand.service_order_item_id == order_item.id,
-                            PartDemand.company_id == company_id, PartDemand.is_active.is_(True),
-                            PartDemand.status != "CANCELLED")).all()
-                        for demand in demands:
-                            demand.reserved_quantity = Decimal("0")
-                            demand.missing_quantity = max(Decimal("0"), Decimal(demand.requested_quantity) - Decimal(order_item.used_quantity) - Decimal(order_item.returned_quantity))
+                        db.session.flush()
+                        try:
+                            for demand in consistency.for_item(order_item):
+                                consistency.synchronize(demand, getattr(actor, "id", None))
+                        except PartDemandValidationError as exc:
+                            raise StockIssueValidationError(str(exc)) from exc
                 else:
                     self._settle_reservation_sql(item=item, actor=actor, service_order_id=issue.service_order_id, company_id=company_id)
                 db.session.flush()
@@ -282,24 +301,8 @@ class StockIssueService:
         return quantity
 
     def _settle_reservation(self, *, item: StockIssueItem, actor, service_order_id: int | None, company_id: int) -> None:
-        if item.reservation is None:
-            return
-        reservation = item.reservation
-        remaining = int(reservation.quantity) - int(item.quantity_issued)
-        if remaining <= 0:
-            reservation.quantity = 0
-            reservation.status = "RELEASED"
-            reservation.is_active = False
-        else:
-            reservation.quantity = remaining
-        reservation.updated_by = getattr(actor, "id", None)
-        demand = item.demand
-        if demand is None and service_order_id is not None:
-            demand = db.session.scalar(select(PartDemand).where(PartDemand.service_order_id == service_order_id, PartDemand.inventory_item_id == item.inventory_item_id, PartDemand.company_id == company_id, PartDemand.is_active.is_(True), PartDemand.status != PartDemandStatusEnum.CANCELLED.value).order_by(PartDemand.created_at.asc(), PartDemand.id.asc()))
-        if demand is not None:
-            demand.reserved_quantity = max(Decimal("0"), Decimal(remaining))
-            demand.missing_quantity = max(Decimal("0"), Decimal(demand.requested_quantity) - Decimal(demand.reserved_quantity))
-            demand.updated_by = getattr(actor, "id", None)
+        return self._settle_reservation_sql(item=item, actor=actor,
+            service_order_id=service_order_id, company_id=company_id)
 
     def _settle_reservation_sql(self, *, item: StockIssueItem, actor, service_order_id: int | None, company_id: int) -> None:
         if item.reservation_id is None:
@@ -339,12 +342,15 @@ class StockIssueService:
                 item.service_order_item_id = order_item.id
         demand = db.session.scalar(select(PartDemand).where(PartDemand.service_order_id == service_order_id, PartDemand.inventory_item_id == item.inventory_item_id, PartDemand.company_id == company_id, PartDemand.is_active.is_(True), PartDemand.status != PartDemandStatusEnum.CANCELLED.value).order_by(PartDemand.created_at.asc(), PartDemand.id.asc())) if service_order_id is not None else None
         if demand is not None:
-            reserved = Decimal(remaining)
-            used = db.session.scalar(select(func.coalesce(func.sum(StockIssueItem.quantity_issued), 0))
-                .join(StockIssue).where(StockIssue.service_order_id == service_order_id,
-                    StockIssue.company_id == company_id, StockIssue.status == "POSTED",
-                    StockIssueItem.inventory_item_id == item.inventory_item_id)) or 0
-            db.session.execute(update(PartDemand).where(PartDemand.id == demand.id).values(reserved_quantity=reserved, missing_quantity=max(Decimal("0"), Decimal(demand.requested_quantity) - reserved - Decimal(used)), updated_by=getattr(actor, "id", None)))
+            from app.part_demands import consistency
+            from app.part_demands.exceptions import PartDemandValidationError
+            item.part_demand_id = demand.id
+            db.session.flush()
+            db.session.expire(reservation)
+            try:
+                consistency.synchronize(demand, getattr(actor, "id", None))
+            except PartDemandValidationError as exc:
+                raise StockIssueValidationError(str(exc)) from exc
 
     def _positive_int(self, value, label: str) -> int:
         try:

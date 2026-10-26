@@ -3,6 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
+from types import SimpleNamespace
+
+from sqlalchemy import select, update
 
 from app.extensions import db
 from app.models.part_demand import (
@@ -16,6 +19,7 @@ from app.models.part_demand import (
 )
 from app.models.service_order import SERVICE_ORDER_PRIORITY_LABELS
 
+from . import consistency
 from .exceptions import (
     PartDemandNotFoundError,
     PartDemandPermissionError,
@@ -147,7 +151,18 @@ class PartDemandService:
     ) -> PartDemand:
         self._assert_can_manage(actor)
         row = self.get_demand(demand_id=demand_id, company_id=company_id, branch_scope_id=branch_scope_id, actor=actor)
-        payload = self._normalize_payload(data, company_id=company_id, branch_scope_id=row.branch_id, actor=actor)
+        _, confirmed_reserved, confirmed_used = consistency.allocation(row)
+        if Decimal(row.reserved_quantity) != confirmed_reserved:
+            raise PartDemandValidationError("Historyczna ilość rezerwacji zapotrzebowania jest niespójna. Wymagane osobne uzgodnienie.")
+        if Decimal(row.missing_quantity) != consistency.missing(row.requested_quantity, confirmed_reserved, confirmed_used):
+            raise PartDemandValidationError("Historyczna ilość brakująca jest niespójna. Wymagane osobne uzgodnienie.")
+        identity = (row.service_order_id, row.inventory_item_id, row.service_order_item_id)
+        proposed = (self._required_int(data.get("service_order_id"), field_name="zlecenie"),
+            self._required_int(data.get("inventory_item_id"), field_name="część"),
+            self._normalize_optional_int(data.get("service_order_item_id")))
+        if identity != proposed:
+            raise PartDemandValidationError("Zmiana powiązań istniejącego zapotrzebowania wymaga osobnego uzgodnienia.")
+        payload = self._normalize_payload(data, company_id=company_id, branch_scope_id=row.branch_id, actor=actor, demand_id=row.id)
         payload["updated_by"] = getattr(actor, "id", None)
         updated = self.repository.update(row, payload)
         db.session.commit()
@@ -188,10 +203,18 @@ class PartDemandService:
             raise PartDemandValidationError("Nie znaleziono części.")
 
         existing = self.repository.find_open_for_order_part(order_id=order_id, part_id=part_id, company_id=company_id, branch_id=branch_id)
+        candidate = SimpleNamespace(id=existing.id if existing else None, service_order_id=order_id,
+            inventory_item_id=part_id, service_order_item_id=service_order_item_id,
+            company_id=company_id, branch_id=order.branch_id)
+        _, actual_reserved, used = consistency.allocation(candidate)
         if existing is not None:
+            consistency.allocation(existing)
+            if existing.service_order_item_id != service_order_item_id:
+                raise PartDemandValidationError("Konflikt powiązania istniejącego zapotrzebowania. Wymagane uzgodnienie.")
             payload = {
                 "requested_quantity": Decimal(existing.requested_quantity) + requested_quantity,
-                "missing_quantity": Decimal(existing.missing_quantity) + missing,
+                "reserved_quantity": actual_reserved,
+                "missing_quantity": consistency.missing(Decimal(existing.requested_quantity) + requested_quantity, actual_reserved, used),
                 "status": PartDemandStatusEnum.TO_ORDER.value,
                 "updated_by": actor_id,
             }
@@ -207,8 +230,8 @@ class PartDemandService:
                 "service_order_item_id": service_order_item_id,
                 "inventory_item_id": part.id,
                 "requested_quantity": requested_quantity,
-                "reserved_quantity": Decimal("0"),
-                "missing_quantity": missing,
+                "reserved_quantity": actual_reserved,
+                "missing_quantity": consistency.missing(requested_quantity, actual_reserved, used),
                 "status": PartDemandStatusEnum.TO_ORDER.value,
                 "priority": priority,
                 "expected_date": None,
@@ -232,8 +255,40 @@ class PartDemandService:
         branch_scope_id: int | None,
         actor,
     ) -> PartDemand:
+        from app.orders.item_service import ServiceOrderItemError
+        try:
+            return self._fulfill_demand(demand_id=demand_id, reserve_quantity=reserve_quantity,
+                company_id=company_id, branch_scope_id=branch_scope_id, actor=actor)
+        except ServiceOrderItemError as exc:
+            db.session.rollback()
+            raise PartDemandValidationError(str(exc)) from exc
+        except Exception:
+            db.session.rollback()
+            raise
+
+    def _fulfill_demand(self, *, demand_id, reserve_quantity, company_id, branch_scope_id, actor):
         self._assert_can_manage(actor)
         demand = self.get_demand(demand_id=demand_id, company_id=company_id, branch_scope_id=branch_scope_id, actor=actor)
+        # Conditional version claim serializes this operation also on SQLite.
+        version = demand.version
+        claimed = db.session.execute(update(PartDemand).where(PartDemand.id == demand.id,
+            PartDemand.version == version).values(version=PartDemand.version + 1)
+            .execution_options(synchronize_session=False)).rowcount
+        if claimed != 1:
+            raise PartDemandValidationError("Zapotrzebowanie zostało zmienione. Odśwież dane.")
+        db.session.refresh(demand)
+        item, actual_before, used = consistency.allocation(demand)
+        if Decimal(demand.reserved_quantity) != actual_before or Decimal(demand.missing_quantity) != consistency.missing(demand.requested_quantity, actual_before, used):
+            raise PartDemandValidationError("Historyczne ilości zapotrzebowania są niespójne. Wymagane uzgodnienie.")
+        if actual_before > 0:
+            # Without a reservation->demand FK an additional row would make the
+            # next allocation ambiguous. Do not invent a merge rule.
+            raise PartDemandValidationError("Istniejąca rezerwacja wymaga jednoznacznej alokacji przed kolejnym przypisaniem.")
+        if item is not None:
+            from app.orders.item_service import ServiceOrderItemService
+            items = ServiceOrderItemService()
+            items._assert_no_pending_issue(item)
+            items._claim_item(item, item.version)
 
         if reserve_quantity <= Decimal("0"):
             raise PartDemandValidationError("Ilość przypisania musi być większa od zera.")
@@ -254,18 +309,17 @@ class PartDemandService:
             company_id=company_id,
             branch_id=demand.branch_id,
             create_shortage=False,
+            commit=False,
         )
 
         actual_reserved = Decimal(result.reservation.quantity) if result.reservation is not None else Decimal("0")
-        if demand.service_order_item_id and actual_reserved:
-            from app.models.service_order_item import ServiceOrderItem
-            item = db.session.get(ServiceOrderItem, demand.service_order_item_id)
-            if item is not None and item.company_id == company_id and item.service_order_id == demand.service_order_id:
-                item.reserved_quantity += actual_reserved
-                item.version += 1
-        total_reserved = Decimal(demand.reserved_quantity) + actual_reserved
-        missing = max(Decimal("0"), Decimal(demand.requested_quantity) - total_reserved)
+        if item is not None:
+            item.reserved_quantity += actual_reserved
+        db.session.flush()
+        _, total_reserved, used = consistency.allocation(demand)
+        missing = consistency.missing(demand.requested_quantity, total_reserved, used)
         status = PartDemandStatusEnum.DELIVERED.value if missing == Decimal("0") else PartDemandStatusEnum.ORDERED.value
+        consistency.validate_status(status, missing)
 
         updated = self.repository.update(
             demand,
@@ -279,7 +333,7 @@ class PartDemandService:
         db.session.commit()
         return updated
 
-    def _normalize_payload(self, data: dict[str, object], *, company_id: int, branch_scope_id: int | None, actor) -> dict[str, object]:
+    def _normalize_payload(self, data: dict[str, object], *, company_id: int, branch_scope_id: int | None, actor, demand_id=None) -> dict[str, object]:
         service_order_id = self._required_int(data.get("service_order_id"), field_name="zlecenie")
         inventory_item_id = self._required_int(data.get("inventory_item_id"), field_name="część")
         service_order_item_id = self._normalize_optional_int(data.get("service_order_item_id"))
@@ -304,8 +358,14 @@ class PartDemandService:
         if requested_quantity < Decimal("0") or reserved_quantity < Decimal("0") or missing_quantity < Decimal("0"):
             raise PartDemandValidationError("Ilości nie mogą być ujemne.")
 
-        missing_quantity = max(Decimal("0"), requested_quantity - reserved_quantity)
-
+        candidate = SimpleNamespace(id=demand_id, service_order_id=order.id,
+            inventory_item_id=part.id, service_order_item_id=service_order_item_id,
+            company_id=company_id, branch_id=order.branch_id)
+        _, actual_reserved, used = consistency.allocation(candidate)
+        if reserved_quantity != actual_reserved:
+            raise PartDemandValidationError("Ilość zarezerwowana jest wyliczana z rzeczywistej rezerwacji. Nie można zmieniać jej ręcznie.")
+        missing_quantity = consistency.missing(requested_quantity, actual_reserved, used)
+        consistency.validate_status(status, missing_quantity)
         return {
             "service_order_id": order.id,
             "service_order_item_id": service_order_item_id,

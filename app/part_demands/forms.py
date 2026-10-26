@@ -1,7 +1,15 @@
 from __future__ import annotations
 
 from flask_wtf import FlaskForm
-from wtforms import DateField, DecimalField, IntegerField, SelectField, StringField, SubmitField, TextAreaField
+from wtforms import (
+    DateField,
+    DecimalField,
+    IntegerField,
+    SelectField,
+    StringField,
+    SubmitField,
+    TextAreaField,
+)
 from wtforms.validators import DataRequired, Length, NumberRange, Optional
 
 from app.models.part_demand import PART_DEMAND_PRIORITY_CHOICES, PART_DEMAND_STATUS_CHOICES
@@ -13,7 +21,7 @@ class PartDemandForm(FlaskForm):
     inventory_item_id = SelectField("Część", coerce=int, validators=[DataRequired()])
 
     requested_quantity = DecimalField("Ilość wymagana", places=3, validators=[DataRequired(), NumberRange(min=0.001)])
-    reserved_quantity = DecimalField("Ilość zarezerwowana", places=3, validators=[Optional(), NumberRange(min=0)])
+    reserved_quantity = DecimalField("Rzeczywista rezerwacja (wyliczana)", places=3, validators=[Optional(), NumberRange(min=0)], render_kw={"readonly": True})
     missing_quantity = DecimalField(
         "Ilość brakująca",
         places=3,
